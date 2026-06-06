@@ -43,7 +43,9 @@ function dbExec(sql) {
   });
 }
 
-dbExec(`
+// ── Boot: schema → seed → start ─────────────────────────────────────────────
+(async () => {
+  await dbExec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -87,11 +89,7 @@ dbExec(`
     value REAL NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
   );
-`).then(() => {
-  initApp();
-}).catch(err => console.error('Schema error:', err));
-
-async function initApp() {
+`);
 
 // ── Seed admin account on first run ──────────────────────────────────────────
 const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
@@ -166,7 +164,7 @@ app.get('/login', (req, res) => {
   sendPage(res, 'login.html');
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const user = await dbGet('SELECT * FROM users WHERE email = ? AND active = 1', [email]);
   if (!user || !bcrypt.compareSync(password, user.password)) {
@@ -189,47 +187,47 @@ app.get('/', requireAuth, (req, res) => sendPage(res, 'app.html'));
 app.get('/admin', requireAuth, requireAdmin, (req, res) => sendPage(res, 'admin.html'));
 
 // ── API: current user info ────────────────────────────────────────────────────
-app.get('/api/me', requireAuth, (req, res) => {
+app.get('/api/me', requireAuth, async (req, res) => {
   res.json({ name: req.session.name, role: req.session.role });
 });
 
 // ── API: client records ───────────────────────────────────────────────────────
-app.get('/api/clients', requireAuth, (req, res) => {
+app.get('/api/clients', requireAuth, async (req, res) => {
   const rows = await dbAll('SELECT * FROM clients WHERE user_id = ? ORDER BY updated_at DESC', [req.session.userId]);
   res.json(rows.map(r => ({ ...JSON.parse(r.data), id: r.id, updated: r.updated_at })));
 });
 
-app.post('/api/clients', requireAuth, (req, res) => {
+app.post('/api/clients', requireAuth, async (req, res) => {
   const { id, name, ...rest } = req.body;
   const data = JSON.stringify({ id, name, ...rest });
   await dbRun(`INSERT INTO clients (id, user_id, name, data, updated_at) VALUES (?, ?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, updated_at=excluded.updated_at`, [id, req.session.userId, name || 'Unknown', data]);
   res.json({ ok: true });
 });
 
-app.delete('/api/clients/:id', requireAuth, (req, res) => {
+app.delete('/api/clients/:id', requireAuth, async (req, res) => {
   await dbRun('DELETE FROM clients WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
   res.json({ ok: true });
 });
 
 // ── API: pricing ──────────────────────────────────────────────────────────────
-app.get('/api/pricing', requireAuth, (req, res) => {
+app.get('/api/pricing', requireAuth, async (req, res) => {
   const rows = await dbAll('SELECT * FROM pricing ORDER BY key', []);
   res.json(rows);
 });
 
-app.post('/api/pricing', requireAuth, requireAdmin, (req, res) => {
+app.post('/api/pricing', requireAuth, requireAdmin, async (req, res) => {
   const { key, label, value } = req.body;
   await dbRun(`INSERT INTO pricing (key, label, value, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(key) DO UPDATE SET label=excluded.label, value=excluded.value, updated_at=excluded.updated_at`, [key, label, parseFloat(value)]);
   res.json({ ok: true });
 });
 
 // ── API: user management (admin only) ────────────────────────────────────────
-app.get('/api/users', requireAuth, requireAdmin, (req, res) => {
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
   const users = await dbAll('SELECT id, email, name, role, active, created_at FROM users ORDER BY created_at DESC', []);
   res.json(users);
 });
 
-app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
+app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   const { email, name, password, role } = req.body;
   if (!email || !name || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
@@ -241,7 +239,7 @@ app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
   }
 });
 
-app.patch('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
+app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   const { active, password, name } = req.body;
   const id = req.params.id;
   if (active !== undefined) {
@@ -257,7 +255,7 @@ app.patch('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
+app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   const id = parseInt(req.params.id);
   if (id === req.session.userId) return res.status(400).json({ error: 'Cannot delete yourself' });
   await dbRun('DELETE FROM users WHERE id = ?', [id]);
@@ -337,7 +335,7 @@ app.get('/api/proposal/:clientId', requireAuth, async (req, res) => {
 
 
 // ── API: pending portal logins (admin) ───────────────────────────────────────
-app.get('/api/pending-portals', requireAuth, requireAdmin, (req, res) => {
+app.get('/api/pending-portals', requireAuth, requireAdmin, async (req, res) => {
   const rows = await dbAll('SELECT * FROM pending_portals WHERE sent = 0 ORDER BY created_at DESC', []);
   res.json(rows);
 });
@@ -404,9 +402,8 @@ app.post('/webhooks/pandadoc/payment', async (req, res) => {
   }
 });
 
-} // end initApp
-
-// ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Xpress Draft running on http://localhost:${PORT}`);
-});
+  // ── Start ───────────────────────────────────────────────────────────────────
+  app.listen(PORT, () => {
+    console.log(`Xpress Draft running on http://localhost:${PORT}`);
+  });
+})().catch(err => { console.error('Startup error:', err); process.exit(1); });
