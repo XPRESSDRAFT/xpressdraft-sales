@@ -4,7 +4,7 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fetch = require('node-fetch');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const SQLiteStore = require('connect-sqlite3')(session);
 
 const app = express();
@@ -14,9 +14,36 @@ const PORT = process.env.PORT || 3000;
 const dataDir_early = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 const fs_early = require('fs');
 if (!fs_early.existsSync(dataDir_early)) fs_early.mkdirSync(dataDir_early, { recursive: true });
-const db = new Database(path.join(dataDir_early, 'app.db'));
+const db = new sqlite3.Database(path.join(dataDir_early, 'app.db'));
 
-db.exec(`
+// Helper: run a query that modifies data
+function dbRun(sql, params) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params || [], function(err) {
+      if (err) reject(err); else resolve({ lastID: this.lastID, changes: this.changes });
+    });
+  });
+}
+// Helper: get one row
+function dbGet(sql, params) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params || [], (err, row) => { if (err) reject(err); else resolve(row); });
+  });
+}
+// Helper: get all rows
+function dbAll(sql, params) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params || [], (err, rows) => { if (err) reject(err); else resolve(rows || []); });
+  });
+}
+// Helper: run multiple statements (schema creation)
+function dbExec(sql) {
+  return new Promise((resolve, reject) => {
+    db.exec(sql, (err) => { if (err) reject(err); else resolve(); });
+  });
+}
+
+dbExec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -60,19 +87,22 @@ db.exec(`
     value REAL NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
   );
-`);
+`).then(() => {
+  initApp();
+}).catch(err => console.error('Schema error:', err));
+
+async function initApp() {
 
 // ── Seed admin account on first run ──────────────────────────────────────────
-const adminExists = db.prepare('SELECT id FROM users WHERE role = ?').get('admin');
+const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
 if (!adminExists && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12);
-  db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)')
-    .run(process.env.ADMIN_EMAIL, hash, 'Admin', 'admin');
+  await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [process.env.ADMIN_EMAIL, hash, 'Admin', 'admin']);
   console.log('Admin account created:', process.env.ADMIN_EMAIL);
 }
 
 // ── Seed default pricing if empty ────────────────────────────────────────────
-const pricingCount = db.prepare('SELECT COUNT(*) as n FROM pricing').get();
+const pricingCount = await dbGet('SELECT COUNT(*) as n FROM pricing', []);
 if (pricingCount.n === 0) {
   const defaults = [
     ['base_renovation',      'Renovations — base fee',           2200],
@@ -86,8 +116,7 @@ if (pricingCount.n === 0) {
     ['survey_required',      'Survey (if required)',               800],
     ['as_constructed',       'As-constructed drawings',           1800],
   ];
-  const ins = db.prepare('INSERT INTO pricing (key, label, value) VALUES (?, ?, ?)');
-  defaults.forEach(r => ins.run(...r));
+  for (const r of defaults) { await dbRun('INSERT INTO pricing (key, label, value) VALUES (?, ?, ?)', r); }
   console.log('Default pricing seeded');
 }
 
@@ -139,7 +168,7 @@ app.get('/login', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ? AND active = 1').get(email);
+  const user = await dbGet('SELECT * FROM users WHERE email = ? AND active = 1', [email]);
   if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.redirect('/login?error=1');
   }
@@ -166,45 +195,37 @@ app.get('/api/me', requireAuth, (req, res) => {
 
 // ── API: client records ───────────────────────────────────────────────────────
 app.get('/api/clients', requireAuth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM clients WHERE user_id = ? ORDER BY updated_at DESC').all(req.session.userId);
+  const rows = await dbAll('SELECT * FROM clients WHERE user_id = ? ORDER BY updated_at DESC', [req.session.userId]);
   res.json(rows.map(r => ({ ...JSON.parse(r.data), id: r.id, updated: r.updated_at })));
 });
 
 app.post('/api/clients', requireAuth, (req, res) => {
   const { id, name, ...rest } = req.body;
   const data = JSON.stringify({ id, name, ...rest });
-  db.prepare(`
-    INSERT INTO clients (id, user_id, name, data, updated_at)
-    VALUES (?, ?, ?, ?, strftime('%s','now'))
-    ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, updated_at=excluded.updated_at
-  `).run(id, req.session.userId, name || 'Unknown', data);
+  await dbRun(`INSERT INTO clients (id, user_id, name, data, updated_at) VALUES (?, ?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, updated_at=excluded.updated_at`, [id, req.session.userId, name || 'Unknown', data]);
   res.json({ ok: true });
 });
 
 app.delete('/api/clients/:id', requireAuth, (req, res) => {
-  db.prepare('DELETE FROM clients WHERE id = ? AND user_id = ?').run(req.params.id, req.session.userId);
+  await dbRun('DELETE FROM clients WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
   res.json({ ok: true });
 });
 
 // ── API: pricing ──────────────────────────────────────────────────────────────
 app.get('/api/pricing', requireAuth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM pricing ORDER BY key').all();
+  const rows = await dbAll('SELECT * FROM pricing ORDER BY key', []);
   res.json(rows);
 });
 
 app.post('/api/pricing', requireAuth, requireAdmin, (req, res) => {
   const { key, label, value } = req.body;
-  db.prepare(`
-    INSERT INTO pricing (key, label, value, updated_at)
-    VALUES (?, ?, ?, strftime('%s','now'))
-    ON CONFLICT(key) DO UPDATE SET label=excluded.label, value=excluded.value, updated_at=excluded.updated_at
-  `).run(key, label, parseFloat(value));
+  await dbRun(`INSERT INTO pricing (key, label, value, updated_at) VALUES (?, ?, ?, strftime('%s','now')) ON CONFLICT(key) DO UPDATE SET label=excluded.label, value=excluded.value, updated_at=excluded.updated_at`, [key, label, parseFloat(value)]);
   res.json({ ok: true });
 });
 
 // ── API: user management (admin only) ────────────────────────────────────────
 app.get('/api/users', requireAuth, requireAdmin, (req, res) => {
-  const users = db.prepare('SELECT id, email, name, role, active, created_at FROM users ORDER BY created_at DESC').all();
+  const users = await dbAll('SELECT id, email, name, role, active, created_at FROM users ORDER BY created_at DESC', []);
   res.json(users);
 });
 
@@ -213,7 +234,7 @@ app.post('/api/users', requireAuth, requireAdmin, (req, res) => {
   if (!email || !name || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hash = bcrypt.hashSync(password, 12);
-    db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)').run(email, hash, name, role || 'user');
+    await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [email, hash, name, role || 'user']);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: 'Email already exists' });
@@ -224,14 +245,14 @@ app.patch('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
   const { active, password, name } = req.body;
   const id = req.params.id;
   if (active !== undefined) {
-    db.prepare('UPDATE users SET active = ? WHERE id = ?').run(active ? 1 : 0, id);
+    await dbRun('UPDATE users SET active = ? WHERE id = ?', [active ? 1 : 0, id]);
   }
   if (name) {
-    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, id);
+    await dbRun('UPDATE users SET name = ? WHERE id = ?', [name, id]);
   }
   if (password) {
     const hash = bcrypt.hashSync(password, 12);
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, id);
+    await dbRun('UPDATE users SET password = ? WHERE id = ?', [hash, id]);
   }
   res.json({ ok: true });
 });
@@ -239,7 +260,7 @@ app.patch('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
 app.delete('/api/users/:id', requireAuth, requireAdmin, (req, res) => {
   const id = parseInt(req.params.id);
   if (id === req.session.userId) return res.status(400).json({ error: 'Cannot delete yourself' });
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  await dbRun('DELETE FROM users WHERE id = ?', [id]);
   res.json({ ok: true });
 });
 
@@ -280,16 +301,16 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   const { clientId, priceOverride, clientEmail } = req.body;
   if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
-  const row = db.prepare('SELECT * FROM clients WHERE id = ? AND user_id = ?').get(clientId, req.session.userId);
+  const row = await dbGet('SELECT * FROM clients WHERE id = ? AND user_id = ?', [clientId, req.session.userId]);
   if (!row) return res.status(404).json({ error: 'Client not found' });
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.userId);
+  const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
   const rec = { ...JSON.parse(row.data), id: row.id, name: row.name, addr: JSON.parse(row.data).addr || '' };
 
   try {
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride);
     // Save proposal record
-    db.prepare('INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))').run(clientId, result.documentId, result.templateType);
+    await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -309,7 +330,7 @@ app.post('/webhooks/pandadoc', async (req, res) => {
 
 // Get proposal status
 app.get('/api/proposal/:clientId', requireAuth, async (req, res) => {
-  const row = db.prepare('SELECT * FROM proposals WHERE client_id = ? ORDER BY created_at DESC LIMIT 1').get(req.params.clientId);
+  const row = await dbGet('SELECT * FROM proposals WHERE client_id = ? ORDER BY created_at DESC LIMIT 1', [req.params.clientId]);
   if (!row) return res.json({ proposal: null });
   res.json({ proposal: row });
 });
@@ -317,18 +338,18 @@ app.get('/api/proposal/:clientId', requireAuth, async (req, res) => {
 
 // ── API: pending portal logins (admin) ───────────────────────────────────────
 app.get('/api/pending-portals', requireAuth, requireAdmin, (req, res) => {
-  const rows = db.prepare('SELECT * FROM pending_portals WHERE sent = 0 ORDER BY created_at DESC').all();
+  const rows = await dbAll('SELECT * FROM pending_portals WHERE sent = 0 ORDER BY created_at DESC', []);
   res.json(rows);
 });
 
 app.post('/api/pending-portals/:id/send', requireAuth, requireAdmin, async (req, res) => {
   const { portalEmail, portalPassword } = req.body;
   if (!portalEmail || !portalPassword) return res.status(400).json({ error: 'Portal email and password required' });
-  const row = db.prepare('SELECT * FROM pending_portals WHERE id = ?').get(req.params.id);
+  const row = await dbGet('SELECT * FROM pending_portals WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Not found' });
   try {
     await email.sendPortalWelcome(row.client_name, row.client_email, portalEmail, portalPassword, row.pandadoc_link);
-    db.prepare('UPDATE pending_portals SET sent = 1 WHERE id = ?').run(row.id);
+    await dbRun('UPDATE pending_portals SET sent = 1 WHERE id = ?', [row.id]);
     res.json({ ok: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -348,7 +369,7 @@ app.post('/webhooks/pandadoc/payment', async (req, res) => {
     const clientId = meta.client_id;
     if (!clientId) return res.json({ ok: true });
 
-    const row = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
+    const row = await dbGet('SELECT * FROM clients WHERE id = ?', [clientId]);
     if (!row) return res.json({ ok: true });
 
     const rec = JSON.parse(row.data);
@@ -357,7 +378,7 @@ app.post('/webhooks/pandadoc/payment', async (req, res) => {
     const price = parseFloat(rec.quoted_price || rec.fields?.quoted_price || 0);
 
     // Send engagement document via PandaDoc
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id);
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [row.user_id]);
     let pandadocLink = null;
     try {
       const engResult = await pandadoc.sendEngagementDocument(rec, user?.name || '', user?.email || '', clientEmail);
@@ -369,8 +390,7 @@ app.post('/webhooks/pandadoc/payment', async (req, res) => {
     // Send correct welcome email based on price
     if (price >= 5000) {
       // Queue portal login task for admin
-      db.prepare('INSERT INTO pending_portals (client_id, client_name, client_email, pandadoc_link) VALUES (?, ?, ?, ?)')
-        .run(clientId, clientName, clientEmail, pandadocLink);
+      await dbRun('INSERT INTO pending_portals (client_id, client_name, client_email, pandadoc_link) VALUES (?, ?, ?, ?)', [clientId, clientName, clientEmail, pandadocLink]);
       // Also send simple welcome immediately so client isn't waiting
       await email.sendSimpleWelcome(clientName, clientEmail, pandadocLink);
     } else {
@@ -383,6 +403,8 @@ app.post('/webhooks/pandadoc/payment', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+} // end initApp
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

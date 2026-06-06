@@ -245,13 +245,13 @@ async function handleWebhook(event, db) {
   if (!clientId) return;
 
   // Look up client record
-  const row = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
+  const row = await new Promise((res, rej) => db.get('SELECT * FROM clients WHERE id = ?', [clientId], (e, r) => e ? rej(e) : res(r)));
   if (!row) return;
 
   const rec = { ...JSON.parse(row.data), id: row.id };
 
   // Look up the rep who saved this client
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(row.user_id);
+  const user = await new Promise((res, rej) => db.get('SELECT * FROM users WHERE id = ?', [row.user_id], (e, r) => e ? rej(e) : res(r)));
   if (!user) return;
 
   const clientData = rec.fields || {};
