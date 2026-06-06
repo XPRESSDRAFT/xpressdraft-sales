@@ -141,12 +141,12 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         email: clientEmail || rec.contact || '',
         first_name: (rec.name || '').split(' ')[0],
         last_name: (rec.name || '').split(' ').slice(1).join(' '),
-        role: 'client'
+        role: 'Client'
       },
       {
         email: repEmail,
         first_name: repName,
-        role: 'user'
+        role: 'User'
       }
     ],
     tokens: tokens,
@@ -202,12 +202,12 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
         email: clientEmail || rec.contact || '',
         first_name: (rec.name || '').split(' ')[0],
         last_name: (rec.name || '').split(' ').slice(1).join(' '),
-        role: 'client'
+        role: 'Client'
       },
       {
         email: repEmail,
         first_name: repName,
-        role: 'user'
+        role: 'User'
       }
     ],
     tokens: [

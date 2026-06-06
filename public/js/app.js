@@ -349,7 +349,11 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       var d = gather();
       var tmplKey = selectTemplate(d);
       document.getElementById('pdTemplate').textContent = TEMPLATE_LABELS[tmplKey] || tmplKey;
-      document.getElementById('pdEmail').value = d.client_email || '';
+      // Pre-fill email from contact field if it contains an email address
+      var contactVal = document.getElementById('cContact') ? document.getElementById('cContact').value.trim() : '';
+      var emailVal = d.client_email || '';
+      if (!emailVal && contactVal && contactVal.indexOf('@') > -1) emailVal = contactVal;
+      document.getElementById('pdEmail').value = emailVal;
       // Pre-fill price from live calculator
       var priceEl = document.getElementById('pfProposal');
       var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.]/g,'') : '';
