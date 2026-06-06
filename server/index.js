@@ -311,6 +311,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
   } catch (e) {
+    console.error('Proposal error:', e.message, e.stack);
     res.status(500).json({ error: e.message });
   }
 });

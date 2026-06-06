@@ -158,6 +158,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     tags: ['xpressdraft', templateKey]
   };
 
+  console.log('PandaDoc: creating document for template:', templateKey, templateId);
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -165,7 +166,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || data.message || 'PandaDoc error ' + res.status);
+  console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
+  if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
   // Wait briefly then send for signature
   await new Promise(r => setTimeout(r, 2000));
@@ -218,6 +220,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     tags: ['xpressdraft', 'engagement']
   };
 
+  console.log('PandaDoc: creating document for template:', templateKey, templateId);
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -225,7 +228,8 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || data.message || 'PandaDoc error ' + res.status);
+  console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
+  if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
   await new Promise(r => setTimeout(r, 2000));
   await sendDocument(data.id);
