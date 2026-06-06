@@ -156,34 +156,14 @@ document.addEventListener('DOMContentLoaded', function() {
 /* ===== PROPOSAL GENERATOR ===== */
 let propHistory = []; // multi-turn revision history
 
-function openProposalModal() {
-  const d = gather();
-  const money_val = $('#pfProposal').textContent;
-  // Pre-fill from current call record
-  $('#pc_name').value = $('#cName').value || '';
-  $('#pc_addr').value = $('#cAddr').value || '';
-  $('#pc_type').value = d.p_type || '';
-  // Price: use the live estimate if available, else the quote field
-  const rawPrice = money_val && money_val !== '—' ? money_val.replace(' + GST','') : (d.quote || '');
-  $('#pc_price').value = rawPrice;
-  $('#pc_brief').value = document.getElementById('briefSummary')?.value || d.brief_summary || '';
-  $('#pc_rep').value = '';
-  $('#pc_context').value = '';
-  propHistory = [];
-  $('#propOutput').classList.remove('visible');
-  $('#propDoc').textContent = '';
-  $('#propEditBar').style.display = 'none';
-  $('#propStatus').textContent = '';
-  $('#propOverlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
+// openProposalModal removed - using PandaDoc modal
 
 function closeProposalModal() {
   $('#propOverlay').classList.remove('open');
   document.body.style.overflow = '';
 }
 
-$('#proposalBtn').onclick = openProposalModal;
+// proposalBtn wired below by PandaDoc modal
 $('#propClose').onclick = closeProposalModal;
 $('#propOverlay').onclick = e => { if (e.target === $('#propOverlay')) closeProposalModal(); };
 
