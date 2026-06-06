@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Script — Xpress Draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body data-exp="new">
+
+<div class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 191 189" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#F3EAE5" d="M46.6 6.5v29.6c0 1.9 1.1 3.7 2.8 4.5l42.8 23.9c1.9.9 4.1.9 6 0l42.8-23.9c1.7-.8 2.8-2.6 2.8-4.5V6.5c0-4.8-5-7.9-9.3-5.9L98.3 18c-1.9.9-4.1.9-6 0L55.9.6c-4.3-2-9.3 1.1-9.3 5.9"/>
+        <path fill="#F3EAE5" d="M46.6 181.2v-29.6c0-1.9 1.1-3.7 2.8-4.5l42.8-23.9c1.9-.9 4.1-.9 6 0l42.8 23.9c1.7.8 2.8 2.6 2.8 4.5v29.6c0 4.8-5 7.9-9.3 5.9L98.3 169.8c-1.9-.9-4.1-.9-6 0l-36.4 17.3c-4.3 2-9.3-1.1-9.3-5.9"/>
+        <path fill="#F3EAE5" d="M182.6 45.2h-29.6c-1.9 0-3.7 1.1-4.5 2.8l-23.9 42.8c-.9 1.9-.9 4.1 0 6l23.9 42.8c.8 1.7 2.6 2.8 4.5 2.8h29.6c4.8 0 7.9-5 5.9-9.3l-17.4-36.3c-.9-1.9-.9-4.1 0-6l17.4-36.3c2-4.3-1.1-9.3-5.9-9.3"/>
+        <path fill="#EA672F" d="M7.9 45.2h29.6c1.9 0 3.7 1.1 4.5 2.8l23.9 42.8c.9 1.9.9 4.1 0 6l-23.9 42.8c-.8 1.7-2.6 2.8-4.5 2.8H7.9c-4.8 0-7.9-5-5.9-9.3l17.4-36.3c.9-1.9.9-4.1 0-6L2 54.5c-2-4.3 1.1-9.3 5.9-9.3"/>
+      </svg>
+      <div><span class="brand-x">Xpress</span><span class="brand-d"> Draft</span></div>
+    </div>
+    <div class="top-right">
+      <span class="who" id="whoLbl">Loading...</span>
+      <div class="exp-toggle" id="expToggle">
+        <button data-exp="new" class="on">New client</button>
+        <button data-exp="exp">Experienced</button>
+      </div>
+      <a href="/admin" id="adminLink" style="display:none" class="top-admin-link">Admin</a>
+      <button class="btn-logout" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLIENT BAR -->
+<div class="clientbar">
+  <div class="wrap">
+    <div class="cb-shape a"></div>
+    <div class="cb-grid">
+      <div class="cb-field"><label>Client name</label><input type="text" id="cName" placeholder="e.g. Jane Smith"></div>
+      <div class="cb-field"><label>Site address</label><input type="text" id="cAddr" placeholder="12 King St"></div>
+      <div class="cb-field"><label>Email / phone</label><input type="text" id="cContact"></div>
+      <div class="cb-field"><label>Call date</label><input type="date" id="cDate"></div>
+      <div class="cb-actions">
+        <button class="btn btn-primary" id="saveTop">Save</button>
+        <button class="btn btn-ghost btn-sm" id="newTop">New</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT - Sales tool content injected here by app.js -->
+<div class="wrap layout" id="appLayout"></div>
+
+<!-- SAVE BAR -->
+<div class="savebar">
+  <div class="wrap savebar-inner">
+    <span class="editing-lbl" id="editingName">New call</span>
+    <button class="btn btn-primary" id="saveBtn">Save call record</button>
+    <button class="btn btn-ghost" id="clearBtn">Clear form</button>
+    <button class="btn btn-ghost" id="printBtn">Print</button>
+    <button class="btn btn-proposal" id="proposalBtn">Generate Proposal</button>
+  </div>
+</div>
+
+<!-- SAVED CLIENTS PANEL -->
+<div class="wrap" style="padding-bottom:60px">
+  <div class="saved-section">
+    <div class="saved-header">
+      <span class="saved-title">Saved Calls</span>
+      <input type="text" id="savedSearch" class="saved-search" placeholder="Search by name or address...">
+    </div>
+    <div id="savedList"></div>
+  </div>
+</div>
+
+<!-- Proposal modal injected by app.js -->
+<div id="modalsContainer"></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/layout.html.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

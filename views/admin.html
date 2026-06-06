@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xpress Draft — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange: #EA672F;
+    --orange-d: #d45a26;
+    --dark: #2A2B29;
+    --page: #F3EAE5;
+    --card: #fff;
+    --grey: #888;
+    --border: #e0d9d5;
+  }
+  body { font-family: 'Manrope', sans-serif; background: var(--page); color: var(--dark); }
+  .topbar {
+    background: var(--dark);
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; }
+  .logo-text { font-size: 16px; font-weight: 800; color: #fff; }
+  .logo-text span { color: var(--orange); }
+  .top-right { display: flex; align-items: center; gap: 12px; }
+  .top-right a { color: rgba(255,255,255,.6); font-size: 12px; text-decoration: none; }
+  .top-right a:hover { color: #fff; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .page-sub { color: var(--grey); font-size: 13px; margin-bottom: 32px; }
+  .section { background: var(--card); border-radius: 14px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  .section-title { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--grey); padding: 0 12px 10px; }
+  td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: #faf7f5; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-admin { background: rgba(234,103,47,.15); color: var(--orange); }
+  .badge-user { background: rgba(0,0,0,.06); color: #666; }
+  .badge-active { background: #e8f5e9; color: #2e7d32; }
+  .badge-inactive { background: #fde8e8; color: #c0392b; }
+  .btn { font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 7px; padding: 6px 12px; cursor: pointer; border: none; transition: .15s; }
+  .btn-orange { background: var(--orange); color: #fff; }
+  .btn-orange:hover { background: var(--orange-d); }
+  .btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--dark); }
+  .btn-ghost:hover { border-color: #aaa; }
+  .btn-danger { background: transparent; border: 1.5px solid #f5c6c6; color: #c0392b; }
+  .btn-danger:hover { background: #fde8e8; }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+  .add-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: end; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .add-form .field label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
+  .add-form .field input, .add-form .field select {
+    font-family: inherit; font-size: 13px; color: var(--dark);
+    background: #faf7f5; border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 9px 11px; outline: none; width: 100%;
+  }
+  .add-form .field input:focus, .add-form .field select:focus { border-color: var(--orange); }
+  .pricing-row td:first-child { font-size: 12px; color: var(--grey); font-family: monospace; }
+  .price-input { font-family: inherit; font-size: 13px; color: var(--dark); background: transparent; border: none; outline: none; width: 80px; text-align: right; padding: 2px 4px; border-bottom: 1.5px solid transparent; }
+  .price-input:focus { border-bottom-color: var(--orange); }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 191 189" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#F3EAE5" d="M46.6 6.5v29.6c0 1.9 1.1 3.7 2.8 4.5l42.8 23.9c1.9.9 4.1.9 6 0l42.8-23.9c1.7-.8 2.8-2.6 2.8-4.5V6.5c0-4.8-5-7.9-9.3-5.9L98.3 18c-1.9.9-4.1.9-6 0L55.9.6c-4.3-2-9.3 1.1-9.3 5.9"/>
+      <path fill="#F3EAE5" d="M46.6 181.2v-29.6c0-1.9 1.1-3.7 2.8-4.5l42.8-23.9c1.9-.9 4.1-.9 6 0l42.8 23.9c1.7.8 2.8 2.6 2.8 4.5v29.6c0 4.8-5 7.9-9.3 5.9L98.3 169.8c-1.9-.9-4.1-.9-6 0l-36.4 17.3c-4.3 2-9.3-1.1-9.3-5.9"/>
+      <path fill="#F3EAE5" d="M182.6 45.2h-29.6c-1.9 0-3.7 1.1-4.5 2.8l-23.9 42.8c-.9 1.9-.9 4.1 0 6l23.9 42.8c.8 1.7 2.6 2.8 4.5 2.8h29.6c4.8 0 7.9-5 5.9-9.3l-17.4-36.3c-.9-1.9-.9-4.1 0-6l17.4-36.3c2-4.3-1.1-9.3-5.9-9.3"/>
+      <path fill="#EA672F" d="M7.9 45.2h29.6c1.9 0 3.7 1.1 4.5 2.8l23.9 42.8c.9 1.9.9 4.1 0 6l-23.9 42.8c-.8 1.7-2.6 2.8-4.5 2.8H7.9c-4.8 0-7.9-5-5.9-9.3l17.4-36.3c.9-1.9.9-4.1 0-6L2 54.5c-2-4.3 1.1-9.3 5.9-9.3"/>
+    </svg>
+    <div class="logo-text"><span>Xpress</span> Draft — Admin</div>
+  </div>
+  <div class="top-right">
+    <a href="/">Sales Tool</a>
+    <a href="#" id="logoutBtn">Sign out</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>Admin Panel</h1>
+  <div class="page-sub">Manage users and pricing. Changes take effect immediately.</div>
+
+  <!-- Users -->
+  <div class="section">
+    <div class="section-title">Team Members</div>
+    <table id="usersTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersTbody"></tbody>
+    </table>
+
+    <div class="add-form">
+      <div class="field"><label>Name</label><input type="text" id="newName" placeholder="Alex"></div>
+      <div class="field"><label>Email</label><input type="email" id="newEmail" placeholder="alex@xpressdraft.com.au"></div>
+      <div class="field"><label>Password</label><input type="password" id="newPassword" placeholder="Temporary password"></div>
+      <div class="field"><label>Role</label>
+        <select id="newRole">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div style="padding-bottom:1px"><button class="btn btn-orange" id="addUserBtn">Add user</button></div>
+    </div>
+  </div>
+
+
+  <!-- Pending Portal Logins -->
+  <div class="section">
+    <div class="section-title">Pending Portal Logins <span id="portalBadge" style="background:#EA672F;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px;display:none"></span></div>
+    <p style="font-size:13px;color:#888;margin:0 0 16px">These clients have paid their deposit on a job $5,000+. Generate their Monday.com portal login, then enter the credentials below to send the welcome email.</p>
+    <div id="portalList"><div style="color:#888;font-size:13px;font-style:italic">No pending portal logins.</div></div>
+  </div>
+
+  <!-- Pricing -->
+  <div class="section">
+    <div class="section-title">Pricing Structure</div>
+    <table>
+      <thead>
+        <tr><th>Key</th><th>Description</th><th style="text-align:right">Price (ex GST)</th><th></th></tr>
+      </thead>
+      <tbody id="pricingTbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/js/admin.js"></script>
+</body>
+</html>
