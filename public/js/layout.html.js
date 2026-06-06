@@ -1,7 +1,5 @@
-// Auto-generated layout HTML
-document.getElementById('appLayout').innerHTML = `</div>
-
-<div class="wrap layout">
+// Auto-generated layout HTML — do not edit manually
+document.getElementById('appLayout').innerHTML = `<div class="wrap layout">
 
 <div class="main-col">
 
@@ -253,6 +251,69 @@ document.getElementById('appLayout').innerHTML = `</div>
   </div>
 </aside>
 
-</div><!-- /layout -->`;
+</div><!-- /layout -->
 
-document.getElementById('modalsContainer').innerHTML = ``;
+<div`;
+document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay" id="propOverlay">
+  <div class="prop-modal">
+    <div class="prop-head">
+      <div class="prop-head-left">
+        <svg width="22" height="22" viewBox="0 0 191 189" xmlns="http://www.w3.org/2000/svg"><path fill="#F3EAE5" d="M46.6 6.5v29.6c0 1.9 1.1 3.7 2.8 4.5l42.8 23.9c1.9.9 4.1.9 6 0l42.8-23.9c1.7-.8 2.8-2.6 2.8-4.5V6.5c0-4.8-5-7.9-9.3-5.9L98.3 18c-1.9.9-4.1.9-6 0L55.9.6c-4.3-2-9.3 1.1-9.3 5.9"/><path fill="#F3EAE5" d="M46.6 181.2v-29.6c0-1.9 1.1-3.7 2.8-4.5l42.8-23.9c1.9-.9 4.1-.9 6 0l42.8 23.9c1.7.8 2.8 2.6 2.8 4.5v29.6c0 4.8-5 7.9-9.3 5.9L98.3 169.8c-1.9-.9-4.1-.9-6 0l-36.4 17.3c-4.3 2-9.3-1.1-9.3-5.9"/><path fill="#F3EAE5" d="M182.6 45.2h-29.6c-1.9 0-3.7 1.1-4.5 2.8l-23.9 42.8c-.9 1.9-.9 4.1 0 6l23.9 42.8c.8 1.7 2.6 2.8 4.5 2.8h29.6c4.8 0 7.9-5 5.9-9.3l-17.4-36.3c-.9-1.9-.9-4.1 0-6l17.4-36.3c2-4.3-1.1-9.3-5.9-9.3"/><path fill="#EA672F" d="M7.9 45.2h29.6c1.9 0 3.7 1.1 4.5 2.8l23.9 42.8c.9 1.9.9 4.1 0 6l-23.9 42.8c-.8 1.7-2.6 2.8-4.5 2.8H7.9c-4.8 0-7.9-5-5.9-9.3l17.4-36.3c.9-1.9.9-4.1 0-6L2 54.5c-2-4.3 1.1-9.3 5.9-9.3"/></svg>
+        <div><span class="brand-x">Xpress</span><span class="brand-d"> Draft</span></div>
+        <span class="prop-htitle">Proposal Generator</span>
+      </div>
+      <button class="prop-close" id="propClose">✕</button>
+    </div>
+
+    <div class="prop-body">
+
+      <!-- Config row -->
+      <div class="prop-config">
+        <div class="prop-config-title">Confirm details before generating</div>
+        <div class="prop-cfg-grid">
+          <div class="field"><label>Client name</label><input type="text" id="pc_name" placeholder="e.g. Jane Smith"></div>
+          <div class="field"><label>Site address</label><input type="text" id="pc_addr" placeholder="12 King St, Suburb NSW 2000"></div>
+          <div class="field"><label>Project type</label>
+            <select id="pc_type">
+              <option value="">— select —</option>
+              <option>Renovations</option>
+              <option>Renovations + Extensions</option>
+              <option>Extensions</option>
+              <option>New Homes</option>
+              <option>Granny Flats</option>
+              <option>As-Constructed</option>
+            </select>
+          </div>
+          <div class="field"><label>Quoted price (ex GST)</label><input type="text" id="pc_price" placeholder="e.g. $4,200"></div>
+          <div class="field full"><label>Project brief (what they want to build)</label><textarea id="pc_brief" rows="3" placeholder="Paste or summarise the project description here…"></textarea></div>
+          <div class="field full"><label>Rep name (signing off)</label><input type="text" id="pc_rep" placeholder="e.g. Alex"></div>
+          <div class="field full"><label>Extra context for AI (optional)</label><textarea id="pc_context" rows="2" placeholder="e.g. client is experienced, in a hurry, has a builder lined up, wants kitchen design…"></textarea></div>
+        </div>
+      </div>
+
+      <div class="prop-status" id="propStatus"></div>
+
+      <button class="prop-generate" id="propGenerate">
+        <span id="propGenLabel">Generate Proposal Letter</span>
+        <span id="propGenSpinner" style="display:none;"><span class="prop-spinner"></span></span>
+      </button>
+
+      <!-- Revision bar -->
+      <div class="prop-edit-bar" id="propEditBar" style="display:none;">
+        <textarea id="propReviseInput" rows="2" placeholder="e.g. Make it shorter · adjust the tone · emphasise the 45-day validity · add mention of our reviews…"></textarea>
+        <button class="btn btn-primary btn-sm" id="propReviseBtn">Revise</button>
+      </div>
+
+      <!-- Output -->
+      <div class="prop-output" id="propOutput">
+        <div class="prop-doc" id="propDoc"></div>
+        <div class="prop-actions">
+          <button class="btn btn-primary btn-sm" id="propCopy">Copy text</button>
+          <button class="btn btn-ghost btn-sm" id="propDownload">Download .txt</button>
+          <span class="sign-note">Ready? Hand off to your signing &amp; deposit tool →</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>`;
