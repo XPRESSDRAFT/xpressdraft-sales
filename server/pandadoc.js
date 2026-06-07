@@ -128,9 +128,9 @@ function buildScopeNotes(f) {
     conceptItems.push('Redraw existing building (if applicable — partially or entirely, to Xpressdraft\u2019s discretion)');
   }
   conceptItems.push('Selection of materials (Structure, Cladding and Roofing) (if applicable)');
-  if (beyondFootprint || isSloped) {
-    conceptItems.push('Survey required — project extends beyond existing footprint and/or on sloping block');
-  }
+  const surveyNote = (beyondFootprint || isSloped) 
+    ? '*Survey required — project extends beyond the existing footprint and/or on a sloping block.' 
+    : '';
   conceptItems.push('Floor Plan(s) to demonstrate layout proposal');
   conceptItems.push('Elevations to demonstrate layout proposal');
   conceptItems.push('External 3D views to assist design decisions');
@@ -168,7 +168,7 @@ function buildScopeNotes(f) {
   }
 
   // Build output with bold titles
-  const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n');
+  const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n') + (surveyNote ? '\n' + surveyNote : '');
   const workingSection = 'CONSTRUCTION DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
 
   return conceptSection + '\n\n' + workingSection;
