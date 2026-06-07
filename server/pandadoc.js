@@ -332,7 +332,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       client_id: rec.id,
       template_type: templateKey
     },
-    tags: ['xpressdraft', templateKey]
+    tags: ['xpressdraft', templateKey],
+    currency: 'AUD'
   };
 
   console.log('PandaDoc: creating document for template:', templateKey, templateId);
