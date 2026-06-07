@@ -310,6 +310,8 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     + '<div style="background:#F3EAE5;border-radius:16px;padding:32px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.4);margin:24px;">'
     + '<h2 style="font-size:18px;font-weight:800;color:#2A2B29;margin:0 0 6px">Send Proposal via PandaDoc</h2>'
     + '<p style="font-size:13px;color:#888;margin:0 0 24px">Review details before sending to the client for signing.</p>'
+    + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client</label>'
+    + '<div id="pdClientName" style="font-size:15px;font-weight:700;color:#2A2B29;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Template selected</label>'
     + '<div id="pdTemplate" style="font-size:14px;font-weight:700;color:#EA672F;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client email</label>'
@@ -349,6 +351,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       var d = gather();
       var tmplKey = selectTemplate(d);
       document.getElementById('pdTemplate').textContent = TEMPLATE_LABELS[tmplKey] || tmplKey;
+      document.getElementById('pdClientName').textContent = document.getElementById('cName') ? document.getElementById('cName').value.trim() : '';
       // Pre-fill email from contact field if it contains an email address
       var contactVal = document.getElementById('cContact') ? document.getElementById('cContact').value.trim() : '';
       var emailVal = d.client_email || '';
