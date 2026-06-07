@@ -238,10 +238,15 @@ function buildTokens(rec, repName, priceOverride, existingCount) {
   const briefing = (f.brief_summary || '').trim();
   const projectDescription = briefing + FOOTER;
 
-  // Split contact into phone and email
-  const contactVal = rec.contact || '';
-  const clientEmail = contactVal.includes('@') ? contactVal : (f.client_email || '');
-  const clientPhone = !contactVal.includes('@') ? contactVal : (f.client_phone || '');
+  // Use dedicated email and phone fields if available, fall back to splitting contact
+  let clientEmail = (rec.email || f.client_email || '').trim();
+  let clientPhone = (rec.phone || f.client_phone || '').trim();
+  if (!clientEmail) {
+    const contactVal = rec.contact || '';
+    const contactParts = contactVal.split(/[\/,;|]+/).map(s => s.trim()).filter(Boolean);
+    clientEmail = (contactParts.find(p => p.includes('@')) || '').trim();
+    clientPhone = clientPhone || (contactParts.find(p => !p.includes('@')) || '').trim();
+  }
 
   return [
     { name: 'proposal_number',    value: proposalNumber(rec.name, existingCount) },
@@ -293,7 +298,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     template_uuid: templateId,
     recipients: [
       {
-        email: clientEmail || rec.contact || '',
+        email: clientEmail || '',
         first_name: (rec.name || '').split(' ')[0],
         last_name: (rec.name || '').split(' ').slice(1).join(' '),
         role: 'Client'
@@ -351,7 +356,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     template_uuid: TEMPLATES.engagement,
     recipients: [
       {
-        email: clientEmail || rec.contact || '',
+        email: clientEmail || '',
         first_name: (rec.name || '').split(' ')[0],
         last_name: (rec.name || '').split(' ').slice(1).join(' '),
         role: 'Client'
