@@ -296,30 +296,38 @@ const email = require('./email');
 
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
-  const { clientId, priceOverride, clientEmail, depositPct } = req.body;
-  if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
-
-  const row = await dbGet('SELECT * FROM clients WHERE id = ? AND user_id = ?', [clientId, req.session.userId]);
-  if (!row) return res.status(404).json({ error: 'Client not found' });
-
-  const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-  const parsedData = JSON.parse(row.data);
-  console.log('Record keys:', Object.keys(parsedData));
-  console.log('fields keys:', parsedData.fields ? Object.keys(parsedData.fields).slice(0,10) : 'NO FIELDS');
-  console.log('brief_summary:', parsedData.fields ? parsedData.fields.brief_summary : 'N/A');
-  console.log('priceOverride received:', priceOverride, typeof priceOverride);
-  const rec = { ...parsedData, id: row.id, name: row.name, addr: parsedData.addr || '' };
-
   try {
-    // Count existing proposals for this client for the proposal number
+    const { clientId, priceOverride, clientEmail, depositPct } = req.body;
+    console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct });
+    if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
+
+    const row = await dbGet('SELECT * FROM clients WHERE id = ? AND user_id = ?', [clientId, req.session.userId]);
+    if (!row) return res.status(404).json({ error: 'Client not found' });
+
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    
+    let parsedData;
+    try {
+      parsedData = JSON.parse(row.data);
+    } catch(parseErr) {
+      console.error('Failed to parse row.data:', parseErr.message);
+      return res.status(500).json({ error: 'Invalid client data' });
+    }
+
+    console.log('Record keys:', Object.keys(parsedData));
+    console.log('fields present:', !!parsedData.fields);
+    console.log('brief_summary:', parsedData.fields ? (parsedData.fields.brief_summary || '').slice(0,50) : 'NO FIELDS');
+    console.log('priceOverride:', priceOverride, typeof priceOverride);
+
+    const rec = { ...parsedData, id: row.id, name: row.name, addr: parsedData.addr || '' };
     const existingProposals = await dbAll('SELECT id FROM proposals WHERE client_id = ?', [clientId]);
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20);
-    // Save proposal record
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
   } catch (e) {
-    console.error('Proposal error:', e.message, e.stack);
-    res.status(500).json({ error: e.message });
+    console.error('Proposal route error:', e.message);
+    console.error('Stack:', e.stack);
+    res.status(500).json({ error: e.message || 'Proposal generation failed' });
   }
 });
 

@@ -315,6 +315,28 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     ],
     tokens: tokens,
     fields: {},
+    pricing_tables: [{
+      name: 'Pricing Table',
+      data_merge: true,
+      options: {
+        tax_first: false
+      },
+      sections: [{
+        title: 'Fee Proposal',
+        default: true,
+        rows: [{
+          options: { optional: false, optional_selected: true, qty_editable: false },
+          data: {
+            name: mapProjectType(f),
+            description: briefingText,
+            price: priceExGst,
+            qty: 1,
+            discount: { value: 0, type: 'percent' },
+            tax_first: { value: 0, type: 'percent' }
+          }
+        }]
+      }]
+    }],
     metadata: {
       client_id: rec.id,
       template_type: templateKey
