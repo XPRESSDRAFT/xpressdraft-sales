@@ -194,6 +194,7 @@ function mapProjectType(f) {
   }
   if (type.includes('renovation') && type.includes('extension')) return 'ALTERATIONS & ADDITIONS';
   if (type.includes('renovation')) return 'PROPOSED ALTERATIONS';
+  if (type === 'additions') return 'PROPOSED ADDITIONS';
   if (type.includes('extension')) return 'PROPOSED EXTENSION';
   if (type.includes('new home') || type.includes('new_home')) {
     return isDouble ? 'PROPOSED DOUBLE STOREY DWELLING' : 'PROPOSED SINGLE STOREY DWELLING';

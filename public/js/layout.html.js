@@ -56,6 +56,7 @@ document.getElementById('appLayout').innerHTML = `<div class="wrap layout">
             <option>Renovations</option>
             <option>Renovations + Extensions</option>
             <option>Extensions</option>
+            <option>Additions</option>
             <option>New Homes</option>
             <option>Granny Flats</option>
             <option>As-Constructed</option>
@@ -279,6 +280,7 @@ document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay
               <option>Renovations</option>
               <option>Renovations + Extensions</option>
               <option>Extensions</option>
+              <option>Additions</option>
               <option>New Homes</option>
               <option>Granny Flats</option>
               <option>As-Constructed</option>
