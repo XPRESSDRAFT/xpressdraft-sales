@@ -210,7 +210,10 @@ const FOOTER = '\n\nStructural engineering drawings and certification will likel
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
 function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
   const f = rec.fields || {};
-  const priceExGst = parseFloat(String(priceOverride || f.quoted_price || 0).replace(/[^0-9.]/g, '')) || 0;
+  const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
+  console.log('Price debug - priceOverride:', priceOverride, 'f.quoted_price:', f.quoted_price, 'rawPrice:', rawPrice);
+  const priceExGst = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+  console.log('Price debug - priceExGst:', priceExGst);
   const gst = priceExGst * 0.1;
   const total = priceExGst + gst;
 
