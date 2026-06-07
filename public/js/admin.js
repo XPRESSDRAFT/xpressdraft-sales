@@ -88,6 +88,7 @@ async function loadUsers() {
       <td><span class="badge badge-${u.role}">${u.role}</span></td>
       <td><span class="badge ${u.active ? 'badge-active' : 'badge-inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" data-rename="${u.id}" data-name="${esc(u.name)}">Rename</button>
         <button class="btn btn-ghost btn-sm" data-toggle="${u.id}" data-active="${u.active}">
           ${u.active ? 'Deactivate' : 'Activate'}
         </button>
@@ -95,6 +96,18 @@ async function loadUsers() {
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-rename]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.rename;
+      const current = btn.dataset.name;
+      const newName = prompt('Enter new name:', current);
+      if (!newName || newName.trim() === current) return;
+      await api('PATCH', '/api/users/' + id, { name: newName.trim() });
+      toast('Name updated');
+      loadUsers();
+    });
   });
 
   tbody.querySelectorAll('[data-toggle]').forEach(btn => {
