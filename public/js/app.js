@@ -372,9 +372,10 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       document.getElementById('pdEmail').value = emailVal;
       // Pre-fill price from live calculator or saved record
       var priceEl = document.getElementById('pfProposal');
-      var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.]/g,'') : '';
+      var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.,]/g,'').replace(/,/g,'') : '';
+      console.log('pdPrice debug - pfProposal text:', priceEl ? priceEl.textContent : 'NOT FOUND', 'priceRaw:', priceRaw);
       if (!priceRaw || priceRaw === '') {
-        priceRaw = d.quoted_price || d.fields && d.fields.quoted_price || '';
+        priceRaw = d.quoted_price || (d.fields && d.fields.quoted_price) || '';
       }
       document.getElementById('pdPrice').value = priceRaw || '';
       document.getElementById('pdStatus').textContent = '';
@@ -410,7 +411,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         body: JSON.stringify({
           clientId: state.editingId,
           clientEmail: email,
-          priceOverride: price || null,
+          priceOverride: price ? parseFloat(price.replace(/[^0-9.]/g,'')) : null,
           depositPct: parseFloat(document.getElementById('pdDeposit').value) || 20
         })
       });

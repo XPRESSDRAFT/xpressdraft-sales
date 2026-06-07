@@ -1,5 +1,5 @@
 // Auto-generated layout HTML — do not edit manually
-document.getElementById('appLayout').innerHTML = `<div class="wrap layout">
+document.getElementById('appLayout').innerHTML = `
 
 <div class="main-col">
 
@@ -318,4 +318,4 @@ document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay
 
     </div>
   </div>
-</div>`;
+`;

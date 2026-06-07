@@ -303,7 +303,12 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   if (!row) return res.status(404).json({ error: 'Client not found' });
 
   const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-  const rec = { ...JSON.parse(row.data), id: row.id, name: row.name, addr: JSON.parse(row.data).addr || '' };
+  const parsedData = JSON.parse(row.data);
+  console.log('Record keys:', Object.keys(parsedData));
+  console.log('fields keys:', parsedData.fields ? Object.keys(parsedData.fields).slice(0,10) : 'NO FIELDS');
+  console.log('brief_summary:', parsedData.fields ? parsedData.fields.brief_summary : 'N/A');
+  console.log('priceOverride received:', priceOverride, typeof priceOverride);
+  const rec = { ...parsedData, id: row.id, name: row.name, addr: parsedData.addr || '' };
 
   try {
     // Count existing proposals for this client for the proposal number
