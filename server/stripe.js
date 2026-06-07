@@ -2,7 +2,10 @@
 const Stripe = require('stripe');
 
 function getStripe() {
-  return Stripe(process.env.STRIPE_SECRET_KEY);
+  const key = process.env.STRIPE_SECRET_KEY;
+  console.log('Stripe key present:', !!key, 'starts with:', key ? key.slice(0,7) : 'MISSING');
+  if (!key) throw new Error('STRIPE_SECRET_KEY environment variable not set');
+  return new Stripe(key, { apiVersion: '2023-10-16' });
 }
 
 // Create a payment link for the deposit amount
