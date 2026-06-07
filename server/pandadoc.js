@@ -327,7 +327,12 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       }
     ],
     tokens: tokens,
-    fields: {},
+    fields: {
+      'price_ex_gst': { value: priceExGst.toFixed(2) },
+      'price_gst': { value: gst.toFixed(2) },
+      'price_total': { value: total.toFixed(2) },
+      'project_type': { value: mapProjectType(recFields) }
+    },
     metadata: {
       client_id: rec.id,
       template_type: templateKey
