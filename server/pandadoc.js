@@ -62,10 +62,48 @@ function proposalNumber(clientName, existingCount) {
 }
 
 
+
+// ── Map project type to formal proposal description ───────────────────────────
+function mapProjectType(f) {
+  const type = (f.p_type || '').toLowerCase();
+  const storey = (f.p_storey || '').toLowerCase();
+  const isDouble = storey.includes('2') || storey.includes('double');
+  const briefing = (f.brief_summary || '').toLowerCase();
+
+  if (type.includes('renovation') && (type.includes('extension') || type.includes('addition'))) {
+    return 'ALTERATIONS & ADDITIONS';
+  }
+  if (type.includes('renovation')) {
+    return 'PROPOSED ALTERATIONS';
+  }
+  if (type.includes('extension') || type.includes('addition')) {
+    return 'PROPOSED EXTENSION';
+  }
+  if (type.includes('new home') || type.includes('new_home')) {
+    return isDouble ? 'PROPOSED DOUBLE STOREY DWELLING' : 'PROPOSED SINGLE STOREY DWELLING';
+  }
+  if (type.includes('granny')) {
+    return 'PROPOSED SECONDARY DWELLING';
+  }
+  if (type.includes('as-constructed') || type.includes('as_constructed') || type.includes('as constructed')) {
+    // Extract building type from briefing
+    let buildingType = 'Dwelling';
+    if (briefing.includes('carport')) buildingType = 'Carport';
+    else if (briefing.includes('deck')) buildingType = 'Deck';
+    else if (briefing.includes('alfresco')) buildingType = 'Alfresco';
+    else if (briefing.includes('pool')) buildingType = 'Pool';
+    else if (briefing.includes('double storey') || isDouble) buildingType = 'Double Storey Dwelling';
+    else if (briefing.includes('single storey') || briefing.includes('dwelling')) buildingType = 'Single Storey Dwelling';
+    return 'AS CONSTRUCTED DRAWINGS — ' + buildingType;
+  }
+  return (f.p_type || '').toUpperCase();
+}
+
 // ── Auto-build scope of works text ───────────────────────────────────────────
 function buildScopeNotes(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
+  const addr = (f.addr || f.site_address || '').toLowerCase();
   const hasOriginalPlans = f.original_plans === 'Y';
   const beyondFootprint = f.beyond_footprint === 'Y';
   const isSloped = (f.terrain || '').toLowerCase().includes('slope');
@@ -75,37 +113,93 @@ function buildScopeNotes(f) {
   const isGrannyFlat = type.includes('granny');
   const isAsBuilt = type.includes('as-constructed') || type.includes('as built');
   const isDouble = storey.includes('2') || storey.includes('double');
+  const isNSW = addr.includes('nsw') || addr.includes('new south wales');
+  const isMultiUnit = type.includes('multi') || type.includes('townhouse') || type.includes('duplex');
 
-  const notes = [];
+  const conceptItems = [];
+  const workingItems = [];
 
-  if (!hasOriginalPlans && (isReno || isExtension)) {
-    notes.push('Site visit required — original plans not supplied');
-  }
-  if (beyondFootprint || isSloped) {
-    notes.push('Survey required — project extends beyond existing footprint and/or on sloping block');
+  // ── CONCEPT DRAWINGS ──
+  if (!hasOriginalPlans && !isNewHome && !isAsBuilt) {
+    conceptItems.push('Site visit to obtain building measurements');
   }
   if (isReno || isExtension) {
-    notes.push('Demolition plan included');
-    notes.push('Redraw of existing building included');
+    conceptItems.push('Redraw existing building (if applicable — partially or entirely, to Xpressdraft\u2019s discretion)');
   }
-  if (isDouble) {
-    notes.push('Double storey — joist layout plan included');
+  conceptItems.push('Selection of materials (Structure, Cladding and Roofing) (if applicable)');
+  if (beyondFootprint || isSloped) {
+    conceptItems.push('Survey required — project extends beyond existing footprint and/or on sloping block');
+  }
+  conceptItems.push('Floor Plan(s) to demonstrate layout proposal');
+  conceptItems.push('Elevations to demonstrate layout proposal');
+  conceptItems.push('External 3D views to assist design decisions');
+
+  // ── WORKING / CONSTRUCTION DRAWINGS — in prescribed order ──
+  workingItems.push('Proposed Design to be reviewed against Local Authority and Australian Standards');
+  workingItems.push('Site Plan in accordance with land survey (if applicable) drawings to be provided by the client');
+  if (isReno || isExtension) {
+    workingItems.push('Demolition plan(s)');
+  }
+  workingItems.push('Proposed floor plan(s)');
+  workingItems.push('External elevations');
+  if (isNewHome || isExtension) {
+    workingItems.push('Roof plan');
+  }
+  if (f.wet_area === 'Y') workingItems.push('Wet area internal elevations (if applicable — optional)');
+  if (f.kitchen_design === 'Y') workingItems.push('Kitchen design layout (if applicable — optional)');
+  if (f.joinery_details === 'Y') workingItems.push('Joinery details (if applicable — optional)');
+  if (isReno || isExtension || isNewHome || isGrannyFlat) {
+    workingItems.push('Electrical Plans — position of lighting, power points and data (proposed area)');
+  }
+  workingItems.push('Slab layout plan (if applicable)');
+  workingItems.push('Foundation plan (if applicable)');
+  workingItems.push('Joist layout plan (if applicable)');
+  workingItems.push('Section A-A, B-B (if applicable), C-C (if applicable), etc.');
+  if (isNewHome || isReno || isExtension) {
+    workingItems.push('Windows & Doors schedule');
+  }
+  workingItems.push('Connection detail drawings @ 1:20 or 1:10 or 1:5 scale (if applicable — to Xpressdraft’s discretion)');
+  if (isNSW || isMultiUnit) {
+    workingItems.push('Driveway section @ 1:20 or 1:10 or 1:5 scale');
   }
   if (isNewHome) {
-    notes.push('Project specification with description of materials and finishes included');
-    notes.push('Roof plan included');
-    notes.push('Windows & Doors schedule included');
+    workingItems.push('Project specification with description of materials and finishes');
   }
-  if (isAsBuilt) {
-    notes.push('As-constructed drawings — no design work included');
-    notes.push('Site visit to obtain building measurements included');
-  }
-  if (f.kitchen_design === 'Y') notes.push('Kitchen design layout included');
-  if (f.wet_area === 'Y') notes.push('Wet area internal elevations included');
-  if (f.joinery_details === 'Y') notes.push('Joinery details included');
-  if (f.pool) notes.push('Pool documentation included');
 
-  return notes.join('\n');
+  // Build output with bold titles
+  const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '\u2022 ' + i).join('\n');
+  const workingSection = 'CONSTRUCTION DRAWINGS\n' + workingItems.map(i => '\u2022 ' + i).join('\n');
+
+  return conceptSection + '\n\n' + workingSection;
+}
+
+
+// ── Map tool project type to formal proposal project type ─────────────────────
+function mapProjectType(f) {
+  const type = (f.p_type || '').toLowerCase();
+  const storey = (f.p_storey || '').toLowerCase();
+  const isDouble = storey.includes('2') || storey.includes('double');
+  const briefing = (f.brief_summary || '').toLowerCase();
+
+  if (type.includes('as-constructed') || type.includes('as constructed')) {
+    // Extract building type from briefing
+    let buildingType = 'dwelling';
+    if (briefing.includes('carport')) buildingType = 'carport';
+    else if (briefing.includes('deck')) buildingType = 'deck';
+    else if (briefing.includes('alfresco')) buildingType = 'alfresco';
+    else if (briefing.includes('pool')) buildingType = 'pool';
+    else if (briefing.includes('double storey') || isDouble) buildingType = 'double storey dwelling';
+    else if (briefing.includes('single storey')) buildingType = 'single storey dwelling';
+    return 'AS CONSTRUCTED DRAWINGS - ' + buildingType;
+  }
+  if (type.includes('renovation') && type.includes('extension')) return 'ALTERATIONS & ADDITIONS';
+  if (type.includes('renovation')) return 'PROPOSED ALTERATIONS';
+  if (type.includes('extension')) return 'PROPOSED EXTENSION';
+  if (type.includes('new home') || type.includes('new_home')) {
+    return isDouble ? 'PROPOSED DOUBLE STOREY DWELLING' : 'PROPOSED SINGLE STOREY DWELLING';
+  }
+  if (type.includes('granny')) return 'PROPOSED SECONDARY DWELLING';
+  return (f.p_type || 'PROPOSED WORKS').toUpperCase();
 }
 
 // ── Build footer text ─────────────────────────────────────────────────────────
@@ -161,7 +255,7 @@ function buildTokens(rec, repName, priceOverride, existingCount) {
     { name: 'expiry_date',        value: addDays(45) },
     { name: 'project_description',value: projectDescription },
     { name: 'scope_notes',         value: buildScopeNotes(f) },
-    { name: 'project_type',       value: f.p_type || '' },
+    { name: 'project_type',       value: mapProjectType(f) },
     { name: 'price_ex_gst',       value: fmt(priceExGst) },
     { name: 'price_gst',          value: fmt(gst) },
     { name: 'price_total',        value: fmt(total) },
@@ -172,9 +266,13 @@ function buildTokens(rec, repName, priceOverride, existingCount) {
     { name: 'opt_wet_area',       value: f.wet_area === 'Y' ? 'true' : 'false' },
     { name: 'opt_kitchen',        value: f.kitchen_design === 'Y' ? 'true' : 'false' },
     { name: 'opt_joinery',        value: f.joinery_details === 'Y' ? 'true' : 'false' },
-    { name: 'opt_pool',           value: (f.pool || '').length > 0 ? 'true' : 'false' },
+    { name: 'opt_pool',           value: (f.pool && f.pool !== 'N' && f.pool !== '') ? 'true' : 'false' },
     { name: 'opt_front_fence',    value: 'false' },
     { name: 'opt_bbq_area',       value: 'false' },
+    // Also send as checkbox_ prefixed names in case PandaDoc template uses those
+    { name: 'checkbox_wet_area',  value: f.wet_area === 'Y' ? 'true' : 'false' },
+    { name: 'checkbox_kitchen',   value: f.kitchen_design === 'Y' ? 'true' : 'false' },
+    { name: 'checkbox_joinery',   value: f.joinery_details === 'Y' ? 'true' : 'false' },
     { name: 'as_built_price',     value: fmt(priceExGst) },
     { name: 'as_built_gst',       value: fmt(gst) },
     { name: 'site_visit_ab_price',value: fmt(300) },
@@ -189,7 +287,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   const tokens = buildTokens(rec, repName, priceOverride, existingCount);
 
   const siteAddr = rec.addr || rec.fields?.addr || '';
-  const projType = (rec.fields?.p_type || 'Proposal');
+  const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
@@ -223,18 +321,20 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
 
   // Wait briefly then send for signature
   await new Promise(r => setTimeout(r, 2000));
-  await sendDocument(data.id);
+  await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
 
   return { documentId: data.id, templateType: templateKey };
 }
 
 // ── Send document for signing ─────────────────────────────────────────────────
-async function sendDocument(documentId) {
+async function sendDocument(documentId, projType, proposalNum, siteAddr) {
+  const msgType = projType || 'Xpress Draft';
+  const numSuffix = proposalNum ? `_${proposalNum}` : '';
   const res = await fetch(`${PANDADOC_API}/documents/${documentId}/send`, {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify({
-      message: 'Please review and sign your Xpress Draft proposal.',
+      message: `Please review and sign your ${msgType} proposal${numSuffix} — ${siteAddr}.`,
       silent: false
     })
   });
@@ -279,7 +379,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
   await new Promise(r => setTimeout(r, 2000));
-  await sendDocument(data.id);
+  await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
 
   return { documentId: data.id };
 }
