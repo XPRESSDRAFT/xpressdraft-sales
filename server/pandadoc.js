@@ -280,6 +280,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
     { name: 'price_gst_fmt',      value: fmt(gst) },
     { name: 'price_total_fmt',    value: fmt(total) },
     { name: 'deposit_20',         value: fmt(total * (depositPct / 100)) },
+    { name: 'deposit_amount_fmt',  value: fmt(total * (depositPct / 100)) },
+    { name: 'stripe_payment_link', value: stripeLink || '' },
     { name: 'deposit_40',         value: fmt(total * 0.40) },
     { name: 'payment_1_label',    value: 'Proposal approval (' + depositPct + '%)' },
     { name: 'payment_1_amount',   value: fmt(total * (depositPct / 100)) },
@@ -305,7 +307,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
 }
 
 // ── Create and send a proposal ────────────────────────────────────────────────
-async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct) {
+async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
   const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20);
@@ -333,7 +335,10 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       'price_ex_gst': { value: priceExGst.toFixed(2) },
       'price_gst': { value: gst.toFixed(2) },
       'price_total': { value: total.toFixed(2) },
-      'project_type': { value: mapProjectType(recFields) }
+      'project_type': { value: mapProjectType(recFields) },
+      'deposit_20': { value: (total * ((depositPct || 20) / 100)).toFixed(2) },
+      'deposit_amount': { value: (total * ((depositPct || 20) / 100)).toFixed(2) },
+      'stripe_payment_link': { value: stripeLink || '' }
     },
     metadata: {
       client_id: rec.id,

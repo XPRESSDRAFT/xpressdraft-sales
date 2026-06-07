@@ -293,6 +293,7 @@ app.post('/api/ai', requireAuth, async (req, res) => {
 // ── API: PandaDoc integration ─────────────────────────────────────────────────
 const pandadoc = require('./pandadoc');
 const email = require('./email');
+const stripeModule = require('./stripe');
 
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
@@ -321,7 +322,23 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     const rec = { ...parsedData, id: row.id, name: row.name, addr: parsedData.addr || '' };
     const existingProposals = await dbAll('SELECT id FROM proposals WHERE client_id = ?', [clientId]);
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20);
+    // Calculate deposit and create Stripe payment link
+    const priceNum = parseFloat(String(priceOverride || 0).replace(/[^0-9.]/g, '')) || 0;
+    const depositNum = parseFloat(depositPct || 20);
+    const totalIncGst = priceNum * 1.1;
+    const depositAmount = totalIncGst * (depositNum / 100);
+    
+    let stripeLink = '';
+    try {
+      const proposalNum = `${(rec.name || '').trim().split(' ').pop().slice(0,3).toUpperCase()}001`;
+      stripeLink = await stripeModule.createDepositPaymentLink(rec.name, rec.addr, depositAmount, proposalNum);
+      console.log('Stripe payment link created:', stripeLink);
+    } catch(stripeErr) {
+      console.error('Stripe error:', stripeErr.message);
+      // Continue without Stripe link rather than failing the whole proposal
+    }
+
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
   } catch (e) {
