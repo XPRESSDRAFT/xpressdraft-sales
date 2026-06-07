@@ -336,6 +336,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   };
 
   console.log('PandaDoc: creating document for template:', templateKey, templateId);
+  console.log('Tokens being sent:', JSON.stringify(tokens.filter(t => ['price_ex_gst','price_gst','price_total','project_type','project_description'].includes(t.name))));
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -395,6 +396,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   };
 
   console.log('PandaDoc: creating document for template:', templateKey, templateId);
+  console.log('Tokens being sent:', JSON.stringify(tokens.filter(t => ['price_ex_gst','price_gst','price_total','project_type','project_description'].includes(t.name))));
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
