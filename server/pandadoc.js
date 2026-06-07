@@ -314,6 +314,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
   const recFields = rec.fields || {};
   const priceExGst = parseFloat(String(priceOverride || recFields.quoted_price || 0).replace(/[^0-9.]/g, '')) || 0;
+  const gst = priceExGst * 0.1;
+  const total = priceExGst + gst;
   const briefingText = (recFields.brief_summary || '').trim();
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
