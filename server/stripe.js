@@ -15,10 +15,9 @@ async function createDepositPaymentLink(clientName, siteAddr, depositAmount, pro
   // Create a price object for this specific amount
   const price = await stripe.prices.create({
     currency: 'aud',
-    unit_amount: Math.round(depositAmount * 100), // Stripe uses cents
+    unit_amount: Math.round(depositAmount * 100),
     product_data: {
-      name: `Deposit — ${proposalNumber || 'Xpress Draft Proposal'}`,
-      description: `Project deposit for ${clientName} — ${siteAddr}`,
+      name: `Deposit — ${proposalNumber || 'Xpress Draft Proposal'} — ${clientName}`,
     },
   });
 
