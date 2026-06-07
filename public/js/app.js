@@ -370,9 +370,12 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       // Pre-fill email from contact field if it contains an email address
       var emailVal = document.getElementById('cEmail') ? document.getElementById('cEmail').value.trim() : (d.client_email || '');
       document.getElementById('pdEmail').value = emailVal;
-      // Pre-fill price from live calculator
+      // Pre-fill price from live calculator or saved record
       var priceEl = document.getElementById('pfProposal');
       var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.]/g,'') : '';
+      if (!priceRaw || priceRaw === '') {
+        priceRaw = d.quoted_price || d.fields && d.fields.quoted_price || '';
+      }
       document.getElementById('pdPrice').value = priceRaw || '';
       document.getElementById('pdStatus').textContent = '';
       document.getElementById('pdOverlay').style.display = 'flex';
