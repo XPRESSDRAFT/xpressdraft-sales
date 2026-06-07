@@ -302,6 +302,9 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
 
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
+  const recFields = rec.fields || {};
+  const priceExGst = parseFloat(String(priceOverride || recFields.quoted_price || 0).replace(/[^0-9.]/g, '')) || 0;
+  const briefingText = (recFields.brief_summary || '').trim();
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
@@ -327,7 +330,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         rows: [{
           options: { optional: false, optional_selected: true, qty_editable: false },
           data: {
-            name: mapProjectType(f),
+            name: mapProjectType(recFields),
             description: briefingText,
             price: priceExGst,
             qty: 1,
