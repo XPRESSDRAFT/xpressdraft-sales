@@ -296,7 +296,7 @@ const email = require('./email');
 
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
-  const { clientId, priceOverride, clientEmail } = req.body;
+  const { clientId, priceOverride, clientEmail, depositPct } = req.body;
   if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
   const row = await dbGet('SELECT * FROM clients WHERE id = ? AND user_id = ?', [clientId, req.session.userId]);
@@ -308,7 +308,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   try {
     // Count existing proposals for this client for the proposal number
     const existingProposals = await dbAll('SELECT id FROM proposals WHERE client_id = ?', [clientId]);
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length);
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20);
     // Save proposal record
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });

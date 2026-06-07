@@ -331,6 +331,8 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     + '<input id="pdEmail" type="email" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box" placeholder="client@email.com"></div>'
     + '<div style="margin-bottom:24px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Fee (ex GST) — edit to override</label>'
     + '<input id="pdPrice" type="text" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box" placeholder="e.g. 4200"></div>'
+    + '<div style="margin-bottom:24px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Deposit % (default 20% — edit to override)</label>'
+    + '<input id="pdDeposit" type="number" min="1" max="100" value="20" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box"></div>'
     + '<div style="display:flex;gap:10px">'
     + '<button id="pdSend" style="flex:1;font-family:inherit;font-size:14px;font-weight:700;background:#EA672F;color:#fff;border:none;border-radius:10px;padding:13px;cursor:pointer">Send Proposal</button>'
     + '<button id="pdCancel" style="font-family:inherit;font-size:14px;font-weight:600;background:transparent;border:1.5px solid #e0d9d5;color:#2A2B29;border-radius:10px;padding:13px 20px;cursor:pointer">Cancel</button>'
@@ -405,7 +407,8 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         body: JSON.stringify({
           clientId: state.editingId,
           clientEmail: email,
-          priceOverride: price || null
+          priceOverride: price || null,
+          depositPct: parseFloat(document.getElementById('pdDeposit').value) || 20
         })
       });
       var result = await resp.json();

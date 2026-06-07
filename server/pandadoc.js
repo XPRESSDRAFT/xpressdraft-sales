@@ -120,6 +120,7 @@ function buildScopeNotes(f) {
   const workingItems = [];
 
   // ── CONCEPT DRAWINGS ──
+  conceptItems.push('Proposed Design to be reviewed against Local Codes & Council Regulations');
   if (!hasOriginalPlans && !isNewHome && !isAsBuilt) {
     conceptItems.push('Site visit to obtain building measurements');
   }
@@ -167,8 +168,8 @@ function buildScopeNotes(f) {
   }
 
   // Build output with bold titles
-  const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '\u2022 ' + i).join('\n');
-  const workingSection = 'CONSTRUCTION DRAWINGS\n' + workingItems.map(i => '\u2022 ' + i).join('\n');
+  const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n');
+  const workingSection = 'CONSTRUCTION DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
 
   return conceptSection + '\n\n' + workingSection;
 }
@@ -207,7 +208,7 @@ function mapProjectType(f) {
 const FOOTER = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
 
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
-function buildTokens(rec, repName, priceOverride, existingCount) {
+function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
   const f = rec.fields || {};
   const priceExGst = parseFloat(priceOverride || f.quoted_price || 0);
   const gst = priceExGst * 0.1;
@@ -265,6 +266,14 @@ function buildTokens(rec, repName, priceOverride, existingCount) {
     { name: 'price_ex_gst',       value: fmt(priceExGst) },
     { name: 'price_gst',          value: fmt(gst) },
     { name: 'price_total',        value: fmt(total) },
+    { name: 'deposit_20',         value: fmt(total * (depositPct / 100)) },
+    { name: 'deposit_40',         value: fmt(total * 0.40) },
+    { name: 'payment_1_label',    value: 'Proposal approval (' + depositPct + '%)' },
+    { name: 'payment_1_amount',   value: fmt(total * (depositPct / 100)) },
+    { name: 'payment_2_label',    value: 'Delivery of preliminary set (40%)' },
+    { name: 'payment_2_amount',   value: fmt(total * 0.40) },
+    { name: 'payment_3_label',    value: 'Delivery of final drawings (40%)' },
+    { name: 'payment_3_amount',   value: fmt(total * 0.40) },
     { name: 'site_visit_include', value: (!hasOriginalPlans && siteVisitPrice > 0) ? 'YES' : 'NO' },
     { name: 'site_visit_type',    value: siteVisitType },
     { name: 'site_visit_price',   value: fmt(siteVisitPrice) },
@@ -287,10 +296,10 @@ function buildTokens(rec, repName, priceOverride, existingCount) {
 }
 
 // ── Create and send a proposal ────────────────────────────────────────────────
-async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount) {
+async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
-  const tokens = buildTokens(rec, repName, priceOverride, existingCount);
+  const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20);
 
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
