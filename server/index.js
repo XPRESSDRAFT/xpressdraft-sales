@@ -306,7 +306,9 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   const rec = { ...JSON.parse(row.data), id: row.id, name: row.name, addr: JSON.parse(row.data).addr || '' };
 
   try {
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride);
+    // Count existing proposals for this client for the proposal number
+    const existingProposals = await dbAll('SELECT id FROM proposals WHERE client_id = ?', [clientId]);
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length);
     // Save proposal record
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });

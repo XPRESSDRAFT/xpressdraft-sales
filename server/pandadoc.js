@@ -53,18 +53,66 @@ function addDays(days) {
 }
 
 // ── Generate proposal number ──────────────────────────────────────────────────
-function proposalNumber() {
-  const now = new Date();
-  const yr = now.getFullYear();
-  const rand = String(Math.floor(Math.random() * 9000) + 1000);
-  return `XD-${yr}-${rand}`;
+function proposalNumber(clientName, existingCount) {
+  const nameParts = (clientName || 'UNK').trim().split(/\s+/);
+  const lastName = nameParts[nameParts.length - 1] || 'UNK';
+  const prefix = lastName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X').padEnd(3, 'X');
+  const count = String((existingCount || 0) + 1).padStart(3, '0');
+  return `${prefix}${count}`;
+}
+
+
+// ── Auto-build scope of works text ───────────────────────────────────────────
+function buildScopeNotes(f) {
+  const type = (f.p_type || '').toLowerCase();
+  const storey = (f.p_storey || '').toLowerCase();
+  const hasOriginalPlans = f.original_plans === 'Y';
+  const beyondFootprint = f.beyond_footprint === 'Y';
+  const isSloped = (f.terrain || '').toLowerCase().includes('slope');
+  const isReno = type.includes('renov');
+  const isExtension = type.includes('extension') || type.includes('addition');
+  const isNewHome = type.includes('new home') || type.includes('new_home');
+  const isGrannyFlat = type.includes('granny');
+  const isAsBuilt = type.includes('as-constructed') || type.includes('as built');
+  const isDouble = storey.includes('2') || storey.includes('double');
+
+  const notes = [];
+
+  if (!hasOriginalPlans && (isReno || isExtension)) {
+    notes.push('Site visit required — original plans not supplied');
+  }
+  if (beyondFootprint || isSloped) {
+    notes.push('Survey required — project extends beyond existing footprint and/or on sloping block');
+  }
+  if (isReno || isExtension) {
+    notes.push('Demolition plan included');
+    notes.push('Redraw of existing building included');
+  }
+  if (isDouble) {
+    notes.push('Double storey — joist layout plan included');
+  }
+  if (isNewHome) {
+    notes.push('Project specification with description of materials and finishes included');
+    notes.push('Roof plan included');
+    notes.push('Windows & Doors schedule included');
+  }
+  if (isAsBuilt) {
+    notes.push('As-constructed drawings — no design work included');
+    notes.push('Site visit to obtain building measurements included');
+  }
+  if (f.kitchen_design === 'Y') notes.push('Kitchen design layout included');
+  if (f.wet_area === 'Y') notes.push('Wet area internal elevations included');
+  if (f.joinery_details === 'Y') notes.push('Joinery details included');
+  if (f.pool) notes.push('Pool documentation included');
+
+  return notes.join('\n');
 }
 
 // ── Build footer text ─────────────────────────────────────────────────────────
 const FOOTER = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
 
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
-function buildTokens(rec, repName, priceOverride) {
+function buildTokens(rec, repName, priceOverride, existingCount) {
   const f = rec.fields || {};
   const priceExGst = parseFloat(priceOverride || f.quoted_price || 0);
   const gst = priceExGst * 0.1;
@@ -96,16 +144,23 @@ function buildTokens(rec, repName, priceOverride) {
   const briefing = (f.brief_summary || '').trim();
   const projectDescription = briefing + FOOTER;
 
+  // Split contact into phone and email
+  const contactVal = rec.contact || '';
+  const clientEmail = contactVal.includes('@') ? contactVal : (f.client_email || '');
+  const clientPhone = !contactVal.includes('@') ? contactVal : (f.client_phone || '');
+
   return [
-    { name: 'proposal_number',    value: proposalNumber() },
+    { name: 'proposal_number',    value: proposalNumber(rec.name, existingCount) },
     { name: 'client_full_name',   value: rec.name || '' },
-    { name: 'client_phone',       value: rec.contact || '' },
-    { name: 'client_email',       value: rec.contact || '' },
+    { name: 'client_phone',       value: clientPhone },
+    { name: 'client_email',       value: clientEmail },
+    { name: 'site_address_label', value: 'Site Address' },
     { name: 'site_address',       value: rec.addr || '' },
     { name: 'cs_representative',  value: repName || '' },
     { name: 'proposal_date',      value: fmtDate() },
     { name: 'expiry_date',        value: addDays(45) },
     { name: 'project_description',value: projectDescription },
+    { name: 'scope_notes',         value: buildScopeNotes(f) },
     { name: 'project_type',       value: f.p_type || '' },
     { name: 'price_ex_gst',       value: fmt(priceExGst) },
     { name: 'price_gst',          value: fmt(gst) },
@@ -128,13 +183,15 @@ function buildTokens(rec, repName, priceOverride) {
 }
 
 // ── Create and send a proposal ────────────────────────────────────────────────
-async function createProposal(rec, repName, repEmail, clientEmail, priceOverride) {
+async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
-  const tokens = buildTokens(rec, repName, priceOverride);
+  const tokens = buildTokens(rec, repName, priceOverride, existingCount);
 
+  const siteAddr = rec.addr || rec.fields?.addr || '';
+  const projType = (rec.fields?.p_type || 'Proposal');
   const payload = {
-    name: `Xpress Draft Proposal — ${rec.name} — ${rec.addr || ''}`,
+    name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
     recipients: [
       {
