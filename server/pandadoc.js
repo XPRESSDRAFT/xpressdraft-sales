@@ -315,7 +315,16 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       }
     ],
     tokens: tokens,
-    fields: {},
+    fields: (function() {
+      var f2 = {};
+      var checkboxFields = ['opt_wet_area','opt_kitchen','opt_joinery','opt_pool','opt_front_fence','opt_bbq_area','checkbox_wet_area','checkbox_kitchen','checkbox_joinery'];
+      tokens.forEach(function(t) {
+        if (checkboxFields.indexOf(t.name) > -1) {
+          f2[t.name] = { value: t.value === 'true' };
+        }
+      });
+      return f2;
+    })(),
     metadata: {
       client_id: rec.id,
       template_type: templateKey
