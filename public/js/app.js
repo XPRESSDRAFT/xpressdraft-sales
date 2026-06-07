@@ -289,6 +289,19 @@ $('#propDownload').onclick = () => {
   a.click();
 };
 
+// ── Saved clients search ─────────────────────────────────────────────────────
+var savedSearchEl = document.getElementById('savedSearch');
+if (savedSearchEl) {
+  savedSearchEl.addEventListener('input', function() {
+    var q = this.value.trim().toLowerCase();
+    var rows = document.querySelectorAll('#savedList .saved-row');
+    rows.forEach(function(row) {
+      var text = row.textContent.toLowerCase();
+      row.style.display = !q || text.indexOf(q) > -1 ? '' : 'none';
+    });
+  });
+}
+
 // ── Web app init ──────────────────────────────────────────────────────────────
 fetch('/api/me').then(r=>r.json()).then(u=>{
   if(u.name) document.getElementById('whoLbl').textContent = u.name;
