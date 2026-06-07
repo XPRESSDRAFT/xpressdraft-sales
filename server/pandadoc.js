@@ -241,7 +241,14 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
   const siteVisitGst = siteVisitPrice * 0.1;
 
   const briefing = (f.brief_summary || '').trim();
-  const projectDescription = briefing + FOOTER;
+  // Add selected optional services to briefing
+  const optionals = [];
+  if (f.wet_area === 'Y') optionals.push('Wet area elevations');
+  if (f.kitchen_design === 'Y') optionals.push('Kitchen design');
+  if (f.joinery_details === 'Y') optionals.push('Joinery details');
+  if (f.pool && f.pool !== 'N') optionals.push('Pool');
+  const optionalsText = optionals.length > 0 ? '\n\nOptional services included: ' + optionals.join(', ') + '.' : '';
+  const projectDescription = briefing + optionalsText + FOOTER;
 
   // Use dedicated email and phone fields if available, fall back to splitting contact
   let clientEmail = (rec.email || f.client_email || '').trim();
@@ -266,9 +273,12 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
     { name: 'project_description',value: projectDescription },
     { name: 'scope_notes',         value: buildScopeNotes(f) },
     { name: 'project_type',       value: mapProjectType(f) },
-    { name: 'price_ex_gst',       value: fmt(priceExGst) },
-    { name: 'price_gst',          value: fmt(gst) },
-    { name: 'price_total',        value: fmt(total) },
+    { name: 'price_ex_gst',       value: priceExGst.toFixed(2) },
+    { name: 'price_gst',          value: gst.toFixed(2) },
+    { name: 'price_total',        value: total.toFixed(2) },
+    { name: 'price_ex_gst_fmt',   value: fmt(priceExGst) },
+    { name: 'price_gst_fmt',      value: fmt(gst) },
+    { name: 'price_total_fmt',    value: fmt(total) },
     { name: 'deposit_20',         value: fmt(total * (depositPct / 100)) },
     { name: 'deposit_40',         value: fmt(total * 0.40) },
     { name: 'payment_1_label',    value: 'Proposal approval (' + depositPct + '%)' },
