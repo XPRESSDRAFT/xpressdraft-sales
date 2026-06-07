@@ -208,7 +208,7 @@ function mapProjectType(f) {
 const FOOTER = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
 
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
-function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
+function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
   const f = rec.fields || {};
   const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
   console.log('Price debug - priceOverride:', priceOverride, 'f.quoted_price:', f.quoted_price, 'rawPrice:', rawPrice);
@@ -310,7 +310,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
 async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
-  const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20);
+  const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '');
 
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
