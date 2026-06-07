@@ -278,16 +278,12 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct) {
     { name: 'site_visit_type',    value: siteVisitType },
     { name: 'site_visit_price',   value: fmt(siteVisitPrice) },
     { name: 'site_visit_gst',     value: fmt(siteVisitGst) },
-    { name: 'opt_wet_area',       value: f.wet_area === 'Y' ? 'true' : 'false' },
-    { name: 'opt_kitchen',        value: f.kitchen_design === 'Y' ? 'true' : 'false' },
-    { name: 'opt_joinery',        value: f.joinery_details === 'Y' ? 'true' : 'false' },
-    { name: 'opt_pool',           value: (f.pool && f.pool !== 'N' && f.pool !== '') ? 'true' : 'false' },
-    { name: 'opt_front_fence',    value: 'false' },
-    { name: 'opt_bbq_area',       value: 'false' },
-    // Also send as checkbox_ prefixed names in case PandaDoc template uses those
-    { name: 'checkbox_wet_area',  value: f.wet_area === 'Y' ? 'true' : 'false' },
-    { name: 'checkbox_kitchen',   value: f.kitchen_design === 'Y' ? 'true' : 'false' },
-    { name: 'checkbox_joinery',   value: f.joinery_details === 'Y' ? 'true' : 'false' },
+    { name: 'opt_wet_area',       value: f.wet_area === 'Y' ? '☑' : '☐' },
+    { name: 'opt_kitchen',        value: f.kitchen_design === 'Y' ? '☑' : '☐' },
+    { name: 'opt_joinery',        value: f.joinery_details === 'Y' ? '☑' : '☐' },
+    { name: 'opt_pool',           value: (f.pool && f.pool !== 'N' && f.pool !== '') ? '☑' : '☐' },
+    { name: 'opt_front_fence',    value: '☐' },
+    { name: 'opt_bbq_area',       value: '☐' },
     { name: 'as_built_price',     value: fmt(priceExGst) },
     { name: 'as_built_gst',       value: fmt(gst) },
     { name: 'site_visit_ab_price',value: fmt(300) },
@@ -315,16 +311,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       }
     ],
     tokens: tokens,
-    fields: (function() {
-      var f2 = {};
-      var checkboxFields = ['opt_wet_area','opt_kitchen','opt_joinery','opt_pool','opt_front_fence','opt_bbq_area','checkbox_wet_area','checkbox_kitchen','checkbox_joinery'];
-      tokens.forEach(function(t) {
-        if (checkboxFields.indexOf(t.name) > -1) {
-          f2[t.name] = { value: t.value === 'true' };
-        }
-      });
-      return f2;
-    })(),
+    fields: {},
     metadata: {
       client_id: rec.id,
       template_type: templateKey
