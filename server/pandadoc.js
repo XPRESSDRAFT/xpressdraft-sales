@@ -340,8 +340,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         rows: [{
           options: { optional: false, optional_selected: true, qty_editable: false },
           data: {
-            name: `Deposit ${depositPct || 20}% — ${mapProjectType(recFields)}`,
-            price: parseFloat((total * ((depositPct || 20) / 100)).toFixed(2)),
+            name: mapProjectType(recFields),
+            price: parseFloat(total.toFixed(2)),
             qty: 1,
             tax_first: { value: 0, type: 'percent' }
           }
