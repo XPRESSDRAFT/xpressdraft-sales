@@ -241,14 +241,25 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const siteVisitGst = siteVisitPrice * 0.1;
 
   const briefing = (f.brief_summary || '').trim();
-  // Add selected optional services to briefing
-  const optionals = [];
-  if (f.wet_area === 'Y') optionals.push('Wet area elevations');
-  if (f.kitchen_design === 'Y') optionals.push('Kitchen design');
-  if (f.joinery_details === 'Y') optionals.push('Joinery details');
-  if (f.pool && f.pool !== 'N') optionals.push('Pool');
-  const optionalsText = optionals.length > 0 ? '\n\nOptional services included: ' + optionals.join(', ') + '.' : '';
-  const projectDescription = briefing + optionalsText + FOOTER;
+
+  // Build project details summary from checkbox selections
+  const yesNo = (val) => val === 'Y' ? 'Yes' : 'No';
+  const details = [];
+  if (f.beyond) details.push('Going beyond existing footprint: ' + yesNo(f.beyond));
+  if (f.addition) details.push('Would the project have an addition: ' + yesNo(f.addition));
+  if (f.addition === 'Y' && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
+  if (f.addition === 'Y' && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
+  if (f.surveyplans) details.push('Survey plans available: ' + yesNo(f.surveyplans));
+  if (f.surveyreq) details.push('Survey required: ' + yesNo(f.surveyreq));
+  if (f.existstoreys) details.push('Existing number of storeys: ' + f.existstoreys);
+  if (f.propstoreys) details.push('Proposed number of storeys: ' + f.propstoreys);
+  if (f.kitchen) details.push('Kitchen design: ' + yesNo(f.kitchen));
+  if (f.joinery) details.push('Joinery details: ' + yesNo(f.joinery));
+  if (f.wetarea) details.push('Wet area elevations: ' + yesNo(f.wetarea));
+  if (f.plans) details.push('Original house plans: ' + yesNo(f.plans));
+
+  const detailsText = details.length > 0 ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
+  const projectDescription = briefing + detailsText + FOOTER;
 
   // Use dedicated email and phone fields if available, fall back to splitting contact
   let clientEmail = (rec.email || f.client_email || '').trim();
