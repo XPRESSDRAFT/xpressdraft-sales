@@ -348,15 +348,26 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       sections: [{
         title: 'Section name',
         default: true,
-        rows: [{
-          options: { optional: false, optional_selected: true, qty_editable: false },
-          data: {
-            name: mapProjectType(recFields),
-            price: parseFloat(priceExGst.toFixed(2)),
-            qty: 1,
-            tax_first: { value: 10, type: 'percent' }
+        rows: [
+          {
+            options: { optional: false, optional_selected: true, qty_editable: false },
+            data: {
+              name: mapProjectType(recFields),
+              price: parseFloat(priceExGst.toFixed(2)),
+              qty: 1,
+              tax_first: { value: 0, type: 'percent' }
+            }
+          },
+          {
+            options: { optional: false, optional_selected: true, qty_editable: false },
+            data: {
+              name: 'GST (10%)',
+              price: parseFloat(gst.toFixed(2)),
+              qty: 1,
+              tax_first: { value: 0, type: 'percent' }
+            }
           }
-        }]
+        ]
       }]
     }],
     fields: {
@@ -388,9 +399,20 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
-  // Wait briefly then send for signature
-  await new Promise(r => setTimeout(r, 2000));
-  await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
+  // Wait for document to be processed then send for signature
+  // PandaDoc processes asynchronously - retry a few times
+  let sent = false;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await new Promise(r => setTimeout(r, 3000 * attempt));
+    try {
+      await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
+      sent = true;
+      break;
+    } catch(e) {
+      console.log(`Send attempt ${attempt} failed:`, e.message.slice(0, 100));
+      if (attempt === 5) throw e;
+    }
+  }
 
   return { documentId: data.id, templateType: templateKey };
 }
