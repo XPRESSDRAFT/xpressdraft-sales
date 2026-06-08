@@ -396,7 +396,8 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.detail || 'Failed to send document');
+    console.error('Send document error:', JSON.stringify(err));
+    throw new Error(JSON.stringify(err.detail || err) || 'Failed to send document');
   }
 }
 
