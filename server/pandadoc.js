@@ -331,6 +331,21 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       }
     ],
     tokens: tokens,
+    pricing: {
+      tables: [{
+        name: 'Deposit Table',
+        data_merge: false,
+        sections: [{
+          rows: [{
+            data: {
+              'Name': `Deposit ${depositPct || 20}% — ${mapProjectType(recFields)}`,
+              'Price': parseFloat((total * ((depositPct || 20) / 100)).toFixed(2)),
+              'QTY': 1
+            }
+          }]
+        }]
+      }]
+    },
     fields: {
       'price_ex_gst': { value: priceExGst.toFixed(2) },
       'price_gst': { value: gst.toFixed(2) },
