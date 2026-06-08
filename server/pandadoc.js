@@ -341,9 +341,9 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
           options: { optional: false, optional_selected: true, qty_editable: false },
           data: {
             name: mapProjectType(recFields),
-            price: parseFloat(total.toFixed(2)),
+            price: parseFloat(priceExGst.toFixed(2)),
             qty: 1,
-            tax_first: { value: 0, type: 'percent' }
+            tax_first: { value: 10, type: 'percent' }
           }
         }]
       }]
