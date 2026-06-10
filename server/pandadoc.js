@@ -399,19 +399,28 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
-  // Wait for document to be processed then send for signature
-  // PandaDoc processes asynchronously - retry a few times
+  // Wait for document to finish processing then send for signature
+  // Poll document status until it's ready (not 'document.uploaded')
   let sent = false;
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    await new Promise(r => setTimeout(r, 1500 * attempt));
-    try {
-      await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
-      sent = true;
-      break;
-    } catch(e) {
-      console.log(`Send attempt ${attempt} failed:`, e.message.slice(0, 100));
-      if (attempt === 5) throw e;
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    await new Promise(r => setTimeout(r, 2000));
+    // Check document status
+    const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, {
+      headers: pandaHeaders()
+    });
+    const statusData = await statusRes.json();
+    console.log(`Document status attempt ${attempt}:`, statusData.status);
+    if (statusData.status === 'document.draft') {
+      try {
+        await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
+        sent = true;
+        break;
+      } catch(e) {
+        console.log('Send failed:', e.message.slice(0, 100));
+        if (attempt === 8) throw e;
+      }
     }
+    if (attempt === 8 && !sent) throw new Error('Document did not reach draft status after 8 attempts');
   }
 
   return { documentId: data.id, templateType: templateKey };
