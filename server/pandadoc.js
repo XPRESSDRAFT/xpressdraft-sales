@@ -468,8 +468,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     tags: ['xpressdraft', 'engagement']
   };
 
-  console.log('PandaDoc: creating document for template:', templateKey, templateId);
-  console.log('Tokens being sent:', JSON.stringify(tokens.filter(t => ['price_ex_gst','price_gst','price_total','project_type','project_description'].includes(t.name))));
+  console.log('PandaDoc: sending engagement document for:', rec.name);
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -477,11 +476,19 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   });
 
   const data = await res.json();
-  console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
+  console.log('Engagement doc response status:', res.status, JSON.stringify(data).slice(0, 200));
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
-  await new Promise(r => setTimeout(r, 2000));
-  await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
+  // Wait for processing then send
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
+    const statusData = await statusRes.json();
+    if (statusData.status === 'document.draft') {
+      await sendDocument(data.id, 'Pre-Consultation Form', '', '');
+      break;
+    }
+  }
 
   return { documentId: data.id };
 }
