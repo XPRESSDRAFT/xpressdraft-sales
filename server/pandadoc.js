@@ -403,7 +403,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   // PandaDoc processes asynchronously - retry a few times
   let sent = false;
   for (let attempt = 1; attempt <= 5; attempt++) {
-    await new Promise(r => setTimeout(r, 3000 * attempt));
+    await new Promise(r => setTimeout(r, 1500 * attempt));
     try {
       await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
       sent = true;
