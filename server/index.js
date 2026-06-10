@@ -349,10 +349,19 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 });
 
 // PandaDoc webhook — fires on signing and payment
+async function processPandaDocWebhook(body, label) {
+  // PandaDoc sends an array of events
+  const events = Array.isArray(body) ? body : [body];
+  console.log(`${label} received ${events.length} event(s)`);
+  for (const event of events) {
+    console.log(`${label} event:`, event.event, event.data?.status);
+    await pandadoc.handleWebhook(event, db, email);
+  }
+}
+
 app.post('/webhooks/pandadoc', async (req, res) => {
   try {
-    console.log('Webhook body:', JSON.stringify(req.body).slice(0, 200));
-    await pandadoc.handleWebhook(req.body, db, email);
+    await processPandaDocWebhook(req.body, 'Webhook');
     res.json({ ok: true });
   } catch (e) {
     console.error('Webhook error:', e.message);
@@ -360,11 +369,9 @@ app.post('/webhooks/pandadoc', async (req, res) => {
   }
 });
 
-// Also handle payment webhook on separate path
 app.post('/webhooks/pandadoc/payment', async (req, res) => {
   try {
-    console.log('Payment webhook body:', JSON.stringify(req.body).slice(0, 200));
-    await pandadoc.handleWebhook(req.body, db, email);
+    await processPandaDocWebhook(req.body, 'Payment webhook');
     res.json({ ok: true });
   } catch (e) {
     console.error('Payment webhook error:', e.message);
