@@ -487,30 +487,66 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
 }
 
 // ── Webhook handler — called when client signs ────────────────────────────────
-async function handleWebhook(event, db) {
-  if (event.event !== 'document_state_changed') return;
-  if (event.data?.status !== 'document.completed') return;
+async function handleWebhook(event, db, emailModule) {
+  console.log('Webhook received:', event.event, event.data?.status);
 
   const meta = event.data?.metadata || {};
   if (meta.type === 'engagement') return; // don't chain engagement doc again
 
+  const isCompleted = event.event === 'document_state_changed' && event.data?.status === 'document.completed';
+  const isPaid = event.event === 'document_state_changed' && event.data?.status === 'document.paid';
+  const isPaymentCompleted = event.event === 'document_payment_completed';
+
+  if (!isCompleted && !isPaid && !isPaymentCompleted) return;
+
   const clientId = meta.client_id;
-  if (!clientId) return;
+  if (!clientId) {
+    console.log('Webhook: no client_id in metadata');
+    return;
+  }
 
   // Look up client record
   const row = await new Promise((res, rej) => db.get('SELECT * FROM clients WHERE id = ?', [clientId], (e, r) => e ? rej(e) : res(r)));
-  if (!row) return;
+  if (!row) { console.log('Webhook: client not found:', clientId); return; }
 
   const rec = { ...JSON.parse(row.data), id: row.id };
-
-  // Look up the rep who saved this client
   const user = await new Promise((res, rej) => db.get('SELECT * FROM users WHERE id = ?', [row.user_id], (e, r) => e ? rej(e) : res(r)));
   if (!user) return;
 
   const clientData = rec.fields || {};
-  const clientEmail = clientData.client_email || rec.contact || '';
+  const clientEmail = rec.email || clientData.client_email || rec.contact || '';
+  const price = parseFloat(String(clientData.quoted_price || meta.price || 0).replace(/[^0-9.]/g,'')) || 0;
 
-  await sendEngagementDocument(rec, user.name, user.email, clientEmail);
+  console.log('Webhook: processing for client:', clientId, 'event:', event.event, 'status:', event.data?.status);
+
+  // Send engagement document
+  try {
+    await sendEngagementDocument(rec, user.name, user.email, clientEmail);
+    console.log('Engagement document sent to:', clientEmail);
+  } catch(e) {
+    console.error('Engagement doc error:', e.message);
+  }
+
+  // Send welcome email
+  if (emailModule) {
+    try {
+      if (price >= 5000) {
+        // Queue portal login task
+        await new Promise((res, rej) => db.run(
+          'INSERT INTO pending_portals (client_id, client_name, client_email, pandadoc_link) VALUES (?, ?, ?, ?)',
+          [clientId, row.name, clientEmail, null],
+          (e) => e ? rej(e) : res()
+        ));
+        await emailModule.sendSimpleWelcome(row.name, clientEmail, null);
+        console.log('Simple welcome email sent, portal task created');
+      } else {
+        await emailModule.sendSimpleWelcome(row.name, clientEmail, null);
+        console.log('Simple welcome email sent');
+      }
+    } catch(e) {
+      console.error('Welcome email error:', e.message);
+    }
+  }
 }
 
 module.exports = { createProposal, sendEngagementDocument, handleWebhook, selectTemplate, TEMPLATES };
