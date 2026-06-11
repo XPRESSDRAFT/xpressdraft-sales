@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 // ── Template IDs ──────────────────────────────────────────────────────────────
 const TEMPLATES = {
   standard:   'Yf4Q5mZvVahX7wYmxDXszN',
-  as_built:   'JsfBd8EHTSEmqWrmm5UuEX',
+  as_built:   'SFgVm38NQwNHKrmy4Lrd5P',
   da_only:    'T2BqSNxYUvX7TiS2ufwiMM',
   da_and_ba:  'n54Jbf9LVnRZgMMaKjX4Q8',
   engagement: 'xw3aCtXHEnHeyVJzNC5bVm'
@@ -205,7 +205,13 @@ function mapProjectType(f) {
 }
 
 // ── Build footer text ─────────────────────────────────────────────────────────
-const FOOTER = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
+const FOOTER_STANDARD = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
+
+const FOOTER_AS_BUILT = '\n\nStructural engineering drawings and certification may be required for portions of the proposed works; however, these are not included within our scope of works and are to be provided by others.';
+
+function getFooter(templateKey) {
+  return templateKey === 'as_built' ? FOOTER_AS_BUILT : FOOTER_STANDARD;
+}
 
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
 function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
@@ -241,6 +247,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const siteVisitGst = siteVisitPrice * 0.1;
 
   const briefing = (f.brief_summary || '').trim();
+  const templateKey2 = selectTemplate(f);
 
   // Build project details summary from checkbox selections
   const yesNo = (val) => val === 'Y' ? 'Yes' : 'No';
@@ -259,7 +266,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (f.plans) details.push('Original house plans: ' + yesNo(f.plans));
 
   const detailsText = details.length > 0 ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
-  const projectDescription = briefing + detailsText + FOOTER;
+  const projectDescription = briefing + detailsText + getFooter(templateKey2);
 
   // Use dedicated email and phone fields if available, fall back to splitting contact
   let clientEmail = (rec.email || f.client_email || '').trim();
