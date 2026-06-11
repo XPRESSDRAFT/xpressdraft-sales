@@ -359,7 +359,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
           {
             options: { optional: false, optional_selected: true, qty_editable: false },
             data: {
-              name: mapProjectType(recFields),
+              name: templateKey === 'as_built' ? 'AS CONSTRUCTED DRAWINGS & SITE VISIT' : mapProjectType(recFields),
               price: parseFloat(priceExGst.toFixed(2)),
               qty: 1,
               tax_first: { value: 0, type: 'percent' }
