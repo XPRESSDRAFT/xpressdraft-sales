@@ -434,7 +434,7 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify({
-      message: proposalNum ? `Please review and sign your ${msgType} proposal${numSuffix} — ${siteAddr}.` : `Please review and complete your ${msgType} Form.`,
+      message: proposalNum ? `Please review and sign your ${msgType} proposal${numSuffix} — ${siteAddr}.` : `We are very pleased that we will start on your project! Congratulations on choosing Xpressdraft!\n\nTo ensure we have all the necessary information about your project, please complete this Pre-Consultation Form to the best of your ability so we can start drafting based on your own words and design considerations.\n\nPlease don't feel any pressure to get us the "right answer". This form is only to help us get your instructions and stay aware of relevant matters.\n\nLooking forward to hearing from you so we can start the first sketches!\n\nKind regards,\nManagement Team\n1300 156 669\nXpressdraft — More than just plans\nwww.xpressdraft.com.au`,
       silent: false
     })
   });
@@ -494,7 +494,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
 }
 
 // ── Webhook handler — called when client signs ────────────────────────────────
-async function handleWebhook(event, db, emailModule) {
+async function handleWebhook(event, db, emailModule, mondayModule) {
   console.log('Webhook received:', event.event, event.data?.status);
 
   const meta = event.data?.metadata || {};
@@ -523,7 +523,16 @@ async function handleWebhook(event, db, emailModule) {
 
   const clientData = rec.fields || {};
   const clientEmail = rec.email || clientData.client_email || rec.contact || '';
-  const price = parseFloat(String(clientData.quoted_price || meta.price || 0).replace(/[^0-9.]/g,'')) || 0;
+  // Look up price from the proposal record or client data
+  const proposalRow = await new Promise((res, rej) => db.get(
+    'SELECT * FROM proposals WHERE client_id = ? ORDER BY created_at DESC LIMIT 1', 
+    [clientId], (e, r) => e ? rej(e) : res(r)
+  ));
+  // Price stored in metadata or client fields
+  const priceRaw = clientData.price_override || meta.price || meta.priceOverride || 
+                   clientData.quoted_price || clientData.price_ex_gst || rec.priceOverride || 0;
+  const price = parseFloat(String(priceRaw).replace(/[^0-9.]/g,'')) || 0;
+  console.log('Webhook price:', price, 'raw:', priceRaw);
 
   console.log('Webhook: processing for client:', clientId, 'event:', event.event, 'status:', event.data?.status);
 
@@ -535,24 +544,17 @@ async function handleWebhook(event, db, emailModule) {
     console.error('Engagement doc error:', e.message);
   }
 
-  // Send welcome email
-  if (emailModule) {
+  // For jobs $5K+ create Monday.com item in PENDING CLIENT LOGINS
+  if (mondayModule && price >= 5000) {
     try {
-      if (price >= 5000) {
-        // Queue portal login task
-        await new Promise((res, rej) => db.run(
-          'INSERT INTO pending_portals (client_id, client_name, client_email, pandadoc_link) VALUES (?, ?, ?, ?)',
-          [clientId, row.name, clientEmail, null],
-          (e) => e ? rej(e) : res()
-        ));
-        await emailModule.sendSimpleWelcome(row.name, clientEmail, null);
-        console.log('Simple welcome email sent, portal task created');
-      } else {
-        await emailModule.sendSimpleWelcome(row.name, clientEmail, null);
-        console.log('Simple welcome email sent');
-      }
+      const itemId = await mondayModule.createPendingLoginItem(
+        row.name, 
+        clientEmail, 
+        rec.addr || ''
+      );
+      console.log('Monday.com item created:', itemId, 'for:', row.name);
     } catch(e) {
-      console.error('Welcome email error:', e.message);
+      console.error('Monday.com error:', e.message);
     }
   }
 }

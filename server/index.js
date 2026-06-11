@@ -294,6 +294,7 @@ app.post('/api/ai', requireAuth, async (req, res) => {
 const pandadoc = require('./pandadoc');
 const email = require('./email');
 const stripeModule = require('./stripe');
+const monday = require('./monday');
 
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
@@ -338,6 +339,11 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
       // Continue without Stripe link rather than failing the whole proposal
     }
 
+    // Store price in client record for later webhook use
+    const updatedFields = { ...(parsedData.fields || {}), price_override: priceNum };
+    const updatedData = { ...parsedData, fields: updatedFields };
+    await dbRun('UPDATE clients SET data = ? WHERE id = ?', [JSON.stringify(updatedData), clientId]);
+
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
@@ -355,7 +361,7 @@ async function processPandaDocWebhook(body, label) {
   console.log(`${label} received ${events.length} event(s)`);
   for (const event of events) {
     console.log(`${label} event:`, event.event, event.data?.status);
-    await pandadoc.handleWebhook(event, db, email);
+    await pandadoc.handleWebhook(event, db, email, monday);
   }
 }
 
@@ -407,53 +413,7 @@ app.post('/api/pending-portals/:id/send', requireAuth, requireAdmin, async (req,
   }
 });
 
-// ── PandaDoc payment webhook — fires after deposit paid ───────────────────────
-app.post('/webhooks/pandadoc/payment', async (req, res) => {
-  try {
-    const event = req.body;
-    // Handle both payment completion events
-    const isPaid = event.event === 'document_payment_completed' ||
-                   (event.event === 'document_state_changed' && event.data?.status === 'document.paid');
-    if (!isPaid) return res.json({ ok: true });
 
-    const meta = event.data?.metadata || {};
-    const clientId = meta.client_id;
-    if (!clientId) return res.json({ ok: true });
-
-    const row = await dbGet('SELECT * FROM clients WHERE id = ?', [clientId]);
-    if (!row) return res.json({ ok: true });
-
-    const rec = JSON.parse(row.data);
-    const clientName = row.name;
-    const clientEmail = rec.client_email || rec.contact || '';
-    const price = parseFloat(rec.quoted_price || rec.fields?.quoted_price || 0);
-
-    // Send engagement document via PandaDoc
-    const user = await dbGet('SELECT * FROM users WHERE id = ?', [row.user_id]);
-    let pandadocLink = null;
-    try {
-      const engResult = await pandadoc.sendEngagementDocument(rec, user?.name || '', user?.email || '', clientEmail);
-      pandadocLink = `https://app.pandadoc.com/s/${engResult.documentId}`;
-    } catch(e) {
-      console.error('Engagement doc error:', e.message);
-    }
-
-    // Send correct welcome email based on price
-    if (price >= 5000) {
-      // Queue portal login task for admin
-      await dbRun('INSERT INTO pending_portals (client_id, client_name, client_email, pandadoc_link) VALUES (?, ?, ?, ?)', [clientId, clientName, clientEmail, pandadocLink]);
-      // Also send simple welcome immediately so client isn't waiting
-      await email.sendSimpleWelcome(clientName, clientEmail, pandadocLink);
-    } else {
-      await email.sendSimpleWelcome(clientName, clientEmail, pandadocLink);
-    }
-
-    res.json({ ok: true });
-  } catch(e) {
-    console.error('Payment webhook error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
 
   // ── Start ───────────────────────────────────────────────────────────────────
   app.listen(PORT, () => {
