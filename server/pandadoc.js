@@ -434,7 +434,7 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify({
-      message: `Please review and sign your ${msgType} proposal${numSuffix} — ${siteAddr}.`,
+      message: proposalNum ? `Please review and sign your ${msgType} proposal${numSuffix} — ${siteAddr}.` : `Please review and complete your ${msgType} Form.`,
       silent: false
     })
   });
@@ -485,7 +485,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
     const statusData = await statusRes.json();
     if (statusData.status === 'document.draft') {
-      await sendDocument(data.id, 'Pre-Consultation Form', '', '');
+      await sendDocument(data.id, 'Pre-Consultation', '', '');
       break;
     }
   }
@@ -500,11 +500,12 @@ async function handleWebhook(event, db, emailModule) {
   const meta = event.data?.metadata || {};
   if (meta.type === 'engagement') return; // don't chain engagement doc again
 
-  const isCompleted = event.event === 'document_state_changed' && event.data?.status === 'document.completed';
+  // Only trigger on document.paid — this fires after both signing AND payment
+  // Ignore document.completed (signing only) to avoid sending before payment
   const isPaid = event.event === 'document_state_changed' && event.data?.status === 'document.paid';
   const isPaymentCompleted = event.event === 'document_payment_completed';
 
-  if (!isCompleted && !isPaid && !isPaymentCompleted) return;
+  if (!isPaid && !isPaymentCompleted) return;
 
   const clientId = meta.client_id;
   if (!clientId) {
