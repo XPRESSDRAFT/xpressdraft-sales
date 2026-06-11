@@ -169,7 +169,7 @@ function buildScopeNotes(f) {
 
   // Build output with bold titles
   const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n') + (surveyNote ? '\n' + surveyNote : '');
-  const workingSection = 'CONSTRUCTION DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
+  const workingSection = 'WORKING DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
 
   return conceptSection + '\n\n' + workingSection;
 }
