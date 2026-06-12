@@ -245,13 +245,16 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { active, password, name } = req.body;
+  const { active, password, name, phone } = req.body;
   const id = req.params.id;
   if (active !== undefined) {
     await dbRun('UPDATE users SET active = ? WHERE id = ?', [active ? 1 : 0, id]);
   }
   if (name) {
     await dbRun('UPDATE users SET name = ? WHERE id = ?', [name, id]);
+  }
+  if (phone !== undefined) {
+    await dbRun('UPDATE users SET phone = ? WHERE id = ?', [phone || '', id]);
   }
   if (password) {
     const hash = bcrypt.hashSync(password, 12);
