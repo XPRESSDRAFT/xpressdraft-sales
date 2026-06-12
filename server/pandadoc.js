@@ -5,8 +5,8 @@ const fetch = require('node-fetch');
 const TEMPLATES = {
   standard:   'Yf4Q5mZvVahX7wYmxDXszN',
   as_built:   'SFgVm38NQwNHKrmy4Lrd5P',
-  da_only:    'T2BqSNxYUvX7TiS2ufwiMM',
-  da_and_ba:  'n54Jbf9LVnRZgMMaKjX4Q8',
+  da_only:    'vXNcnrpiucDH8wUbk82UpX',
+  da_and_ba:  'ifdsd3t5tSw8UyFGrwnBRg',
   engagement: 'xw3aCtXHEnHeyVJzNC5bVm'
 };
 
