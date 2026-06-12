@@ -81,10 +81,10 @@ function recompute(){
   }
   const subtotal=base+add+pool+terrain+plans-ded;
   const ratio=1-(num(d.p_discount)/100);
-  // Add granny flat add-ons
+  // Add granny flat add-ons from additions dropdown
   let grannyAddon = 0;
-  if (d.granny_attached === 'Y') grannyAddon += 2900;
-  if (d.granny_detached === 'Y') grannyAddon += 2200;
+  if (d.p_add_mode === 'Granny Flat — Attached (add-on)') grannyAddon = 2900;
+  if (d.p_add_mode === 'Granny Flat — Detached (add-on)') grannyAddon = 2200;
   const proposal=subtotal*ratio + grannyAddon;
   $('#pfProposal').textContent=money(proposal)+' + GST';
   $('#pfBand').textContent=money(proposal-700)+' to '+money(proposal+700)+' + GST';
@@ -103,7 +103,7 @@ function recompute(){
   note.style.display='none';
 }
 // wire recompute to all pricing controls
-['p_storey','p_beds','p_type','p_pool','terrain','p_add_mode','p_add_an','p_add_au','p_add_dn','p_add_du','p_discount','joinery','kitchen','wetarea','plans','granny_attached','granny_detached'].forEach(k=>{
+['p_storey','p_beds','p_type','p_pool','terrain','p_add_mode','p_add_an','p_add_au','p_add_dn','p_add_du','p_discount','joinery','kitchen','wetarea','plans'].forEach(k=>{
   const el=document.querySelector('[data-f="'+k+'"]');if(!el)return;
   if(el.classList.contains('yn'))el.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTimeout(recompute,0)));
   else el.addEventListener('input',recompute);

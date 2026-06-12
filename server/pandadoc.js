@@ -267,8 +267,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (f.joinery) details.push('Joinery details: ' + yesNo(f.joinery));
   if (f.wetarea) details.push('Wet area elevations: ' + yesNo(f.wetarea));
   if (f.plans) details.push('Original house plans: ' + yesNo(f.plans));
-  if (f.granny_attached === 'Y') details.push('Granny Flat add-on — Attached: Yes (+$2,900)');
-  if (f.granny_detached === 'Y') details.push('Granny Flat add-on — Detached: Yes (+$2,200)');
+  if (f.p_add_mode === 'Granny Flat — Attached (add-on)') details.push('Addition: Granny Flat — Attached (add-on) (+$2,900)');
+  if (f.p_add_mode === 'Granny Flat — Detached (add-on)') details.push('Addition: Granny Flat — Detached (add-on) (+$2,200)');
 
   const detailsText = details.length > 0 ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
   const projectDescription = briefing + detailsText + getFooter(templateKey2);

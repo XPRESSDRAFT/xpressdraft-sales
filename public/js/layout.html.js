@@ -78,8 +78,10 @@ document.getElementById('appLayout').innerHTML = `
         <div class="field full"><label>Additions</label>
           <select data-f="p_add_mode">
             <option>None</option>
-            <option>On its own</option>
-            <option>To the project</option>
+            <option>On its own - Class 10</option>
+            <option>To the project - Class 10</option>
+            <option>Granny Flat — Attached (add-on)</option>
+            <option>Granny Flat — Detached (add-on)</option>
           </select>
         </div>
         <div class="add-qty" id="addQty" style="display:none;">
@@ -102,8 +104,7 @@ document.getElementById('appLayout').innerHTML = `
         <div class="field"><label>Kitchen design?</label><div class="yn" data-f="kitchen"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Joinery details?</label><div class="yn" data-f="joinery"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Wet area elevations?</label><div class="yn" data-f="wetarea"><button>Yes</button><button>No</button></div></div>
-        <div class="field"><label>Granny Flat add-on — Attached?</label><div class="yn" data-f="granny_attached"><button>Yes</button><button>No</button></div></div>
-        <div class="field"><label>Granny Flat add-on — Detached?</label><div class="yn" data-f="granny_detached"><button>Yes</button><button>No</button></div></div>
+
         <div class="field"><label>Original house plans?</label><div class="yn" data-f="plans"><button>Yes</button><button>No</button></div></div>
       </div>
     </div>
