@@ -190,6 +190,23 @@ async function loadPricing() {
   });
 }
 
+// ── Add new pricing item ─────────────────────────────────────────────────────
+async function addPricingItem() {
+  const keyEl = document.getElementById('newPriceKey');
+  const labelEl = document.getElementById('newPriceLabel');
+  const valueEl = document.getElementById('newPriceValue');
+  const key = keyEl.value.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const label = labelEl.value.trim();
+  const value = parseFloat(valueEl.value);
+  if (!key || !label || isNaN(value)) { toast('Please fill in all fields'); return; }
+  await api('POST', '/api/pricing', { key, label, value });
+  keyEl.value = ''; labelEl.value = ''; valueEl.value = '';
+  toast('Item added');
+  loadPricing();
+}
+
+document.getElementById('addPriceBtn')?.addEventListener('click', addPricingItem);
+
 // ── Logout ────────────────────────────────────────────────────────────────────
 document.getElementById('logoutBtn').addEventListener('click', async (e) => {
   e.preventDefault();

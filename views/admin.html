@@ -141,6 +141,26 @@
       </thead>
       <tbody id="pricingTbody"></tbody>
     </table>
+
+    <!-- Add new pricing item -->
+    <div style="margin-top:20px;padding:16px;background:#faf7f5;border:1px solid #e0d9d5;border-radius:10px">
+      <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Add New Pricing Item</div>
+      <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:10px;align-items:end">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Key</label>
+          <input id="newPriceKey" type="text" placeholder="e.g. base_deck" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Description</label>
+          <input id="newPriceLabel" type="text" placeholder="e.g. Deck — base fee" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Price (ex GST)</label>
+          <input id="newPriceValue" type="number" placeholder="0" min="0" step="50" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+        </div>
+        <button id="addPriceBtn" class="btn btn-orange" style="white-space:nowrap">Add Item</button>
+      </div>
+    </div>
   </div>
 </div>
 
