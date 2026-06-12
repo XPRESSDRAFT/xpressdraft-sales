@@ -85,6 +85,7 @@ async function loadUsers() {
     tr.innerHTML = `
       <td><strong>${esc(u.name)}</strong></td>
       <td>${esc(u.email)}</td>
+      <td>${esc(u.phone || '—')}</td>
       <td><span class="badge badge-${u.role}">${u.role}</span></td>
       <td><span class="badge ${u.active ? 'badge-active' : 'badge-inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
