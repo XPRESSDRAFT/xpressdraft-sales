@@ -192,7 +192,8 @@ app.get('/admin', requireAuth, requireAdmin, (req, res) => sendPage(res, 'admin.
 
 // ── API: current user info ────────────────────────────────────────────────────
 app.get('/api/me', requireAuth, async (req, res) => {
-  res.json({ name: req.session.name, role: req.session.role });
+  const me = await dbGet('SELECT id, email, name, phone, role FROM users WHERE id = ?', [req.session.userId]);
+  res.json(me || { name: req.session.name, role: req.session.role });
 });
 
 // ── API: client records ───────────────────────────────────────────────────────
@@ -304,7 +305,7 @@ const twilio = require('./twilio');
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
   try {
-    const { clientId, priceOverride, clientEmail, depositPct } = req.body;
+    const { clientId, priceOverride, clientEmail, clientPhone, depositPct } = req.body;
     console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct });
     if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
@@ -352,8 +353,8 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     // Send SMS notification to client
     console.log('SMS: attempting to send, phone:', rec.phone || parsedData.phone || 'NONE', 'TWILIO_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
     try {
-      const clientPhone = rec.phone || parsedData.phone || '';
-      const smsResult = await twilio.sendProposalSMS(rec.name, clientPhone, rec.addr, user.name, user.phone || '');
+      const smsPhone = clientPhone || rec.phone || parsedData.phone || '';
+      const smsResult = await twilio.sendProposalSMS(rec.name, smsPhone, rec.addr, user.name, user.phone || '');
       console.log('SMS result:', smsResult);
     } catch(smsErr) {
       console.error('SMS error:', smsErr.message);

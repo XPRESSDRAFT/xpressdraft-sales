@@ -325,8 +325,12 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     + '<p style="font-size:13px;color:#888;margin:0 0 24px">Review details before sending to the client for signing.</p>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client</label>'
     + '<div id="pdClientName" style="font-size:15px;font-weight:700;color:#2A2B29;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
+    + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client phone</label>'
+    + '<input id="pdClientPhone" type="text" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box" placeholder="04XX XXX XXX"></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Template selected</label>'
     + '<div id="pdTemplate" style="font-size:14px;font-weight:700;color:#EA672F;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
+    + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">CS Representative</label>'
+    + '<div id="pdRepPhone" style="font-size:14px;color:#2A2B29;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client email</label>'
     + '<input id="pdEmail" type="email" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box" placeholder="client@email.com"></div>'
     + '<div style="margin-bottom:24px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Fee (ex GST) — edit to override</label>'
@@ -366,7 +370,16 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       var d = gather();
       var tmplKey = selectTemplate(d);
       document.getElementById('pdTemplate').textContent = TEMPLATE_LABELS[tmplKey] || tmplKey;
+      // Show rep phone if available
+      var repPhoneEl = document.getElementById('pdRepPhone');
+      if (repPhoneEl) {
+        fetch('/api/me').then(r => r.json()).then(me => {
+          repPhoneEl.textContent = me.phone ? ': ' + me.name + ' — ' + me.phone : ': ' + me.name;
+        }).catch(() => {});
+      }
       document.getElementById('pdClientName').textContent = document.getElementById('cName') ? document.getElementById('cName').value.trim() : '';
+      var phoneEl = document.getElementById('cPhone');
+      document.getElementById('pdClientPhone').value = phoneEl ? phoneEl.value.trim() : '';
       // Pre-fill email from contact field if it contains an email address
       var emailVal = document.getElementById('cEmail') ? document.getElementById('cEmail').value.trim() : (d.client_email || '');
       document.getElementById('pdEmail').value = emailVal;
@@ -411,6 +424,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         body: JSON.stringify({
           clientId: state.editingId,
           clientEmail: email,
+          clientPhone: document.getElementById('pdClientPhone').value.trim(),
           priceOverride: price ? parseFloat(price.replace(/[^0-9.]/g,'')) : null,
           depositPct: parseFloat(document.getElementById('pdDeposit').value) || 20
         })
