@@ -92,6 +92,9 @@ function dbExec(sql) {
   );
 `);
 
+// ── Migration: add phone column if not exists ────────────────────────────────
+await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
+
 // ── Seed admin account on first run ──────────────────────────────────────────
 const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
 if (!adminExists && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
