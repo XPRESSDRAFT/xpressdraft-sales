@@ -95,6 +95,24 @@ function dbExec(sql) {
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
 
+// ── Migration: upsert all pricing items ──────────────────────────────────────
+const pricingUpdates = [
+  ['base_renovation',                 'Renovations — base fee',               2200],
+  ['base_extension',                  'Extensions — base fee',                2800],
+  ['base_new_home',                   'New Home — base fee',                  3200],
+  ['base_granny_attached_standalone', 'Granny Flat — Attached (standalone)',  3900],
+  ['base_granny_detached_standalone', 'Granny Flat — Detached (standalone)',  3600],
+  ['base_granny_attached_addon',      'Granny Flat — Attached (add-on)',      2900],
+  ['base_granny_detached_addon',      'Granny Flat — Detached (add-on)',      2200],
+  ['base_working_single',             'Working Drawings Only — Single Storey', 3900],
+  ['base_working_double',             'Working Drawings Only — Double Storey', 4900],
+  ['base_as_constructed',             'As-Constructed — base fee',            2700],
+];
+for (const [key, label, value] of pricingUpdates) {
+  await dbRun('INSERT OR REPLACE INTO pricing (key, label, value) VALUES (?, ?, ?)', [key, label, value]).catch(e => console.error('Pricing upsert error:', e.message));
+}
+console.log('Pricing migration complete');
+
 // ── Seed admin account on first run ──────────────────────────────────────────
 const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
 if (!adminExists && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
@@ -110,7 +128,12 @@ if (pricingCount.n === 0) {
     ['base_renovation',      'Renovations — base fee',           2200],
     ['base_extension',       'Extensions — base fee',             2800],
     ['base_new_home',        'New Home — base fee',               3200],
-    ['base_granny_flat',     'Granny Flat — base fee',            2400],
+    ['base_granny_attached_standalone', 'Granny Flat — Attached (standalone)', 3900],
+    ['base_granny_detached_standalone', 'Granny Flat — Detached (standalone)', 3600],
+    ['base_granny_attached_addon',      'Granny Flat — Attached (add-on)',     2900],
+    ['base_granny_detached_addon',      'Granny Flat — Detached (add-on)',     2200],
+    ['base_working_single',  'Working Drawings Only — Single Storey', 3900],
+    ['base_working_double',  'Working Drawings Only — Double Storey', 4900],
     ['per_storey',           'Per additional storey',              400],
     ['kitchen_design',       'Kitchen design & cabinetry',         600],
     ['wet_area_elevations',  'Wet area elevations',                300],

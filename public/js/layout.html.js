@@ -58,7 +58,9 @@ document.getElementById('appLayout').innerHTML = `
             <option>Extensions</option>
             <option>Additions</option>
             <option>New Homes</option>
-            <option>Granny Flats</option>
+            <option>Granny Flats — Attached</option>
+            <option>Granny Flats — Detached</option>
+            <option>Working Drawings Only</option>
             <option>As-Constructed</option>
           </select>
         </div>
@@ -100,6 +102,8 @@ document.getElementById('appLayout').innerHTML = `
         <div class="field"><label>Kitchen design?</label><div class="yn" data-f="kitchen"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Joinery details?</label><div class="yn" data-f="joinery"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Wet area elevations?</label><div class="yn" data-f="wetarea"><button>Yes</button><button>No</button></div></div>
+        <div class="field"><label>Granny Flat add-on — Attached?</label><div class="yn" data-f="granny_attached"><button>Yes</button><button>No</button></div></div>
+        <div class="field"><label>Granny Flat add-on — Detached?</label><div class="yn" data-f="granny_detached"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Original house plans?</label><div class="yn" data-f="plans"><button>Yes</button><button>No</button></div></div>
       </div>
     </div>
@@ -282,7 +286,9 @@ document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay
               <option>Extensions</option>
               <option>Additions</option>
               <option>New Homes</option>
-              <option>Granny Flats</option>
+              <option>Granny Flats — Attached</option>
+              <option>Granny Flats — Detached</option>
+              <option>Working Drawings Only</option>
               <option>As-Constructed</option>
             </select>
           </div>

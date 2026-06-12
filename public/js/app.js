@@ -41,8 +41,8 @@ $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop')
 
 /* ===== LIVE PRICE ESTIMATE (mirrors XPDT pricing spreadsheet) ===== */
 const RATES={
-  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Extensions':[2700,3200,3900],'New Homes':[3900,4900,5900],'Granny Flats':[2700,2700,2700],'As-Constructed':[2700,3200,3600]},
-  Double:{'Renovations':[4500,5400,5900],'Renovations + Extensions':[4900,5400,6400],'Extensions':[2700,3200,3900],'New Homes':[5500,5900,6900],'Granny Flats':[2700,2700,2700],'As-Constructed':[3200,3600,3900]}
+  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Extensions':[2700,3200,3900],'Additions':[2200,2700,3200],'New Homes':[3900,4900,5900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Working Drawings Only':[3900,3900,3900],'As-Constructed':[2700,3200,3600]},
+  Double:{'Renovations':[4500,5400,5900],'Renovations + Extensions':[4900,5400,6400],'Extensions':[2700,3200,3900],'Additions':[2700,3200,3600],'New Homes':[5500,5900,6900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Working Drawings Only':[4900,4900,4900],'As-Constructed':[3200,3600,3900]}
 };
 const POOL={'None':0,'Concrete (on its own)':1800,'Fibreglass':450,'Concrete add-on to project':1500};
 const ADD_OWN={an:1500,au:2200,dn:1200,du:1800};
@@ -81,7 +81,11 @@ function recompute(){
   }
   const subtotal=base+add+pool+terrain+plans-ded;
   const ratio=1-(num(d.p_discount)/100);
-  const proposal=subtotal*ratio;
+  // Add granny flat add-ons
+  let grannyAddon = 0;
+  if (d.granny_attached === 'Y') grannyAddon += 2900;
+  if (d.granny_detached === 'Y') grannyAddon += 2200;
+  const proposal=subtotal*ratio + grannyAddon;
   $('#pfProposal').textContent=money(proposal)+' + GST';
   $('#pfBand').textContent=money(proposal-700)+' to '+money(proposal+700)+' + GST';
   if(storey==='Double'){$('#pfAltWrap').style.display='block';$('#pfAlt').textContent=money(proposal*0.6)+' + GST';}
@@ -99,7 +103,7 @@ function recompute(){
   note.style.display='none';
 }
 // wire recompute to all pricing controls
-['p_storey','p_beds','p_type','p_pool','terrain','p_add_mode','p_add_an','p_add_au','p_add_dn','p_add_du','p_discount','joinery','kitchen','wetarea','plans'].forEach(k=>{
+['p_storey','p_beds','p_type','p_pool','terrain','p_add_mode','p_add_an','p_add_au','p_add_dn','p_add_du','p_discount','joinery','kitchen','wetarea','plans','granny_attached','granny_detached'].forEach(k=>{
   const el=document.querySelector('[data-f="'+k+'"]');if(!el)return;
   if(el.classList.contains('yn'))el.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTimeout(recompute,0)));
   else el.addEventListener('input',recompute);
