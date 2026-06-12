@@ -7,7 +7,7 @@ function getClient() {
 
 const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER || '+61489084239';
 
-async function sendProposalSMS(clientName, clientPhone, siteAddress, repName) {
+async function sendProposalSMS(clientName, clientPhone, siteAddress, repName, repPhone) {
   if (!clientPhone) {
     console.log('SMS: no phone number for client', clientName);
     return null;
@@ -18,7 +18,8 @@ async function sendProposalSMS(clientName, clientPhone, siteAddress, repName) {
   if (phone.startsWith('0')) phone = '+61' + phone.slice(1);
   if (!phone.startsWith('+')) phone = '+61' + phone;
 
-  const message = `Hi ${clientName.split(' ')[0]}, this message is to let you know that we have sent you the proposal for your project. Should you have any questions or require any clarification, please feel free to contact us on 1300 156 669. We would be more than happy to assist. Have a lovely day. Sincerely, The Xpressdraft Team. PLEASE DO NOT REPLY TO THIS MESSAGE.`;
+  const contactLine = repPhone ? `please contact ${repName} directly on ${repPhone}` : `please feel free to contact us`;
+  const message = `Hi ${clientName.split(' ')[0]}, this message is to let you know that we have sent you the proposal for your project. Should you have any questions or require any clarification, ${contactLine}. We would be more than happy to assist. Have a lovely day. Sincerely, The Xpressdraft Team. NO REPLY.`;
 
   try {
     const client = getClient();

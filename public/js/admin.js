@@ -89,6 +89,7 @@ async function loadUsers() {
       <td><span class="badge ${u.active ? 'badge-active' : 'badge-inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" data-rename="${u.id}" data-name="${esc(u.name)}">Rename</button>
+        <button class="btn btn-ghost btn-sm" data-phone="${u.id}" data-phoneval="${esc(u.phone||'')}">Phone</button>
         <button class="btn btn-ghost btn-sm" data-toggle="${u.id}" data-active="${u.active}">
           ${u.active ? 'Deactivate' : 'Activate'}
         </button>
@@ -96,6 +97,18 @@ async function loadUsers() {
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-phone]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.phone;
+      const current = btn.dataset.phoneval;
+      const newPhone = prompt('Enter phone number:', current);
+      if (newPhone === null) return;
+      await api('PATCH', '/api/users/' + id, { phone: newPhone.trim() });
+      toast('Phone updated');
+      loadUsers();
+    });
   });
 
   tbody.querySelectorAll('[data-rename]').forEach(btn => {

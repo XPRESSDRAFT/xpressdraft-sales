@@ -51,6 +51,7 @@ function dbExec(sql) {
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     name TEXT NOT NULL,
+    phone TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'user',
     active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
@@ -223,7 +224,7 @@ app.post('/api/pricing', requireAuth, requireAdmin, async (req, res) => {
 
 // ── API: user management (admin only) ────────────────────────────────────────
 app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const users = await dbAll('SELECT id, email, name, role, active, created_at FROM users ORDER BY created_at DESC', []);
+  const users = await dbAll('SELECT id, email, name, phone, role, active, created_at FROM users ORDER BY created_at DESC', []);
   res.json(users);
 });
 
@@ -349,7 +350,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     console.log('SMS: attempting to send, phone:', rec.phone || parsedData.phone || 'NONE', 'TWILIO_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
     try {
       const clientPhone = rec.phone || parsedData.phone || '';
-      const smsResult = await twilio.sendProposalSMS(rec.name, clientPhone, rec.addr, user.name);
+      const smsResult = await twilio.sendProposalSMS(rec.name, clientPhone, rec.addr, user.name, user.phone || '');
       console.log('SMS result:', smsResult);
     } catch(smsErr) {
       console.error('SMS error:', smsErr.message);
