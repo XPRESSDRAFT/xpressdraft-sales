@@ -348,6 +348,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         role: 'Client'
       }
     ],
+    cc: repEmail ? [{ email: repEmail }] : [],
     tokens: tokens,
     pricing_tables: [{
       name: 'Deposit Table',
@@ -465,6 +466,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
         role: 'Client'
       }
     ],
+    cc: repEmail ? [{ email: repEmail }] : [],
     tokens: [
       { name: 'client_full_name', value: rec.name || '' },
       { name: 'site_address',     value: rec.addr || '' },

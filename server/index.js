@@ -295,6 +295,7 @@ const pandadoc = require('./pandadoc');
 const email = require('./email');
 const stripeModule = require('./stripe');
 const monday = require('./monday');
+const twilio = require('./twilio');
 
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
@@ -343,6 +344,16 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     const updatedFields = { ...(parsedData.fields || {}), price_override: priceNum };
     const updatedData = { ...parsedData, fields: updatedFields };
     await dbRun('UPDATE clients SET data = ? WHERE id = ?', [JSON.stringify(updatedData), clientId]);
+
+    // Send SMS notification to client
+    console.log('SMS: attempting to send, phone:', rec.phone || parsedData.phone || 'NONE', 'TWILIO_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
+    try {
+      const clientPhone = rec.phone || parsedData.phone || '';
+      const smsResult = await twilio.sendProposalSMS(rec.name, clientPhone, rec.addr, user.name);
+      console.log('SMS result:', smsResult);
+    } catch(smsErr) {
+      console.error('SMS error:', smsErr.message);
+    }
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
