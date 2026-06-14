@@ -131,4 +131,29 @@ async function sendPortalWelcome(clientName, clientEmail, portalEmail, portalPas
   await sendEmail(clientEmail, subject, html);
 }
 
-module.exports = { sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };
+async function sendRepNotification(repName, repEmail, clientName, clientEmail, siteAddress) {
+  const transporter = createTransporter();
+  const subject = `Deal closed — ${clientName} — ${siteAddress}`;
+  const html = `
+    ${LOGO}
+    <div style="font-family:Arial,sans-serif;font-size:15px;color:#2A2B29;line-height:1.6">
+      <p>Hi ${repName.split(' ')[0]},</p>
+      <p>Great news! <strong>${clientName}</strong> has signed the proposal and paid the deposit for the following project:</p>
+      <p style="background:#faf7f5;border-left:4px solid #EA672F;padding:12px 16px;border-radius:4px">
+        <strong>Client:</strong> ${clientName}<br>
+        <strong>Email:</strong> ${clientEmail}<br>
+        <strong>Address:</strong> ${siteAddress}
+      </p>
+      <p>The pre-consultation form has been automatically sent to the client. You will receive their responses once they complete it.</p>
+      <p>Sincerely,<br>The Xpressdraft System</p>
+    </div>
+  `;
+  await transporter.sendMail({
+    from: FROM,
+    to: repEmail,
+    subject,
+    html
+  });
+}
+
+module.exports = { sendRepNotification, sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };

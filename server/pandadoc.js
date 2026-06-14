@@ -204,6 +204,8 @@ function mapProjectType(f) {
   if (type.includes('granny') && type.includes('detached')) return 'PROPOSED SECONDARY DWELLING (DETACHED)';
   if (type.includes('granny')) return 'PROPOSED SECONDARY DWELLING';
   if (type.includes('working drawings only')) return 'WORKING DRAWINGS ONLY';
+  if (type.includes('da only') || type.includes('da_only')) return 'PROPOSED DEVELOPMENT';
+  if (type.includes('da') && (type.includes('ba') || type.includes('+ ba'))) return 'PROPOSED DEVELOPMENT';
   return (f.p_type || 'PROPOSED WORKS').toUpperCase();
 }
 
@@ -269,6 +271,10 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (f.plans) details.push('Original house plans: ' + yesNo(f.plans));
   if (f.p_add_mode === 'Granny Flat — Attached (add-on)') details.push('Addition: Granny Flat — Attached (add-on) (+$2,900)');
   if (f.p_add_mode === 'Granny Flat — Detached (add-on)') details.push('Addition: Granny Flat — Detached (add-on) (+$2,200)');
+  // DA type identification
+  const ptype = (f.p_type || '').toLowerCase();
+  if (ptype.includes('da only') || ptype.includes('da_only')) details.push('Application type: DA Only');
+  if (ptype.includes('da') && (ptype.includes('ba') || ptype.includes('+ ba'))) details.push('Application type: DA + BA');
 
   const detailsText = details.length > 0 ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
   const projectDescription = briefing + detailsText + getFooter(templateKey2);
@@ -353,7 +359,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         role: 'Client'
       }
     ],
-    cc: repEmail ? [{ email: repEmail }] : [],
+    // CC removed — rep notified via webhook on payment
     tokens: tokens,
     pricing_tables: [{
       name: 'Deposit Table',
@@ -471,7 +477,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
         role: 'Client'
       }
     ],
-    cc: repEmail ? [{ email: repEmail }] : [],
+    // CC removed — rep notified via webhook on payment
     tokens: [
       { name: 'client_full_name', value: rec.name || '' },
       { name: 'site_address',     value: rec.addr || '' },
@@ -549,6 +555,27 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
   console.log('Webhook price:', price, 'raw:', priceRaw);
 
   console.log('Webhook: processing for client:', clientId, 'event:', event.event, 'status:', event.data?.status);
+
+  // Notify the rep that the deal is closed
+  if (emailModule && user) {
+    try {
+      await emailModule.sendRepNotification(user.name, user.email, row.name, clientEmail, rec.addr || '');
+      console.log('Rep notification sent to:', user.email);
+    } catch(e) {
+      console.error('Rep notification error:', e.message);
+    }
+  }
+
+  // Send SMS to rep if they have a phone number
+  if (user && user.phone) {
+    try {
+      const twilio = require('./twilio');
+      await twilio.sendRepNotificationSMS(user.phone, row.name, rec.addr || '');
+      console.log('Rep SMS sent to:', user.phone);
+    } catch(e) {
+      console.error('Rep SMS error:', e.message);
+    }
+  }
 
   // Send engagement document
   try {
