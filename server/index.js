@@ -256,15 +256,15 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const { email, name, password, role } = req.body;
-  if (!email || !name || !password) return res.status(400).json({ error: 'Missing fields' });
+  const { email: userEmail, name, password, role } = req.body;
+  if (!userEmail || !name || !password) return res.status(400).json({ error: 'Missing fields' });
   try {
     const hash = bcrypt.hashSync(password, 12);
-    await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [email, hash, name, role || 'user']);
+    await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [userEmail, hash, name, role || 'user']);
     // Send welcome email with login details
     try {
-      await email.sendUserWelcome(name, email, password);
-      console.log('Welcome email sent to new user:', email);
+      await emailModule.sendUserWelcome(name, userEmail, password);
+      console.log('Welcome email sent to new user:', userEmail);
     } catch(e) {
       console.error('User welcome email error:', e.message);
     }
@@ -330,7 +330,7 @@ app.post('/api/ai', requireAuth, async (req, res) => {
 
 // ── API: PandaDoc integration ─────────────────────────────────────────────────
 const pandadoc = require('./pandadoc');
-const email = require('./email');
+const emailModule = require('./email');
 const stripeModule = require('./stripe');
 const monday = require('./monday');
 const twilio = require('./twilio');
@@ -410,7 +410,7 @@ async function processPandaDocWebhook(body, label) {
   console.log(`${label} received ${events.length} event(s)`);
   for (const event of events) {
     console.log(`${label} event:`, event.event, event.data?.status);
-    await pandadoc.handleWebhook(event, db, email, monday);
+    await pandadoc.handleWebhook(event, db, emailModule, monday);
   }
 }
 
@@ -454,7 +454,7 @@ app.post('/api/pending-portals/:id/send', requireAuth, requireAdmin, async (req,
   const row = await dbGet('SELECT * FROM pending_portals WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Not found' });
   try {
-    await email.sendPortalWelcome(row.client_name, row.client_email, portalEmail, portalPassword, row.pandadoc_link);
+    await emailModule.sendPortalWelcome(row.client_name, row.client_email, portalEmail, portalPassword, row.pandadoc_link);
     await dbRun('UPDATE pending_portals SET sent = 1 WHERE id = ?', [row.id]);
     res.json({ ok: true });
   } catch(e) {
