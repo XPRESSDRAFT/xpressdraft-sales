@@ -1,6 +1,8 @@
 // email.js — Xpress Draft Email System
 const nodemailer = require('nodemailer');
 
+const FROM = '"Xpress Draft" <info@xpressdraft.com.au>';
+
 function getTransporter() {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',

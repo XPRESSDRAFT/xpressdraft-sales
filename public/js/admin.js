@@ -148,9 +148,8 @@ async function loadUsers() {
 document.getElementById('addUserBtn').addEventListener('click', async () => {
   const name = document.getElementById('newName').value.trim();
   const email = document.getElementById('newEmail').value.trim();
-  const password = document.getElementById('newPassword').value.trim();
   const role = document.getElementById('newRole').value;
-  if (!name || !email || !password) { toast('Fill in all fields'); return; }
+  if (!name || !email) { toast('Fill in all fields'); return; }
   const r = await api('POST', '/api/users', { name, email, password, role });
   if (r.error) { toast(r.error); return; }
   toast('User added');

@@ -1,5 +1,22 @@
 require('dotenv').config();
 const express = require('express');
+
+// ── Password generator ────────────────────────────────────────────────────────
+function generatePassword() {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const special = '!@#$%';
+  const all = upper + lower + digits + special;
+  let pwd = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+    special[Math.floor(Math.random() * special.length)],
+  ];
+  for (let i = 0; i < 6; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
+  return pwd.sort(() => Math.random() - 0.5).join('');
+}
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
@@ -256,8 +273,9 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const { email: userEmail, name, password, role } = req.body;
-  if (!userEmail || !name || !password) return res.status(400).json({ error: 'Missing fields' });
+  const { email: userEmail, name, role } = req.body;
+  if (!userEmail || !name) return res.status(400).json({ error: 'Missing fields' });
+  const password = generatePassword();
   try {
     const hash = bcrypt.hashSync(password, 12);
     await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [userEmail, hash, name, role || 'user']);
