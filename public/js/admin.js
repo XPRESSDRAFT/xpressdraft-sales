@@ -78,6 +78,7 @@ async function api(method, url, body) {
 // ── Users ─────────────────────────────────────────────────────────────────────
 async function loadUsers() {
   const users = await api('GET', '/api/users');
+  if (!Array.isArray(users)) { console.error('loadUsers error:', users); return; }
   const tbody = document.getElementById('usersTbody');
   tbody.innerHTML = '';
   users.forEach(u => {
