@@ -150,12 +150,11 @@ document.getElementById('addUserBtn').addEventListener('click', async () => {
   const email = document.getElementById('newEmail').value.trim();
   const role = document.getElementById('newRole').value;
   if (!name || !email) { toast('Fill in all fields'); return; }
-  const r = await api('POST', '/api/users', { name, email, password, role });
+  const r = await api('POST', '/api/users', { name, email, role });
   if (r.error) { toast(r.error); return; }
-  toast('User added');
+  toast('User added — login details sent by email');
   document.getElementById('newName').value = '';
   document.getElementById('newEmail').value = '';
-  document.getElementById('newPassword').value = '';
   loadUsers();
 });
 
