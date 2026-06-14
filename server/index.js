@@ -261,6 +261,13 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
   try {
     const hash = bcrypt.hashSync(password, 12);
     await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [email, hash, name, role || 'user']);
+    // Send welcome email with login details
+    try {
+      await email.sendUserWelcome(name, email, password);
+      console.log('Welcome email sent to new user:', email);
+    } catch(e) {
+      console.error('User welcome email error:', e.message);
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: 'Email already exists' });

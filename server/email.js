@@ -156,4 +156,26 @@ async function sendRepNotification(repName, repEmail, clientName, clientEmail, s
   });
 }
 
-module.exports = { sendRepNotification, sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };
+async function sendUserWelcome(repName, repEmail, password) {
+  const transporter = getTransporter();
+  const subject = 'Welcome to Xpress Draft — Your Login Details';
+  const body = `
+    <p>Hi ${repName.split(' ')[0]},</p>
+    <p>Welcome to the Xpress Draft Sales Tool! Your account has been created. Here are your login details:</p>
+    <p style="background:#faf7f5;border-left:4px solid #EA672F;padding:12px 16px;border-radius:4px;font-size:15px">
+      <strong>URL:</strong> <a href="https://xpressdraft-sales.onrender.com" style="color:#EA672F">https://xpressdraft-sales.onrender.com</a><br><br>
+      <strong>Email:</strong> ${repEmail}<br>
+      <strong>Password:</strong> ${password}
+    </p>
+    <p>Please log in and update your password at your earliest convenience.</p>
+    <p>Should you have any questions, please don't hesitate to contact your manager.</p>
+  `;
+  await transporter.sendMail({
+    from: FROM,
+    to: repEmail,
+    subject,
+    html: emailWrapper(body)
+  });
+}
+
+module.exports = { sendRepNotification, sendUserWelcome, sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };
