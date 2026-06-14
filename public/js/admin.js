@@ -155,7 +155,7 @@ document.getElementById('addUserBtn').addEventListener('click', async () => {
   toast('User added — login details sent by email');
   document.getElementById('newName').value = '';
   document.getElementById('newEmail').value = '';
-  loadUsers();
+  setTimeout(() => loadUsers(), 500);
 });
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
