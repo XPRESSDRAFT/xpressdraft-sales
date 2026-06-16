@@ -123,6 +123,10 @@ const pricingUpdates = [
   ['base_granny_detached_addon',      'Granny Flat — Detached (add-on)',      2200],
   ['base_working_single',             'Working Drawings Only — Single Storey', 3900],
   ['base_working_double',             'Working Drawings Only — Double Storey', 4900],
+  ['base_shed_standard',              'Shed — Standard',                       2900],
+  ['base_shed_mezzanine',             'Shed — With Mezzanine',                 3200],
+  ['base_shed_home',                  'Shed Home',                             3900],
+  ['base_shed_addon',                 'Shed (add-on)',                         2200],
   ['base_as_constructed',             'As-Constructed — base fee',            2700],
 ];
 for (const [key, label, value] of pricingUpdates) {

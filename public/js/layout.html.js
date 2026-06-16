@@ -60,6 +60,9 @@ document.getElementById('appLayout').innerHTML = `
             <option>New Homes</option>
             <option>Granny Flats — Attached</option>
             <option>Granny Flats — Detached</option>
+            <option>Shed — Standard</option>
+            <option>Shed — With Mezzanine</option>
+            <option>Shed Home</option>
             <option>Working Drawings Only</option>
             <option>As-Constructed</option>
           </select>
@@ -82,6 +85,7 @@ document.getElementById('appLayout').innerHTML = `
             <option>To the project - Class 10</option>
             <option>Granny Flat — Attached (add-on)</option>
             <option>Granny Flat — Detached (add-on)</option>
+            <option>Shed (add-on)</option>
           </select>
         </div>
         <div class="add-qty" id="addQty" style="display:none;">
@@ -289,6 +293,9 @@ document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay
               <option>New Homes</option>
               <option>Granny Flats — Attached</option>
               <option>Granny Flats — Detached</option>
+              <option>Shed — Standard</option>
+              <option>Shed — With Mezzanine</option>
+              <option>Shed Home</option>
               <option>Working Drawings Only</option>
               <option>As-Constructed</option>
             </select>

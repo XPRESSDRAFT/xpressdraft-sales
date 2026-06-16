@@ -41,8 +41,8 @@ $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop')
 
 /* ===== LIVE PRICE ESTIMATE (mirrors XPDT pricing spreadsheet) ===== */
 const RATES={
-  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Extensions':[2700,3200,3900],'Additions':[2200,2700,3200],'New Homes':[3900,4900,5900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Working Drawings Only':[3900,3900,3900],'As-Constructed':[2700,3200,3600]},
-  Double:{'Renovations':[4500,5400,5900],'Renovations + Extensions':[4900,5400,6400],'Extensions':[2700,3200,3900],'Additions':[2700,3200,3600],'New Homes':[5500,5900,6900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Working Drawings Only':[4900,4900,4900],'As-Constructed':[3200,3600,3900]}
+  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Extensions':[2700,3200,3900],'Additions':[2200,2700,3200],'New Homes':[3900,4900,5900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Shed — Standard':[2900,2900,2900],'Shed — With Mezzanine':[3200,3200,3200],'Shed Home':[3900,3900,3900],'Working Drawings Only':[3900,3900,3900],'As-Constructed':[2700,3200,3600]},
+  Double:{'Renovations':[4500,5400,5900],'Renovations + Extensions':[4900,5400,6400],'Extensions':[2700,3200,3900],'Additions':[2700,3200,3600],'New Homes':[5500,5900,6900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Shed — Standard':[2900,2900,2900],'Shed — With Mezzanine':[3200,3200,3200],'Shed Home':[3900,3900,3900],'Working Drawings Only':[4900,4900,4900],'As-Constructed':[3200,3600,3900]}
 };
 const POOL={'None':0,'Concrete (on its own)':1800,'Fibreglass':450,'Concrete add-on to project':1500};
 const ADD_OWN={an:1500,au:2200,dn:1200,du:1800};
@@ -60,8 +60,8 @@ function recompute(){
   if(storey&&type&&RATES[storey]&&RATES[storey][type]&&bedIdx!=null){base=RATES[storey][type][bedIdx];haveBase=true;}
   // additions
   let add=0;const mode=d.p_add_mode;
-  if(mode==='On its own'){add=num(d.p_add_an)*ADD_OWN.an+num(d.p_add_au)*ADD_OWN.au+num(d.p_add_dn)*ADD_OWN.dn+num(d.p_add_du)*ADD_OWN.du;}
-  else if(mode==='To the project'){add=num(d.p_add_an)*ADD_PROJ.an+num(d.p_add_au)*ADD_PROJ.au+num(d.p_add_dn)*ADD_PROJ.dn+num(d.p_add_du)*ADD_PROJ.du;}
+  if(mode==='On its own - Class 10'){add=num(d.p_add_an)*ADD_OWN.an+num(d.p_add_au)*ADD_OWN.au+num(d.p_add_dn)*ADD_OWN.dn+num(d.p_add_du)*ADD_OWN.du;}
+  else if(mode==='To the project - Class 10'){add=num(d.p_add_an)*ADD_PROJ.an+num(d.p_add_au)*ADD_PROJ.au+num(d.p_add_dn)*ADD_PROJ.dn+num(d.p_add_du)*ADD_PROJ.du;}
   const pool=POOL[d.p_pool]||0;
   const terrain=(d.terrain==='Slope')?400:0;
   const plans=(d.plans==='No')?400:0;
@@ -81,11 +81,12 @@ function recompute(){
   }
   const subtotal=base+add+pool+terrain+plans-ded;
   const ratio=1-(num(d.p_discount)/100);
-  // Add granny flat add-ons from additions dropdown
-  let grannyAddon = 0;
-  if (d.p_add_mode === 'Granny Flat — Attached (add-on)') grannyAddon = 2900;
-  if (d.p_add_mode === 'Granny Flat — Detached (add-on)') grannyAddon = 2200;
-  const proposal=subtotal*ratio + grannyAddon;
+  // Add-ons from additions dropdown
+  let addon = 0;
+  if (d.p_add_mode === 'Granny Flat — Attached (add-on)') addon = 2900;
+  if (d.p_add_mode === 'Granny Flat — Detached (add-on)') addon = 2200;
+  if (d.p_add_mode === 'Shed (add-on)') addon = 2200;
+  const proposal=subtotal*ratio + addon;
   $('#pfProposal').textContent=money(proposal)+' + GST';
   $('#pfBand').textContent=money(proposal-700)+' to '+money(proposal+700)+' + GST';
   if(storey==='Double'){$('#pfAltWrap').style.display='block';$('#pfAlt').textContent=money(proposal*0.6)+' + GST';}
