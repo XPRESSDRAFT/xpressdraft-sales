@@ -127,6 +127,12 @@ const pricingUpdates = [
   ['base_shed_mezzanine',             'Shed — With Mezzanine',                 3200],
   ['base_shed_home',                  'Shed Home',                             3900],
   ['base_shed_addon',                 'Shed (add-on)',                         2200],
+  ['base_reno_storey_2bed',           'Renovation + Storey Addition — 2 bed',  5900],
+  ['base_reno_storey_3bed',           'Renovation + Storey Addition — 3 bed',  6900],
+  ['base_reno_storey_4bed',           'Renovation + Storey Addition — 4 bed',  7900],
+  ['base_storey_addition_2bed',       'Storey Addition — 2 bed',               4900],
+  ['base_storey_addition_3bed',       'Storey Addition — 3 bed',               5900],
+  ['base_storey_addition_4bed',       'Storey Addition — 4 bed',               6900],
   ['base_as_constructed',             'As-Constructed — base fee',            2700],
 ];
 for (const [key, label, value] of pricingUpdates) {

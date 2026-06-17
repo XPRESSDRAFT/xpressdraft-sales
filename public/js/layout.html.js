@@ -55,6 +55,8 @@ document.getElementById('appLayout').innerHTML = `
             <option value="">— select —</option>
             <option>Renovations</option>
             <option>Renovations + Extensions</option>
+            <option>Renovation + Storey Addition</option>
+            <option>Storey Addition</option>
             <option>Extensions</option>
             <option>Additions</option>
             <option>New Homes</option>
@@ -288,6 +290,10 @@ document.getElementById('modalsContainer').innerHTML = `<div class="prop-overlay
               <option value="">— select —</option>
               <option>Renovations</option>
               <option>Renovations + Extensions</option>
+              <option>Renovation + Storey Addition</option>
+              <option>Storey Addition</option>
+            <option>Renovation + Storey Addition</option>
+            <option>Storey Addition</option>
               <option>Extensions</option>
               <option>Additions</option>
               <option>New Homes</option>

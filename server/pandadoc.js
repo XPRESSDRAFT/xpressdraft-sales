@@ -203,6 +203,8 @@ function mapProjectType(f) {
   if (type.includes('granny') && type.includes('attached')) return 'PROPOSED SECONDARY DWELLING (ATTACHED)';
   if (type.includes('granny') && type.includes('detached')) return 'PROPOSED SECONDARY DWELLING (DETACHED)';
   if (type.includes('granny')) return 'PROPOSED SECONDARY DWELLING';
+  if (type.includes('renovation') && type.includes('storey addition')) return 'PROPOSED RENOVATION & STOREY ADDITION';
+  if (type.includes('storey addition')) return 'PROPOSED STOREY ADDITION';
   if (type.includes('shed home')) return 'PROPOSED SHED HOME';
   if (type.includes('shed') && type.includes('mezzanine')) return 'PROPOSED SHED WITH MEZZANINE';
   if (type.includes('shed')) return 'PROPOSED SHED';

@@ -41,7 +41,7 @@ $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop')
 
 /* ===== LIVE PRICE ESTIMATE (mirrors XPDT pricing spreadsheet) ===== */
 const RATES={
-  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Extensions':[2700,3200,3900],'Additions':[2200,2700,3200],'New Homes':[3900,4900,5900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Shed — Standard':[2900,2900,2900],'Shed — With Mezzanine':[3200,3200,3200],'Shed Home':[3900,3900,3900],'Working Drawings Only':[3900,3900,3900],'As-Constructed':[2700,3200,3600]},
+  Single:{'Renovations':[3600,4200,4900],'Renovations + Extensions':[4200,4500,5500],'Renovation + Storey Addition':[5900,6900,7900],'Storey Addition':[4900,5900,6900],'Extensions':[2700,3200,3900],'Additions':[2200,2700,3200],'New Homes':[3900,4900,5900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Shed — Standard':[2900,2900,2900],'Shed — With Mezzanine':[3200,3200,3200],'Shed Home':[3900,3900,3900],'Working Drawings Only':[3900,3900,3900],'As-Constructed':[2700,3200,3600]},
   Double:{'Renovations':[4500,5400,5900],'Renovations + Extensions':[4900,5400,6400],'Extensions':[2700,3200,3900],'Additions':[2700,3200,3600],'New Homes':[5500,5900,6900],'Granny Flats — Attached':[3900,3900,3900],'Granny Flats — Detached':[3600,3600,3600],'Shed — Standard':[2900,2900,2900],'Shed — With Mezzanine':[3200,3200,3200],'Shed Home':[3900,3900,3900],'Working Drawings Only':[4900,4900,4900],'As-Constructed':[3200,3600,3900]}
 };
 const POOL={'None':0,'Concrete (on its own)':1800,'Fibreglass':450,'Concrete add-on to project':1500};
