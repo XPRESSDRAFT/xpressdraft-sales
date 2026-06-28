@@ -281,7 +281,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (ptype.includes('da only') || ptype.includes('da_only')) details.push('Application type: DA Only');
   if (ptype.includes('da') && (ptype.includes('ba') || ptype.includes('+ ba'))) details.push('Application type: DA + BA');
 
-  const detailsText = details.length > 0 ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
+  const detailsText = (details.length > 0 && templateKey2 !== 'as_built') ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
   const projectDescription = briefing + detailsText + getFooter(templateKey2);
 
   // Use dedicated email and phone fields if available, fall back to splitting contact
