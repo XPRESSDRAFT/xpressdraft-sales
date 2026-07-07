@@ -453,3 +453,153 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
   });
 
 })();
+
+
+// ── Monday.com CRM Leads ──────────────────────────────────────────────────────
+
+var leadsData = [];
+var activeLead = null;
+
+async function loadLeads() {
+  const container = document.getElementById('leadsContainer');
+  if (!container) return;
+  container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
+  try {
+    const leads = await apiFetch('/api/leads');
+    leadsData = leads;
+    renderLeads(leads);
+  } catch(e) {
+    container.innerHTML = '<p style="color:#c00;padding:20px">Error loading leads: ' + e.message + '</p>';
+  }
+}
+
+function renderLeads(leads) {
+  const container = document.getElementById('leadsContainer');
+  if (!container) return;
+
+  // Group by pipeline stage
+  const groups = {};
+  leads.forEach(l => {
+    const g = l.group_title || 'Other';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(l);
+  });
+
+  const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP CALLS', 'WAITING CLIENT', 'CLOSED DEALS', 'HELP REQUIRED'];
+  
+  let html = '';
+  groupOrder.forEach(gTitle => {
+    const items = groups[gTitle];
+    if (!items || items.length === 0) return;
+    html += `<div class="lead-group">
+      <div class="lead-group-title">${gTitle} <span class="lead-count">${items.length}</span></div>
+      ${items.map(l => `
+        <div class="lead-card" data-id="${l.monday_id}" onclick="openLead('${l.monday_id}')">
+          <div class="lead-name">${esc(l.name)}</div>
+          <div class="lead-meta">${esc(l.address || '')}${l.phone ? ' · ' + esc(l.phone) : ''}</div>
+          ${l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : ''}
+        </div>
+      `).join('')}
+    </div>`;
+  });
+
+  if (!html) html = '<p style="color:#888;padding:20px">No leads assigned to you yet.</p>';
+  container.innerHTML = html;
+}
+
+function openLead(mondayId) {
+  const lead = leadsData.find(l => l.monday_id === mondayId);
+  if (!lead) return;
+  activeLead = lead;
+
+  // Populate the lead detail panel
+  document.getElementById('leadDetailName').textContent = lead.name;
+  document.getElementById('leadDetailAddress').textContent = lead.address || '—';
+  document.getElementById('leadDetailPhone').textContent = lead.phone || '—';
+  document.getElementById('leadDetailEmail').textContent = lead.email || '—';
+  document.getElementById('leadDetailSource').textContent = lead.source || '—';
+  document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
+  document.getElementById('leadNotes').value = lead.enquiry || '';
+
+  // Pre-fill the client fields for proposal
+  if (document.getElementById('cName')) document.getElementById('cName').value = lead.name;
+  if (document.getElementById('cPhone')) document.getElementById('cPhone').value = lead.phone || '';
+  if (document.getElementById('cEmail')) document.getElementById('cEmail').value = lead.email || '';
+  if (document.getElementById('cAddr')) document.getElementById('cAddr').value = lead.address || '';
+
+  // Show detail panel, hide list
+  document.getElementById('leadsListPanel').style.display = 'none';
+  document.getElementById('leadDetailPanel').style.display = 'block';
+}
+
+function closeLeadDetail() {
+  activeLead = null;
+  document.getElementById('leadsListPanel').style.display = 'block';
+  document.getElementById('leadDetailPanel').style.display = 'none';
+}
+
+async function saveLeadNotes() {
+  if (!activeLead) return;
+  const notes = document.getElementById('leadNotes').value;
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
+    activeLead.enquiry = notes;
+    showToast('Notes saved to Monday.com');
+  } catch(e) {
+    showToast('Error saving notes: ' + e.message);
+  }
+}
+
+async function leadAction(action) {
+  if (!activeLead) return;
+  const notes = document.getElementById('leadNotes').value;
+  const labels = {
+    free_consultation: 'Move to Free Consultations',
+    proposal_requested: 'Request Proposal',
+    help_required: 'Move to Help Required',
+  };
+  if (!confirm('Are you sure? ' + (labels[action] || action))) return;
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action, notes });
+    showToast('Done — lead updated in Monday.com');
+    closeLeadDetail();
+    loadLeads();
+  } catch(e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function apiFetch(url, method, body) {
+  method = method || 'GET';
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(url, opts).then(r => r.json());
+}
+
+function openProposalFromLead() {
+  if (!activeLead) return;
+  // Store monday_id in state so it gets saved with the client record
+  state.mondayId = activeLead.monday_id;
+  // Close leads panel and open main app
+  document.getElementById('leadsPanel').style.display = 'none';
+  // Pre-fill client fields if not already done
+  if (document.getElementById('cName')) document.getElementById('cName').value = activeLead.name;
+  if (document.getElementById('cPhone')) document.getElementById('cPhone').value = activeLead.phone || '';
+  if (document.getElementById('cEmail')) document.getElementById('cEmail').value = activeLead.email || '';
+  if (document.getElementById('cAddr')) document.getElementById('cAddr').value = activeLead.address || '';
+  showToast('Lead loaded — complete the call details and send proposal');
+}
+
+// Load leads when leads tab is active
+document.addEventListener('DOMContentLoaded', function() {
+  const leadsTab = document.getElementById('leadsTabBtn');
+  if (leadsTab) {
+    leadsTab.addEventListener('click', function() {
+      loadLeads();
+    });
+  }
+});

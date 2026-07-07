@@ -213,12 +213,6 @@ document.getElementById('appLayout').innerHTML = `
   </div>
 </section>
 
-<section id="notes">
-  <div class="sec-label">Wrap-up</div>
-  <h2 class="sec-title">Call <strong>Notes</strong></h2>
-  <div class="sec-rule"></div>
-  <div class="capture"><label>Call notes / next step</label><textarea data-f="notes" style="min-height:100px;"></textarea></div>
-</section>
 
 <section id="clients">
   <div class="sec-label">Records</div>
@@ -259,6 +253,11 @@ document.getElementById('appLayout').innerHTML = `
         <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
         <div class="progress-txt"><b id="progCount">0</b> of 6 · <span id="progPct">0%</span> ready</div>
       </div>
+    </div>
+    <div class="journey-panel" style="margin-top:16px">
+      <div class="sec-label">Call Notes</div>
+      <h3 class="journey-title">Call <strong>Notes</strong></h3>
+      <textarea data-f="notes" style="width:100%;min-height:120px;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical;background:#fff;" placeholder="Next steps, follow up actions, client comments..."></textarea>
     </div>
   </div>
 </aside>

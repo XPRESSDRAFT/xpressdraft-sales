@@ -590,6 +590,27 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
     console.error('Engagement doc error:', e.message);
   }
 
+  // Move lead to CLOSED DEALS in Monday.com
+  const mondayId = rec.monday_id || (rec.fields && rec.fields.monday_id);
+  if (mondayModule && mondayId) {
+    try {
+      await mondayModule.moveToClosedDeals(mondayId);
+      console.log('Lead moved to CLOSED DEALS:', mondayId);
+    } catch(e) {
+      console.error('Monday closed deals error:', e.message);
+    }
+  }
+
+  // Click START PROJECT on 26_3 Proposal board
+  if (mondayModule) {
+    try {
+      await mondayModule.clickStartProject(row.name);
+      console.log('START PROJECT clicked for:', row.name);
+    } catch(e) {
+      console.error('START PROJECT error:', e.message);
+    }
+  }
+
   // For jobs $5K+ create Monday.com item in PENDING CLIENT LOGINS
   if (mondayModule && price >= 5000) {
     try {
