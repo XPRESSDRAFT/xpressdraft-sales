@@ -182,7 +182,13 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+let sessionStore;
+try {
+  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+} catch(e) {
+  console.warn('SQLiteStore failed, using memory store:', e.message);
+  sessionStore = undefined;
+}
 
 app.use(session({
   store: sessionStore,
