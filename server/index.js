@@ -22,7 +22,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fetch = require('node-fetch');
 const sqlite3 = require('sqlite3').verbose();
-const SQLiteStore = require('connect-sqlite3')(session);
+// Session store using main database
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -182,13 +182,15 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-let sessionStore;
-try {
-  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
-} catch(e) {
-  console.warn('SQLiteStore failed, using memory store:', e.message);
-  sessionStore = undefined;
-}
+// Custom session store using existing sqlite3 db
+const sessionStore = {
+  get: (sid, cb) => db.get('SELECT data FROM sessions WHERE sid = ? AND expires > ?', [sid, Date.now()], (e, r) => cb(e, r ? JSON.parse(r.data) : null)),
+  set: (sid, sess, cb) => { const expires = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 28800000; db.run('INSERT OR REPLACE INTO sessions (sid, data, expires) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), expires], cb); },
+  destroy: (sid, cb) => db.run('DELETE FROM sessions WHERE sid = ?', [sid], cb),
+  touch: (sid, sess, cb) => { const expires = Date.now() + 28800000; db.run('UPDATE sessions SET expires = ? WHERE sid = ?', [expires, sid], cb); }
+};
+// Create sessions table if not exists
+db.run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, data TEXT, expires INTEGER)');
 
 app.use(session({
   store: sessionStore,
