@@ -183,14 +183,18 @@ const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__di
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 // Custom session store using existing sqlite3 db
-const sessionStore = {
-  get: (sid, cb) => db.get('SELECT data FROM sessions WHERE sid = ? AND expires > ?', [sid, Date.now()], (e, r) => cb(e, r ? JSON.parse(r.data) : null)),
-  set: (sid, sess, cb) => { const expires = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 28800000; db.run('INSERT OR REPLACE INTO sessions (sid, data, expires) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), expires], cb); },
-  destroy: (sid, cb) => db.run('DELETE FROM sessions WHERE sid = ?', [sid], cb),
-  touch: (sid, sess, cb) => { const expires = Date.now() + 28800000; db.run('UPDATE sessions SET expires = ? WHERE sid = ?', [expires, sid], cb); }
-};
-// Create sessions table if not exists
-db.run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, data TEXT, expires INTEGER)');
+const EventEmitter = require('events');
+class SQLiteSessionStore extends session.Store {
+  constructor() {
+    super();
+    db.run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, data TEXT, expires INTEGER)');
+  }
+  get(sid, cb) { db.get('SELECT data FROM sessions WHERE sid = ? AND expires > ?', [sid, Date.now()], (e, r) => cb(e, r ? JSON.parse(r.data) : null)); }
+  set(sid, sess, cb) { const exp = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 28800000; db.run('INSERT OR REPLACE INTO sessions (sid, data, expires) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), exp], cb || (()=>{})); }
+  destroy(sid, cb) { db.run('DELETE FROM sessions WHERE sid = ?', [sid], cb || (()=>{})); }
+  touch(sid, sess, cb) { const exp = Date.now() + 28800000; db.run('UPDATE sessions SET expires = ? WHERE sid = ?', [exp, sid], cb || (()=>{})); }
+}
+const sessionStore = new SQLiteSessionStore();
 
 app.use(session({
   store: sessionStore,
