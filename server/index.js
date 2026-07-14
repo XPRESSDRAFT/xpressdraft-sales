@@ -184,7 +184,7 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 app.use(session({
   store: new SQLiteStore({ db: 'sessions.db', dir: dataDir }),
-  cookie: { maxAge: 86400000 }, // 24 hours
+  cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
   saveUninitialized: false,

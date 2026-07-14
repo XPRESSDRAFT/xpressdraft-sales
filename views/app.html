@@ -135,5 +135,10 @@
 
 <script src="/js/layout.html.js"></script>
 <script src="/js/app.js"></script>
+<!-- Session expiry banner -->
+<div id="sessionBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;padding:14px 20px;text-align:center;font-family:inherit;font-size:14px;font-weight:600;align-items:center;justify-content:center;gap:16px">
+  ⚠️ Your session has expired — any unsaved work may be lost. 
+  <button onclick="window.location.href='/login'" style="background:#fff;color:#c0392b;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer">Log in again</button>
+</div>
 </body>
 </html>
