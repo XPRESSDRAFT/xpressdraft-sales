@@ -23,6 +23,8 @@ const path = require('path');
 const fetch = require('node-fetch');
 const sqlite3 = require('sqlite3').verbose();
 const SQLiteStore = require('connect-sqlite3')(session);
+const BetterSQLiteStore = require('better-sqlite3-session-store')(session);
+const BetterSQLite = require('better-sqlite3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -182,13 +184,21 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// Session store with fallback
+// Session store - try better-sqlite3 first, fall back to connect-sqlite3
 let sessionStore;
 try {
-  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+  const betterDb = new BetterSQLite(path.join(dataDir, 'sessions.db'));
+  sessionStore = new BetterSQLiteStore({ client: betterDb, expired: { clear: true, intervalMs: 900000 }});
+  console.log('Using better-sqlite3 session store');
 } catch(e) {
-  console.error('SQLiteStore error:', e.message, '— using memory store');
-  sessionStore = undefined;
+  console.error('BetterSQLiteStore error:', e.message);
+  try {
+    sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+    console.log('Using connect-sqlite3 session store');
+  } catch(e2) {
+    console.error('SQLiteStore error:', e2.message, '— using memory store');
+    sessionStore = undefined;
+  }
 }
 
 app.use(session({
