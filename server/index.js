@@ -182,8 +182,17 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
+// Session store with fallback
+let sessionStore;
+try {
+  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+} catch(e) {
+  console.error('SQLiteStore error:', e.message, '— using memory store');
+  sessionStore = undefined;
+}
+
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: dataDir }),
+  store: sessionStore,
   cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
