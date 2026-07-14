@@ -184,6 +184,7 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 app.use(session({
   store: new SQLiteStore({ db: 'sessions.db', dir: dataDir }),
+  cookie: { maxAge: 86400000 }, // 24 hours
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
   saveUninitialized: false,
@@ -253,7 +254,7 @@ app.get('/api/clients', requireAuth, async (req, res) => {
 });
 
 app.post('/api/clients', requireAuth, async (req, res) => {
-  const { id, name, ...rest } = req.body;
+  const { id, name, monday_id, ...rest } = req.body;
   const data = JSON.stringify({ id, name, ...rest });
   await dbRun(`INSERT INTO clients (id, user_id, name, data, updated_at) VALUES (?, ?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, updated_at=excluded.updated_at`, [id, req.session.userId, name || 'Unknown', data]);
   res.json({ ok: true });
@@ -422,12 +423,80 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     }
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
+
+    // Move lead to FOLLOW UP CALLS in Monday.com
+    if (rec.monday_id || parsedData.monday_id) {
+      try {
+        await monday.moveToFollowUp(rec.monday_id || parsedData.monday_id);
+        console.log('Lead moved to FOLLOW UP CALLS:', rec.monday_id || parsedData.monday_id);
+      } catch(e) {
+        console.error('Monday follow up error:', e.message);
+      }
+    }
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
   } catch (e) {
     console.error('Proposal route error:', e.message);
     console.error('Stack:', e.stack);
     res.status(500).json({ error: e.message || 'Proposal generation failed' });
+  }
+});
+
+// ── Keep-alive ping ──────────────────────────────────────────────────────────
+app.get('/ping', (req, res) => res.send('ok'));
+
+// Self-ping every 10 minutes to prevent Render spin-down
+if (process.env.NODE_ENV === 'production') {
+  const APP_URL = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-sales.onrender.com';
+  setInterval(async () => {
+    try {
+      const https = require('https');
+      https.get(APP_URL + '/ping', () => {}).on('error', () => {});
+    } catch(e) {}
+  }, 10 * 60 * 1000); // every 10 minutes
+}
+
+// ── Monday.com CRM routes ────────────────────────────────────────────────────
+
+// Get leads for current rep
+app.get('/api/leads', requireAuth, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const leads = await monday.getLeadsForRep(user.name);
+    res.json(leads);
+  } catch(e) {
+    console.error('Get leads error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Lead action buttons
+app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
+  try {
+    const { mondayId } = req.params;
+    const { action, notes } = req.body;
+    console.log('Lead action:', action, 'for Monday ID:', mondayId);
+    if (action === 'free_consultation') await monday.clickFreeConsultation(mondayId);
+    else if (action === 'proposal_requested') await monday.clickProposalRequested(mondayId);
+    else if (action === 'help_required') await monday.clickHelpRequired(mondayId);
+    else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
+    if (notes) await monday.updateEnquiry(mondayId, notes);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Lead action error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update notes
+app.patch('/api/leads/:mondayId/notes', requireAuth, async (req, res) => {
+  try {
+    const { notes } = req.body;
+    await monday.updateEnquiry(req.params.mondayId, notes);
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Update notes error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
