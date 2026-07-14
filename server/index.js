@@ -184,6 +184,7 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 app.use(session({
   store: new SQLiteStore({ db: 'sessions.db', dir: dataDir }),
+  cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
   saveUninitialized: false,
@@ -440,6 +441,20 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     res.status(500).json({ error: e.message || 'Proposal generation failed' });
   }
 });
+
+// ── Keep-alive ping ──────────────────────────────────────────────────────────
+app.get('/ping', (req, res) => res.send('ok'));
+
+// Self-ping every 10 minutes to prevent Render spin-down
+if (process.env.NODE_ENV === 'production') {
+  const APP_URL = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-sales.onrender.com';
+  setInterval(async () => {
+    try {
+      const https = require('https');
+      https.get(APP_URL + '/ping', () => {}).on('error', () => {});
+    } catch(e) {}
+  }, 10 * 60 * 1000); // every 10 minutes
+}
 
 // ── Monday.com CRM routes ────────────────────────────────────────────────────
 

@@ -1,3 +1,17 @@
+// ── Session keep-alive & expiry detection ─────────────────────────────────────
+(function() {
+  // Ping server every 8 minutes to keep session alive
+  setInterval(async function() {
+    try {
+      const r = await fetch('/api/me');
+      if (r.status === 401 || r.redirected) {
+        var b = document.getElementById('sessionBanner');
+        if (b) b.style.display = 'flex';
+      }
+    } catch(e) {}
+  }, 8 * 60 * 1000);
+})();
+
 const STAGES=[
   {k:'need',t:'Identify the need',d:'The client recognises what they want or need to build.'},
   {k:'explore',t:'Explore options',d:'Curiosity grows — researching possibilities, processes and suppliers.'},
