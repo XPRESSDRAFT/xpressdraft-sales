@@ -78,7 +78,7 @@
   .layout{display:grid;grid-template-columns:1fr 340px;gap:30px;align-items:stretch;}
   .main-col{min-width:0;}
   .side-col{position:relative;height:100%;}
-  .side-sticky{position:sticky;top:177px;max-height:calc(100vh - 195px);overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
+  .side-sticky{position:sticky;top:177px;height:calc(100vh - 195px);overflow-y:auto;display:flex;flex-direction:column;gap:16px;}
   .journey-panel{background:var(--dark);border-radius:14px;padding:20px 18px;}
   /* price panel */
   .price-panel{background:var(--dark);border-radius:14px;padding:20px 18px;}

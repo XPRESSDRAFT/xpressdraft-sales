@@ -254,10 +254,11 @@ document.getElementById('appLayout').innerHTML = `
         <div class="progress-txt"><b id="progCount">0</b> of 6 · <span id="progPct">0%</span> ready</div>
       </div>
     </div>
-    <div class="journey-panel" style="margin-top:16px">
+    <div class="journey-panel" style="margin-top:16px;flex:1;display:flex;flex-direction:column">
       <div class="sec-label">Call Notes</div>
       <h3 class="journey-title">Call <strong>Notes</strong></h3>
-      <textarea data-f="notes" style="width:100%;min-height:120px;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical;background:#fff;" placeholder="Next steps, follow up actions, client comments..."></textarea>
+      <p class="journey-intro">Record next steps, follow up actions, client comments and any relevant details from the call.</p>
+      <textarea data-f="notes" style="width:100%;flex:1;min-height:200px;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical;background:#fff;" placeholder="Next steps, follow up actions, client comments..."></textarea>
     </div>
   </div>
 </aside>
