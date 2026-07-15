@@ -659,9 +659,9 @@ async function saveLeadNotes() {
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
     activeLead.enquiry = notes;
-    showToast('Notes saved to Monday.com');
+    toast('Notes saved to Monday.com');
   } catch(e) {
-    showToast('Error saving notes: ' + e.message);
+    toast('Error saving notes: ' + e.message);
   }
 }
 
@@ -681,11 +681,11 @@ async function leadAction(action) {
       client_name: activeLead.name,
       address: activeLead.address || ''
     });
-    showToast('Done — lead updated');
+    toast('Done — lead updated');
     closeLeadDetail();
     loadLeads();
   } catch(e) {
-    showToast('Error: ' + e.message);
+    toast('Error: ' + e.message);
   }
 }
 
@@ -709,9 +709,9 @@ async function saveLeadDetails() {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/details', 'PATCH', details);
     // Update local data
     Object.assign(activeLead, details);
-    showToast('Details saved to Monday.com');
+    toast('Details saved to Monday.com');
   } catch(e) {
-    showToast('Error saving: ' + e.message);
+    toast('Error saving: ' + e.message);
   }
 }
 
@@ -729,16 +729,16 @@ async function moveStage(stage) {
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action: 'move_stage', stage });
     if (stage === 'lost') {
-      showToast('Lead marked as Lost — removed from your list');
+      toast('Lead marked as Lost — removed from your list');
       closeLeadDetail();
       loadLeads();
     } else {
       activeLead.group_title = stageLabels[stage];
       document.getElementById('leadDetailGroup').textContent = stageLabels[stage];
-      showToast('Lead moved to ' + stageLabels[stage]);
+      toast('Lead moved to ' + stageLabels[stage]);
     }
   } catch(e) {
-    showToast('Error: ' + e.message);
+    toast('Error: ' + e.message);
   }
 }
 
@@ -778,20 +778,20 @@ async function deleteLeadFile(mondayId, filename) {
     const res = await fetch('/api/leads/' + mondayId + '/files/' + encodeURIComponent(filename), { method: 'DELETE' });
     const data = await res.json();
     if (data.ok) {
-      showToast('File deleted');
+      toast('File deleted');
       loadLeadFiles(mondayId);
     } else {
-      showToast('Delete failed: ' + (data.error || 'unknown error'));
+      toast('Delete failed: ' + (data.error || 'unknown error'));
     }
   } catch(e) {
-    showToast('Delete failed: ' + e.message);
+    toast('Delete failed: ' + e.message);
   }
 }
 
 async function uploadLeadFiles() {
   if (!activeLead) return;
   const input = document.getElementById('leadFileInput');
-  if (!input.files.length) { showToast('Please select files first'); return; }
+  if (!input.files.length) { toast('Please select files first'); return; }
   const formData = new FormData();
   for (const file of input.files) formData.append('files', file);
   try {
@@ -801,14 +801,14 @@ async function uploadLeadFiles() {
     });
     const data = await res.json();
     if (data.ok) {
-      showToast(input.files.length + ' file(s) uploaded');
+      toast(input.files.length + ' file(s) uploaded');
       input.value = '';
       var preview = document.getElementById('filePreview');
       if (preview) preview.textContent = '';
       loadLeadFiles(activeLead.monday_id);
     }
   } catch(e) {
-    showToast('Upload failed: ' + e.message);
+    toast('Upload failed: ' + e.message);
   }
 }
 
@@ -823,7 +823,7 @@ function openProposalFromLead() {
   if (document.getElementById('cPhone')) document.getElementById('cPhone').value = activeLead.phone || '';
   if (document.getElementById('cEmail')) document.getElementById('cEmail').value = activeLead.email || '';
   if (document.getElementById('cAddr')) document.getElementById('cAddr').value = activeLead.address || '';
-  showToast('Lead loaded — complete the call details and send proposal');
+  toast('Lead loaded — complete the call details and send proposal');
 }
 
 // Load leads when leads tab is active
