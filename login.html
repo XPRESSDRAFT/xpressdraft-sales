@@ -182,9 +182,22 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// Session store using connect-sqlite3
-const SQLiteStore = require('connect-sqlite3')(session);
-const sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+// Session store
+let sessionStore;
+try {
+  const SQLiteStore = require('connect-sqlite3')(session);
+  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+} catch(e) {
+  console.warn('SQLiteStore failed:', e.message);
+  // Use custom store based on existing db
+  const EventEmitter = require('events');
+  sessionStore = Object.assign(Object.create(session.Store.prototype), {
+    get(sid, cb) { db.get('SELECT data FROM sessions WHERE sid=? AND expires>?',[sid,Date.now()],(e,r)=>cb(e,r?JSON.parse(r.data):null)); },
+    set(sid, s, cb) { const exp=Date.now()+28800000; db.run('INSERT OR REPLACE INTO sessions(sid,data,expires) VALUES(?,?,?)',[sid,JSON.stringify(s),exp],cb||(()=>{})); },
+    destroy(sid, cb) { db.run('DELETE FROM sessions WHERE sid=?',[sid],cb||(()=>{})); }
+  });
+  db.run('CREATE TABLE IF NOT EXISTS sessions(sid TEXT PRIMARY KEY,data TEXT,expires INTEGER)');
+}
 
 app.use(session({
   store: sessionStore,
