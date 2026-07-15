@@ -1,29 +1,44 @@
-{
-  "name": "xpressdraft-sales-app",
-  "version": "1.0.0",
-  "description": "Xpress Draft internal sales tool",
-  "main": "server/index.js",
-  "scripts": {
-    "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "express-session": "^1.17.3",
-    "bcryptjs": "^2.4.3",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^2.7.0",
-    "nodemailer": "^6.9.7",
-    "sqlite3": "^5.1.7",
-    "stripe": "^14.21.0",
-    "twilio": "^4.19.0",
-    "connect-sqlite3": "^0.9.13",
-    "cookie-session": "^2.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": "20.x"
-  }
+// stripe.js — Xpress Draft Stripe Integration
+const Stripe = require('stripe');
+
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  console.log('Stripe key present:', !!key, 'starts with:', key ? key.slice(0,7) : 'MISSING');
+  if (!key) throw new Error('STRIPE_SECRET_KEY environment variable not set');
+  return new Stripe(key, { apiVersion: '2023-10-16' });
 }
+
+// Create a payment link for the deposit amount
+async function createDepositPaymentLink(clientName, siteAddr, depositAmount, proposalNumber) {
+  const stripe = getStripe();
+
+  // Create a price object for this specific amount
+  const price = await stripe.prices.create({
+    currency: 'aud',
+    unit_amount: Math.round(depositAmount * 100),
+    product_data: {
+      name: `Deposit — ${proposalNumber || 'Xpress Draft Proposal'} — ${clientName}`,
+    },
+  });
+
+  // Create a payment link
+  const paymentLink = await stripe.paymentLinks.create({
+    line_items: [{
+      price: price.id,
+      quantity: 1,
+    }],
+    after_completion: {
+      type: 'redirect',
+      redirect: { url: 'https://www.xpressdraft.com.au' },
+    },
+    metadata: {
+      client_name: clientName,
+      site_address: siteAddr,
+      proposal_number: proposalNumber || '',
+    },
+  });
+
+  return paymentLink.url;
+}
+
+module.exports = { createDepositPaymentLink };
