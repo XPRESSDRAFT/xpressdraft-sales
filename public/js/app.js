@@ -693,13 +693,34 @@ async function loadLeadFiles(mondayId) {
       return;
     }
     container.innerHTML = files.map(f => 
-      '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8e4">' +
-      '<span style="font-size:12px;color:#2A2B29;flex:1">' + esc(f.name) + '</span>' +
-      '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700">Download</a>' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+      '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + '</span>' +
+      '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' +
+      '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕ Delete</button>' +
       '</div>'
     ).join('');
   } catch(e) {
     container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load files.</p>';
+  }
+}
+
+function previewFiles() {
+  const input = document.getElementById('leadFileInput');
+  const preview = document.getElementById('filePreview');
+  if (!preview) return;
+  if (!input.files.length) { preview.textContent = ''; return; }
+  const names = Array.from(input.files).map(f => f.name).join(', ');
+  preview.textContent = input.files.length + ' file(s) selected: ' + names;
+}
+
+async function deleteLeadFile(mondayId, filename) {
+  if (!confirm('Delete ' + filename + '?')) return;
+  try {
+    await apiFetch('/api/leads/' + mondayId + '/files/' + encodeURIComponent(filename), 'DELETE');
+    showToast('File deleted');
+    loadLeadFiles(mondayId);
+  } catch(e) {
+    showToast('Delete failed: ' + e.message);
   }
 }
 
@@ -718,6 +739,8 @@ async function uploadLeadFiles() {
     if (data.ok) {
       showToast(input.files.length + ' file(s) uploaded');
       input.value = '';
+      var preview = document.getElementById('filePreview');
+      if (preview) preview.textContent = '';
       loadLeadFiles(activeLead.monday_id);
     }
   } catch(e) {

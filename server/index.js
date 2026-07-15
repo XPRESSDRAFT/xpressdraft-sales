@@ -562,6 +562,14 @@ app.patch('/api/leads/:mondayId/details', requireAuth, async (req, res) => {
   }
 });
 
+// Delete a file
+app.delete('/api/leads/:mondayId/files/:filename', requireAuth, (req, res) => {
+  const filePath = path.join(leadFilesDir, req.params.mondayId, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  fs.unlinkSync(filePath);
+  res.json({ ok: true });
+});
+
 // Update notes
 app.patch('/api/leads/:mondayId/notes', requireAuth, async (req, res) => {
   try {
