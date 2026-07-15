@@ -548,9 +548,12 @@ function openLead(mondayId) {
   document.getElementById('leadDetailAddress').value = lead.address || '';
   document.getElementById('leadDetailPhone').value = lead.phone || '';
   document.getElementById('leadDetailEmail').value = lead.email || '';
-  document.getElementById('leadDetailSource').value = lead.source || '';
+  document.getElementById('leadDetailSource').textContent = lead.source || '—';
   document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').value = lead.arrival || '');
   document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').value = lead.status || '');
+  // Files received from Monday.com
+  var mondayFilesEl = document.getElementById('leadMondayFiles');
+  if (mondayFilesEl) mondayFilesEl.textContent = lead.files_received || 'No files recorded in Monday.com.';
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
 
   // Highlight current pipeline stage button
@@ -640,9 +643,8 @@ async function saveLeadDetails() {
     address: document.getElementById('leadDetailAddress').value.trim(),
     phone: document.getElementById('leadDetailPhone').value.trim(),
     email: document.getElementById('leadDetailEmail').value.trim(),
-    source: document.getElementById('leadDetailSource').value.trim(),
-    arrival: document.getElementById('leadDetailArrival') ? document.getElementById('leadDetailArrival').value.trim() : '',
     status: document.getElementById('leadDetailStatus') ? document.getElementById('leadDetailStatus').value.trim() : '',
+    arrival: document.getElementById('leadDetailArrival') ? document.getElementById('leadDetailArrival').value.trim() : '',
   };
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/details', 'PATCH', details);

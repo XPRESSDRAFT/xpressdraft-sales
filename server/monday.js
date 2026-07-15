@@ -79,7 +79,7 @@ async function getLeadsForRep(repName) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky4h701", "date_mm135v04", "long_text_mkxzbgfq"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky4h701", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -118,6 +118,7 @@ async function getLeadsForRep(repName) {
         status: cols[COLS.status] || '',
         source: cols[COLS.source] || '',
         arrival: cols[COLS.arrival] || '',
+        files_received: cols[COLS.files] || '',
         group_id: group.id,
         group_title: group.title,
       });
