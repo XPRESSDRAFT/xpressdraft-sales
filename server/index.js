@@ -18,11 +18,12 @@ function generatePassword() {
   return pwd.sort(() => Math.random() - 0.5).join('');
 }
 const session = require('express-session');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fetch = require('node-fetch');
 const sqlite3 = require('sqlite3').verbose();
-// Session store using main database
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -182,23 +183,10 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// Custom session store using existing sqlite3 db
-const EventEmitter = require('events');
-class SQLiteSessionStore extends session.Store {
-  constructor() {
-    super();
-    db.run('CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, data TEXT, expires INTEGER)');
-  }
-  get(sid, cb) { db.get('SELECT data FROM sessions WHERE sid = ? AND expires > ?', [sid, Date.now()], (e, r) => cb(e, r ? JSON.parse(r.data) : null)); }
-  set(sid, sess, cb) { const exp = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 28800000; db.run('INSERT OR REPLACE INTO sessions (sid, data, expires) VALUES (?, ?, ?)', [sid, JSON.stringify(sess), exp], cb || (()=>{})); }
-  destroy(sid, cb) { db.run('DELETE FROM sessions WHERE sid = ?', [sid], cb || (()=>{})); }
-  touch(sid, sess, cb) { const exp = Date.now() + 28800000; db.run('UPDATE sessions SET expires = ? WHERE sid = ?', [exp, sid], cb || (()=>{})); }
-}
-const sessionStore = new SQLiteSessionStore();
-
-app.use(session({
-  store: sessionStore,
-  cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
+app.use(cookieSession({
+  name: 'xpd_session',
+  keys: [process.env.SESSION_SECRET || 'xpressdraft-secret-key'],
+  maxAge: 28800000, // 8 hours
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
   saveUninitialized: false,

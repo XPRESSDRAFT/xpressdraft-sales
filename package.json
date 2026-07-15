@@ -16,7 +16,9 @@
     "nodemailer": "^6.9.7",
     "sqlite3": "^5.1.7",
     "stripe": "^14.21.0",
-    "twilio": "^4.19.0"
+    "twilio": "^4.19.0",
+    "connect-sqlite3": "^0.9.13",
+    "cookie-session": "^2.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
