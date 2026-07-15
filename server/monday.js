@@ -110,6 +110,7 @@ async function getLeadsForRep(repName) {
       // Parse files from Monday.com file column
       let filesReceived = '';
       const rawFiles = item.column_values.find(c => c.id === COLS.files);
+      console.log('Files raw for', item.name, ':', JSON.stringify(rawFiles).slice(0, 200));
       if (rawFiles && rawFiles.value) {
         try {
           const parsed = JSON.parse(rawFiles.value);
