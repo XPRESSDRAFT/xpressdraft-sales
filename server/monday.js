@@ -89,7 +89,9 @@ async function getLeadsForRep(repName) {
       }
     }`, { boardId: BOARDS.negotiations });
 
+  console.log('Monday raw response:', JSON.stringify(data).slice(0, 500));
   const groups = data?.boards?.[0]?.groups || [];
+  console.log('Groups found:', groups.length, groups.map(g => g.title + '(' + (g.items_page?.items?.length || 0) + ' items)'));
   const leads = [];
 
   for (const group of groups) {
