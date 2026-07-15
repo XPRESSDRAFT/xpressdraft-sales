@@ -488,12 +488,14 @@ async function loadLeads() {
 }
 
 const STAGE_LABELS = {
-  'DISCOVERY CALLS':        { label: 'Discovery', color: '#3498DB' },
+  'DISCOVERY CALLS':          { label: 'Discovery', color: '#3498DB' },
+  'QUALIFIED LEADS':          { label: 'Qualified', color: '#1ABC9C' },
   'FOLLOW UP EMAILS / CALLS': { label: 'Follow Up', color: '#9B59B6' },
-  'WAITING FOR CLIENTS':    { label: 'Waiting', color: '#F39C12' },
-  'CLOSED DEALS':           { label: 'Closed', color: '#27AE60' },
-  'HELP REQUIRED':          { label: 'Help Required', color: '#E74C3C' },
-  'LOST':                   { label: 'Lost', color: '#95A5A6' },
+  'SEQUENCE CALL':            { label: 'Sequence', color: '#7F8C8D' },
+  'WAITING FOR CLIENTS':      { label: 'Waiting', color: '#F39C12' },
+  'CLOSED DEALS':             { label: 'Closed', color: '#27AE60' },
+  'HELP REQUIRED':            { label: 'Help Required', color: '#E74C3C' },
+  'LOST':                     { label: 'Lost', color: '#95A5A6' },
 };
 
 function renderLeads(leads) {
@@ -509,7 +511,9 @@ function renderLeads(leads) {
   });
 
   const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED', 'LOST'];
-  
+  // Add any other groups not in the predefined order
+  Object.keys(groups).forEach(g => { if (!groupOrder.includes(g)) groupOrder.push(g); });
+
   let html = '';
   groupOrder.forEach(gTitle => {
     const items = groups[gTitle];
@@ -652,17 +656,24 @@ async function moveStage(stage) {
   if (!activeLead) return;
   const stageLabels = {
     discovery: 'DISCOVERY CALLS',
+    qualified: 'QUALIFIED LEADS',
     followup: 'FOLLOW UP EMAILS / CALLS',
     waiting: 'WAITING FOR CLIENTS',
     closed: 'CLOSED DEALS',
     lost: 'LOST'
   };
-  if (!confirm('Move lead to ' + stageLabels[stage] + '?')) return;
+  if (!confirm(stage === 'lost' ? 'Mark this lead as Lost? It will be removed from your leads list.' : 'Move lead to ' + stageLabels[stage] + '?')) return;
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action: 'move_stage', stage });
-    activeLead.group_title = stageLabels[stage];
-    document.getElementById('leadDetailGroup').textContent = stageLabels[stage];
-    showToast('Lead moved to ' + stageLabels[stage]);
+    if (stage === 'lost') {
+      showToast('Lead marked as Lost — removed from your list');
+      closeLeadDetail();
+      loadLeads();
+    } else {
+      activeLead.group_title = stageLabels[stage];
+      document.getElementById('leadDetailGroup').textContent = stageLabels[stage];
+      showToast('Lead moved to ' + stageLabels[stage]);
+    }
   } catch(e) {
     showToast('Error: ' + e.message);
   }

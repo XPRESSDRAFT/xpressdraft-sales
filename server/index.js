@@ -510,6 +510,7 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
         discovery: 'DISCOVERY CALLS',
         followup: 'FOLLOW UP EMAILS / CALLS',
         waiting: 'WAITING FOR CLIENTS',
+        qualified: 'QUALIFIED LEADS',
         closed: 'CLOSED DEALS',
         lost: 'LOST',
         help: 'HELP REQUIRED'

@@ -104,8 +104,8 @@ async function getLeadsForRep(repName) {
         cols[c.id] = c.text || '';
       });
 
-      // Log all column values for debugging
-      console.log('Lead:', item.name, '| All cols:', JSON.stringify(cols));
+      // Skip LOST leads - kept in Monday.com only
+      if (group.title === 'LOST') continue;
 
       leads.push({
         monday_id: item.id,
