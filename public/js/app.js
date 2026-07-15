@@ -583,10 +583,6 @@ async function leadAction(action) {
   }
 }
 
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
 function apiFetch(url, method, body) {
   method = method || 'GET';
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
