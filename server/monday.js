@@ -107,6 +107,27 @@ async function getLeadsForRep(repName) {
       // Skip LOST leads - kept in Monday.com only
       if (group.title === 'LOST') continue;
 
+      // Parse files from Monday.com file column
+      let filesReceived = '';
+      const rawFiles = item.column_values.find(c => c.id === COLS.files);
+      if (rawFiles && rawFiles.value) {
+        try {
+          const parsed = JSON.parse(rawFiles.value);
+          if (parsed.files && parsed.files.length > 0) {
+            filesReceived = parsed.files.map(f => f.name || f.asset_id || 'file').join('\n');
+          }
+        } catch(e) {
+          filesReceived = rawFiles.text || '';
+        }
+      }
+
+      // Format arrival date as DD/MM/YYYY
+      let arrival = cols[COLS.arrival] || '';
+      if (arrival && arrival.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const parts = arrival.split('-');
+        arrival = parts[2].substring(0,2) + '/' + parts[1] + '/' + parts[0];
+      }
+
       leads.push({
         monday_id: item.id,
         name: item.name,
@@ -117,8 +138,8 @@ async function getLeadsForRep(repName) {
         rep_notes: cols[COLS.notes] || '',
         status: cols[COLS.status] || '',
         source: cols[COLS.source] || '',
-        arrival: cols[COLS.arrival] || '',
-        files_received: cols[COLS.files] || '',
+        arrival,
+        files_received: filesReceived,
         group_id: group.id,
         group_title: group.title,
       });
