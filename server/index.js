@@ -70,6 +70,7 @@ function dbExec(sql) {
     password TEXT NOT NULL,
     name TEXT NOT NULL,
     phone TEXT NOT NULL DEFAULT '',
+    monday_name TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'user',
     active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
@@ -112,6 +113,7 @@ function dbExec(sql) {
 
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
 
 // ── Migration: upsert all pricing items ──────────────────────────────────────
 const pricingUpdates = [
@@ -245,7 +247,7 @@ app.get('/admin', requireAuth, requireAdmin, (req, res) => sendPage(res, 'admin.
 
 // ── API: current user info ────────────────────────────────────────────────────
 app.get('/api/me', requireAuth, async (req, res) => {
-  const me = await dbGet('SELECT id, email, name, phone, role FROM users WHERE id = ?', [req.session.userId]);
+  const me = await dbGet('SELECT id, email, name, phone, monday_name, role FROM users WHERE id = ?', [req.session.userId]);
   res.json(me || { name: req.session.name, role: req.session.role });
 });
 
@@ -281,7 +283,7 @@ app.post('/api/pricing', requireAuth, requireAdmin, async (req, res) => {
 
 // ── API: user management (admin only) ────────────────────────────────────────
 app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const users = await dbAll('SELECT id, email, name, phone, role, active, created_at FROM users ORDER BY created_at DESC', []);
+  const users = await dbAll('SELECT id, email, name, phone, monday_name, role, active, created_at FROM users ORDER BY created_at DESC', []);
   res.json(users);
 });
 
@@ -306,7 +308,7 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { active, password, name, phone } = req.body;
+  const { active, password, name, phone, monday_name } = req.body;
   const id = req.params.id;
   if (active !== undefined) {
     await dbRun('UPDATE users SET active = ? WHERE id = ?', [active ? 1 : 0, id]);
@@ -316,6 +318,9 @@ app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   }
   if (phone !== undefined) {
     await dbRun('UPDATE users SET phone = ? WHERE id = ?', [phone || '', id]);
+  }
+  if (monday_name !== undefined) {
+    await dbRun('UPDATE users SET monday_name = ? WHERE id = ?', [monday_name || '', id]);
   }
   if (password) {
     const hash = bcrypt.hashSync(password, 12);
@@ -464,7 +469,9 @@ if (process.env.NODE_ENV === 'production') {
 app.get('/api/leads', requireAuth, async (req, res) => {
   try {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    const leads = await monday.getLeadsForRep(user.name);
+    const repName = user.monday_name || user.name;
+    console.log('Loading leads for rep:', repName);
+    const leads = await monday.getLeadsForRep(repName);
     res.json(leads);
   } catch(e) {
     console.error('Get leads error:', e.message);

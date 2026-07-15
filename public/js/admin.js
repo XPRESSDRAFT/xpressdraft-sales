@@ -92,6 +92,7 @@ async function loadUsers() {
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" data-rename="${u.id}" data-name="${esc(u.name)}">Rename</button>
         <button class="btn btn-ghost btn-sm" data-phone="${u.id}" data-phoneval="${esc(u.phone||'')}">Phone</button>
+        <button class="btn btn-ghost btn-sm" data-monday="${u.id}" data-mondayval="${esc(u.monday_name||'')}">Monday Name</button>
         <button class="btn btn-ghost btn-sm" data-toggle="${u.id}" data-active="${u.active}">
           ${u.active ? 'Deactivate' : 'Activate'}
         </button>
@@ -99,6 +100,18 @@ async function loadUsers() {
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-monday]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.monday;
+      const current = btn.dataset.mondayval;
+      const newName = prompt('Enter Monday.com name (exactly as shown in Monday.com):', current);
+      if (newName === null) return;
+      await api('PATCH', '/api/users/' + id, { monday_name: newName.trim() });
+      toast('Monday.com name updated');
+      loadUsers();
+    });
   });
 
   tbody.querySelectorAll('[data-phone]').forEach(btn => {
