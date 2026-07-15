@@ -529,6 +529,17 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
   }
 });
 
+// Get Monday.com files for a lead
+app.get('/api/leads/:mondayId/monday-files', requireAuth, async (req, res) => {
+  try {
+    const files = await monday.getLeadFiles(req.params.mondayId);
+    res.json(files);
+  } catch(e) {
+    console.error('Get Monday files error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Get files for a lead
 app.get('/api/leads/:mondayId/files', requireAuth, (req, res) => {
   const dir = path.join(leadFilesDir, req.params.mondayId);

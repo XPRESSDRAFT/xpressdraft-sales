@@ -551,9 +551,26 @@ function openLead(mondayId) {
   document.getElementById('leadDetailSource').textContent = lead.source || '—';
   document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').value = lead.arrival || '');
   document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').value = lead.status || '');
-  // Files received from Monday.com
+  // Files received from Monday.com - load dynamically
   var mondayFilesEl = document.getElementById('leadMondayFiles');
-  if (mondayFilesEl) mondayFilesEl.textContent = lead.files_received || 'No files recorded in Monday.com.';
+  if (mondayFilesEl) {
+    mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Loading files...</p>';
+    apiFetch('/api/leads/' + lead.monday_id + '/monday-files').then(function(files) {
+      if (!files || files.length === 0) {
+        mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files in Monday.com.</p>';
+        return;
+      }
+      mondayFilesEl.innerHTML = files.map(function(f) {
+        var url = f.public_url || f.url || '';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+          '<span style="font-size:12px;color:#2A2B29;flex:1">📎 ' + esc(f.name) + '</span>' +
+          (url ? '<a href="' + url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' : '<span style="font-size:11px;color:#888">No URL</span>') +
+          '</div>';
+      }).join('');
+    }).catch(function() {
+      mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load files.</p>';
+    });
+  }
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
 
   // Highlight current pipeline stage button
@@ -593,7 +610,20 @@ function openLead(mondayId) {
   document.getElementById('leadDetailPanel').style.display = 'block';
 }
 
-function closeLeadDetail() {
+async function closeLeadDetail() {
+  // Auto-save notes before closing
+  if (activeLead) {
+    const notes = document.getElementById('leadNotes').value;
+    if (notes !== (activeLead.rep_notes || '')) {
+      try {
+        await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
+        activeLead.rep_notes = notes;
+        console.log('Notes auto-saved on close');
+      } catch(e) {
+        console.error('Auto-save failed:', e.message);
+      }
+    }
+  }
   activeLead = null;
   document.getElementById('leadsListPanel').style.display = 'block';
   document.getElementById('leadDetailPanel').style.display = 'none';
@@ -716,9 +746,14 @@ function previewFiles() {
 async function deleteLeadFile(mondayId, filename) {
   if (!confirm('Delete ' + filename + '?')) return;
   try {
-    await apiFetch('/api/leads/' + mondayId + '/files/' + encodeURIComponent(filename), 'DELETE');
-    showToast('File deleted');
-    loadLeadFiles(mondayId);
+    const res = await fetch('/api/leads/' + mondayId + '/files/' + encodeURIComponent(filename), { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('File deleted');
+      loadLeadFiles(mondayId);
+    } else {
+      showToast('Delete failed: ' + (data.error || 'unknown error'));
+    }
   } catch(e) {
     showToast('Delete failed: ' + e.message);
   }

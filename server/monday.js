@@ -173,6 +173,41 @@ async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) 
   return data?.move_item_to_board?.id;
 }
 
+// ── Get file download URLs from Monday.com assets ────────────────────────────
+async function getFileDownloadUrl(assetId) {
+  const data = await query(`
+    query($assetId: ID!) {
+      assets(ids: [$assetId]) {
+        id
+        name
+        public_url
+        url
+      }
+    }`, { assetId });
+  const asset = data?.assets?.[0];
+  return asset ? { name: asset.name, url: asset.public_url || asset.url } : null;
+}
+
+// ── Get all files for a lead item ─────────────────────────────────────────────
+async function getLeadFiles(itemId) {
+  const data = await query(`
+    query($itemId: ID!) {
+      items(ids: [$itemId]) {
+        assets {
+          id
+          name
+          public_url
+          url
+          file_size
+          created_at
+        }
+      }
+    }`, { itemId });
+  const assets = data?.items?.[0]?.assets || [];
+  console.log('Monday files for item', itemId, ':', JSON.stringify(assets).slice(0, 300));
+  return assets;
+}
+
 // ── Update multiple lead fields ──────────────────────────────────────────────
 async function updateLeadDetails(itemId, details) {
   const updates = [];
@@ -321,6 +356,7 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  getLeadFiles,
   moveToLost,
   updateLeadDetails,
   getGroupId,
