@@ -82,12 +82,6 @@ async function getLeadsForRep(repName) {
                 id
                 text
                 value
-                ... on BoardRelationValue {
-                  linked_items {
-                    id
-                    name
-                  }
-                }
               }
             }
           }
@@ -102,20 +96,13 @@ async function getLeadsForRep(repName) {
     const items = group.items_page?.items || [];
     for (const item of items) {
       const cols = {};
-      const salesLinked = [];
 
       item.column_values.forEach(c => {
         cols[c.id] = c.text || '';
-        if (c.id === COLS.salesperson && c.linked_items) {
-          c.linked_items.forEach(li => salesLinked.push(li.name));
-        }
       });
 
-      // Use linked item names for board relation, fall back to text
-      const salesName = salesLinked.join(' ') || cols[COLS.salesperson] || '';
-      console.log('Lead:', item.name, '| Sales linked:', salesLinked, '| Sales text:', cols[COLS.salesperson]);
-
-      if (repName && salesName && !salesName.toLowerCase().includes(repName.toLowerCase())) continue;
+      // Log all column values for debugging
+      console.log('Lead:', item.name, '| All cols:', JSON.stringify(cols));
 
       leads.push({
         monday_id: item.id,
