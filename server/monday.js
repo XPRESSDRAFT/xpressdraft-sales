@@ -21,6 +21,7 @@ const COLS = {
   enquiry:     'long_text_mkxzds8g',
   address:     'text_mky7qn0k',
   files:       'file_mkxzg1me',
+  notes:       'long_text_mkxzbgfq',
   btn_free:    'button_mkxz4xs4',
   btn_proposal:'button_mkxz6sxp',
   btn_help:    'button_mkxz9mve',
@@ -78,7 +79,7 @@ async function getLeadsForRep(repName) {
             items {
               id
               name
-              column_values(ids: ["${COLS.phone}", "${COLS.email}", "${COLS.address}", "${COLS.enquiry}", "${COLS.status}", "${COLS.source}", "${COLS.salesperson}"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky4h701", "date_mm135v04", "long_text_mkxzbgfq"]) {
                 id
                 text
                 value
@@ -113,8 +114,10 @@ async function getLeadsForRep(repName) {
         email: cols[COLS.email] || '',
         address: cols[COLS.address] || '',
         enquiry: cols[COLS.enquiry] || '',
+        rep_notes: cols[COLS.notes] || '',
         status: cols[COLS.status] || '',
         source: cols[COLS.source] || '',
+        arrival: cols[COLS.arrival] || '',
         group_id: group.id,
         group_title: group.title,
       });
@@ -147,15 +150,15 @@ async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) 
   return data?.move_item_to_board?.id;
 }
 
-// ── Update enquiry/notes field ────────────────────────────────────────────────
-async function updateEnquiry(itemId, notes) {
+// ── Update rep notes field (syncs to NOTES column) ───────────────────────────
+async function updateNotes(itemId, notes) {
   const value = JSON.stringify({ text: notes });
   const data = await query(`
     mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
       change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) {
         id
       }
-    }`, { boardId: BOARDS.negotiations, itemId, colId: COLS.enquiry, value });
+    }`, { boardId: BOARDS.negotiations, itemId, colId: COLS.notes, value });
   return data?.change_column_value?.id;
 }
 
@@ -267,13 +270,15 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  getGroupId,
+  moveToGroup,
   moveToFollowUp,
   moveToClosedDeals,
   clickFreeConsultation,
   clickProposalRequested,
   clickHelpRequired,
   clickStartProject,
-  updateEnquiry,
+  updateNotes,
   createPendingLoginItem,
   BOARDS,
   COLS,

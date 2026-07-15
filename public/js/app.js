@@ -532,8 +532,26 @@ function openLead(mondayId) {
   document.getElementById('leadDetailPhone').textContent = lead.phone || '—';
   document.getElementById('leadDetailEmail').textContent = lead.email || '—';
   document.getElementById('leadDetailSource').textContent = lead.source || '—';
+  document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').textContent = lead.arrival || '—');
+  document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').textContent = lead.status || '—');
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
-  document.getElementById('leadNotes').value = lead.enquiry || '';
+
+  // Highlight current pipeline stage button
+  var stageMap = { 'DISCOVERY CALLS':'discovery', 'FOLLOW UP CALLS':'followup', 'WAITING CLIENT':'waiting', 'CLOSED DEALS':'closed' };
+  var currentStage = stageMap[lead.group_title] || '';
+  document.querySelectorAll('[onclick^="moveStage"]').forEach(function(btn) {
+    var stage = btn.getAttribute('onclick').match(/'(.+)'/)[1];
+    btn.style.background = stage === currentStage ? '#EA672F' : '#fff';
+    btn.style.color = stage === currentStage ? '#fff' : '#2A2B29';
+    btn.style.borderColor = stage === currentStage ? '#EA672F' : '#e0d9d5';
+  });
+  // Show client enquiry (read-only)
+  var enquiryEl = document.getElementById('leadEnquiry');
+  if (enquiryEl) enquiryEl.textContent = lead.enquiry || 'No enquiry recorded.';
+  // Rep notes - separate from enquiry
+  document.getElementById('leadNotes').value = lead.rep_notes || '';
+  // Load files
+  loadLeadFiles(lead.monday_id);
 
   // Pre-fill the client fields for proposal
   if (document.getElementById('cName')) document.getElementById('cName').value = lead.name;
@@ -588,6 +606,67 @@ function apiFetch(url, method, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(url, opts).then(r => r.json());
+}
+
+async function moveStage(stage) {
+  if (!activeLead) return;
+  const stageLabels = {
+    discovery: 'DISCOVERY CALLS',
+    followup: 'FOLLOW UP CALLS', 
+    waiting: 'WAITING CLIENT',
+    closed: 'CLOSED DEALS'
+  };
+  if (!confirm('Move lead to ' + stageLabels[stage] + '?')) return;
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action: 'move_stage', stage });
+    activeLead.group_title = stageLabels[stage];
+    document.getElementById('leadDetailGroup').textContent = stageLabels[stage];
+    showToast('Lead moved to ' + stageLabels[stage]);
+  } catch(e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function loadLeadFiles(mondayId) {
+  const container = document.getElementById('leadFiles');
+  if (!container) return;
+  try {
+    const files = await apiFetch('/api/leads/' + mondayId + '/files');
+    if (!files || files.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files uploaded yet.</p>';
+      return;
+    }
+    container.innerHTML = files.map(f => 
+      '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8e4">' +
+      '<span style="font-size:12px;color:#2A2B29;flex:1">' + esc(f.name) + '</span>' +
+      '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700">Download</a>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load files.</p>';
+  }
+}
+
+async function uploadLeadFiles() {
+  if (!activeLead) return;
+  const input = document.getElementById('leadFileInput');
+  if (!input.files.length) { showToast('Please select files first'); return; }
+  const formData = new FormData();
+  for (const file of input.files) formData.append('files', file);
+  try {
+    const res = await fetch('/api/leads/' + activeLead.monday_id + '/files', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast(input.files.length + ' file(s) uploaded');
+      input.value = '';
+      loadLeadFiles(activeLead.monday_id);
+    }
+  } catch(e) {
+    showToast('Upload failed: ' + e.message);
+  }
 }
 
 function openProposalFromLead() {

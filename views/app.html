@@ -81,12 +81,42 @@
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Phone</div><div id="leadDetailPhone" style="font-size:14px;color:#2A2B29"></div></div>
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Email</div><div id="leadDetailEmail" style="font-size:14px;color:#2A2B29"></div></div>
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Source</div><div id="leadDetailSource" style="font-size:14px;color:#2A2B29"></div></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Pipeline Stage</div><div id="leadDetailGroup" style="font-size:14px;color:#EA672F;font-weight:700"></div></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Arrival Date</div><div id="leadDetailArrival" style="font-size:14px;color:#2A2B29"></div></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Status</div><div id="leadDetailStatus" style="font-size:14px;color:#2A2B29"></div></div>
+          <div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Pipeline Stage</div><div id="leadDetailGroup" style="font-size:14px;color:#EA672F;font-weight:700"></div></div>
         </div>
+        <!-- Client Enquiry (read-only from Monday.com) -->
         <div style="margin-bottom:16px">
-          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Notes / Enquiry</div>
-          <textarea id="leadNotes" style="width:100%;min-height:120px;font-family:inherit;font-size:14px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical" placeholder="Add notes about this lead..."></textarea>
-          <button onclick="saveLeadNotes()" class="btn btn-ghost btn-sm" style="margin-top:8px">Save Notes</button>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Client Enquiry <span style="color:#EA672F">(from Monday.com)</span></div>
+          <div id="leadEnquiry" style="background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;font-size:13px;color:#2A2B29;min-height:60px;line-height:1.6;white-space:pre-wrap"></div>
+        </div>
+
+        <!-- Rep Notes (editable, syncs back to Monday.com) -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Rep Notes <span style="color:#888;font-weight:400">(syncs to Monday.com)</span></div>
+          <textarea id="leadNotes" style="width:100%;min-height:120px;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical;background:#fff;" placeholder="Add your notes, next steps, follow up actions..."></textarea>
+          <button onclick="saveLeadNotes()" class="btn btn-ghost btn-sm" style="margin-top:8px">Save & Sync to Monday.com</button>
+        </div>
+
+        <!-- File Upload -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Files</div>
+          <div id="leadFiles" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="file" id="leadFileInput" multiple style="font-size:12px;flex:1">
+            <button onclick="uploadLeadFiles()" class="btn btn-ghost btn-sm">Upload</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline stage buttons -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Move Pipeline Stage</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <button onclick="moveStage('discovery')" class="btn" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:11px">DISCOVERY CALLS</button>
+          <button onclick="moveStage('followup')" class="btn" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:11px">FOLLOW UP CALLS</button>
+          <button onclick="moveStage('waiting')" class="btn" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:11px">WAITING CLIENT</button>
+          <button onclick="moveStage('closed')" class="btn" style="background:#2A2B29;color:#fff;border:1.5px solid #2A2B29;padding:10px;border-radius:8px;font-weight:700;font-size:11px">CLOSED DEALS</button>
         </div>
       </div>
 

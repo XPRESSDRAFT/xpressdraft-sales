@@ -369,6 +369,21 @@ const pandadoc = require('./pandadoc');
 const emailModule = require('./email');
 const stripeModule = require('./stripe');
 const monday = require('./monday');
+const multer = require('multer');
+
+// File storage for lead files
+const leadFilesDir = path.join(dataDir, 'lead_files');
+if (!fs.existsSync(leadFilesDir)) fs.mkdirSync(leadFilesDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(leadFilesDir, req.params.mondayId);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, file.originalname)
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 const twilio = require('./twilio');
 
 // Generate and send proposal
@@ -489,7 +504,21 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
     else if (action === 'proposal_requested') await monday.clickProposalRequested(mondayId);
     else if (action === 'help_required') await monday.clickHelpRequired(mondayId);
     else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
-    if (notes) await monday.updateEnquiry(mondayId, notes);
+    else if (action === 'move_stage') {
+      const { stage } = req.body;
+      const stageMap = {
+        discovery: 'DISCOVERY CALLS',
+        followup: 'FOLLOW UP CALLS',
+        waiting: 'WAITING CLIENT',
+        closed: 'CLOSED DEALS'
+      };
+      const groupName = stageMap[stage];
+      if (groupName) {
+        const groupId = await monday.getGroupId(monday.BOARDS.negotiations, groupName);
+        if (groupId) await monday.moveToGroup(monday.BOARDS.negotiations, mondayId, groupId);
+      }
+    }
+    if (notes) await monday.updateNotes(mondayId, notes);
     res.json({ ok: true });
   } catch(e) {
     console.error('Lead action error:', e.message);
@@ -497,11 +526,31 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
   }
 });
 
+// Get files for a lead
+app.get('/api/leads/:mondayId/files', requireAuth, (req, res) => {
+  const dir = path.join(leadFilesDir, req.params.mondayId);
+  if (!fs.existsSync(dir)) return res.json([]);
+  const files = fs.readdirSync(dir).map(name => ({ name, path: dir + '/' + name }));
+  res.json(files);
+});
+
+// Upload files for a lead
+app.post('/api/leads/:mondayId/files', requireAuth, upload.array('files', 10), (req, res) => {
+  res.json({ ok: true, count: req.files.length });
+});
+
+// Download a file
+app.get('/api/leads/:mondayId/files/:filename', requireAuth, (req, res) => {
+  const filePath = path.join(leadFilesDir, req.params.mondayId, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.download(filePath);
+});
+
 // Update notes
 app.patch('/api/leads/:mondayId/notes', requireAuth, async (req, res) => {
   try {
     const { notes } = req.body;
-    await monday.updateEnquiry(req.params.mondayId, notes);
+    await monday.updateNotes(req.params.mondayId, notes);
     res.json({ ok: true });
   } catch(e) {
     console.error('Update notes error:', e.message);
