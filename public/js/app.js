@@ -487,6 +487,15 @@ async function loadLeads() {
   }
 }
 
+const STAGE_LABELS = {
+  'DISCOVERY CALLS':        { label: 'Discovery', color: '#3498DB' },
+  'FOLLOW UP EMAILS / CALLS': { label: 'Follow Up', color: '#9B59B6' },
+  'WAITING FOR CLIENTS':    { label: 'Waiting', color: '#F39C12' },
+  'CLOSED DEALS':           { label: 'Closed', color: '#27AE60' },
+  'HELP REQUIRED':          { label: 'Help Required', color: '#E74C3C' },
+  'LOST':                   { label: 'Lost', color: '#95A5A6' },
+};
+
 function renderLeads(leads) {
   const container = document.getElementById('leadsContainer');
   if (!container) return;
@@ -499,22 +508,26 @@ function renderLeads(leads) {
     groups[g].push(l);
   });
 
-  const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP CALLS', 'WAITING CLIENT', 'CLOSED DEALS', 'HELP REQUIRED'];
+  const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED', 'LOST'];
   
   let html = '';
   groupOrder.forEach(gTitle => {
     const items = groups[gTitle];
     if (!items || items.length === 0) return;
-    html += `<div class="lead-group">
-      <div class="lead-group-title">${gTitle} <span class="lead-count">${items.length}</span></div>
-      ${items.map(l => `
-        <div class="lead-card" data-id="${l.monday_id}" onclick="openLead('${l.monday_id}')">
-          <div class="lead-name">${esc(l.name)}</div>
-          <div class="lead-meta">${esc(l.address || '')}${l.phone ? ' · ' + esc(l.phone) : ''}</div>
-          ${l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : ''}
-        </div>
-      `).join('')}
-    </div>`;
+    const stageInfo = STAGE_LABELS[gTitle] || { label: gTitle, color: '#888' };
+    html += '<div class="lead-group">' +
+      '<div class="lead-group-title" style="color:' + stageInfo.color + '">' + stageInfo.label + ' <span class="lead-count" style="background:' + stageInfo.color + '">' + items.length + '</span></div>' +
+      items.map(l => 
+        '<div class="lead-card" data-id="' + l.monday_id + '" onclick="openLead('' + l.monday_id + '')">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+        '<div class="lead-name">' + esc(l.name) + '</div>' +
+        '<span style="font-size:10px;font-weight:700;color:' + stageInfo.color + ';background:' + stageInfo.color + '18;padding:2px 8px;border-radius:10px">' + stageInfo.label + '</span>' +
+        '</div>' +
+        '<div class="lead-meta">' + esc(l.address || '') + (l.phone ? ' · ' + esc(l.phone) : '') + '</div>' +
+        (l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : '') +
+        '</div>'
+      ).join('') +
+      '</div>';
   });
 
   if (!html) html = '<p style="color:#888;padding:20px">No leads assigned to you yet.</p>';
@@ -537,10 +550,17 @@ function openLead(mondayId) {
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
 
   // Highlight current pipeline stage button
-  var stageMap = { 'DISCOVERY CALLS':'discovery', 'FOLLOW UP CALLS':'followup', 'WAITING CLIENT':'waiting', 'CLOSED DEALS':'closed' };
+  var stageMap = { 
+    'DISCOVERY CALLS':'discovery', 
+    'FOLLOW UP EMAILS / CALLS':'followup', 
+    'WAITING FOR CLIENTS':'waiting', 
+    'CLOSED DEALS':'closed',
+    'LOST':'lost',
+    'HELP REQUIRED':'help'
+  };
   var currentStage = stageMap[lead.group_title] || '';
-  document.querySelectorAll('[onclick^="moveStage"]').forEach(function(btn) {
-    var stage = btn.getAttribute('onclick').match(/'(.+)'/)[1];
+  document.querySelectorAll('.stage-btn').forEach(function(btn) {
+    var stage = btn.dataset.stage;
     btn.style.background = stage === currentStage ? '#EA672F' : '#fff';
     btn.style.color = stage === currentStage ? '#fff' : '#2A2B29';
     btn.style.borderColor = stage === currentStage ? '#EA672F' : '#e0d9d5';
@@ -632,9 +652,10 @@ async function moveStage(stage) {
   if (!activeLead) return;
   const stageLabels = {
     discovery: 'DISCOVERY CALLS',
-    followup: 'FOLLOW UP CALLS', 
-    waiting: 'WAITING CLIENT',
-    closed: 'CLOSED DEALS'
+    followup: 'FOLLOW UP EMAILS / CALLS',
+    waiting: 'WAITING FOR CLIENTS',
+    closed: 'CLOSED DEALS',
+    lost: 'LOST'
   };
   if (!confirm('Move lead to ' + stageLabels[stage] + '?')) return;
   try {

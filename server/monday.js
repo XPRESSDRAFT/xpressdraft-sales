@@ -208,8 +208,15 @@ async function clickHelpRequired(itemId) {
 
 // ── Move to FOLLOW UP CALLS (after proposal sent) ────────────────────────────
 async function moveToFollowUp(itemId) {
-  const groupId = await getGroupId(BOARDS.negotiations, 'FOLLOW UP CALLS');
+  const groupId = await getGroupId(BOARDS.negotiations, 'FOLLOW UP EMAILS / CALLS');
   if (!groupId) throw new Error('FOLLOW UP CALLS group not found');
+  return await moveToGroup(BOARDS.negotiations, itemId, groupId);
+}
+
+// ── Move to LOST ─────────────────────────────────────────────────────────────
+async function moveToLost(itemId) {
+  const groupId = await getGroupId(BOARDS.negotiations, 'LOST');
+  if (!groupId) throw new Error('LOST group not found');
   return await moveToGroup(BOARDS.negotiations, itemId, groupId);
 }
 
@@ -291,6 +298,7 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  moveToLost,
   updateLeadDetails,
   getGroupId,
   moveToGroup,

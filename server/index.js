@@ -508,9 +508,11 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
       const { stage } = req.body;
       const stageMap = {
         discovery: 'DISCOVERY CALLS',
-        followup: 'FOLLOW UP CALLS',
-        waiting: 'WAITING CLIENT',
-        closed: 'CLOSED DEALS'
+        followup: 'FOLLOW UP EMAILS / CALLS',
+        waiting: 'WAITING FOR CLIENTS',
+        closed: 'CLOSED DEALS',
+        lost: 'LOST',
+        help: 'HELP REQUIRED'
       };
       const groupName = stageMap[stage];
       if (groupName) {
