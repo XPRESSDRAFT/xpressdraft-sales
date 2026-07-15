@@ -474,9 +474,33 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
 var leadsData = [];
 var activeLead = null;
 
+async function loadPendingRequests() {
+  const container = document.getElementById('pendingContainer');
+  const countEl = document.getElementById('pendingCount');
+  if (!container) return;
+  try {
+    const requests = await apiFetch('/api/pending-requests');
+    if (countEl) countEl.textContent = requests.length;
+    if (!requests || requests.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0 0 8px">No pending requests.</p>';
+      return;
+    }
+    container.innerHTML = requests.map(r =>
+      '<div style="background:#fff;border:1.5px solid #2196F3;border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
+      '<div style="font-size:14px;font-weight:700;color:#2A2B29;margin-bottom:2px">' + esc(r.client_name) + '</div>' +
+      '<div style="font-size:12px;color:#888">' + esc(r.address || '—') + '</div>' +
+      '<div style="font-size:11px;color:#2196F3;margin-top:4px">Requested: ' + new Date(r.requested_at).toLocaleDateString('en-AU') + '</div>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    if (container) container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load requests.</p>';
+  }
+}
+
 async function loadLeads() {
   const container = document.getElementById('leadsContainer');
   if (!container) return;
+  loadPendingRequests();
   container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
   try {
     const leads = await apiFetch('/api/leads');
@@ -646,13 +670,18 @@ async function leadAction(action) {
   const notes = document.getElementById('leadNotes').value;
   const labels = {
     free_consultation: 'Move to Free Consultations',
-    proposal_requested: 'Request Proposal',
+    proposal_requested: 'Request Proposal — this lead will disappear from your list until the proposal is sent',
     help_required: 'Move to Help Required',
   };
   if (!confirm('Are you sure? ' + (labels[action] || action))) return;
   try {
-    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action, notes });
-    showToast('Done — lead updated in Monday.com');
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', {
+      action,
+      notes,
+      client_name: activeLead.name,
+      address: activeLead.address || ''
+    });
+    showToast('Done — lead updated');
     closeLeadDetail();
     loadLeads();
   } catch(e) {

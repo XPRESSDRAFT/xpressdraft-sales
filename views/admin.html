@@ -95,6 +95,14 @@
 
   <!-- Users -->
   <div class="section">
+    <div class="section-title">System Storage</div>
+    <div style="margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:13px;color:#888">Render persistent disk usage</span>
+        <button onclick="loadStorage()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+      </div>
+      <div id="storagePanel"><p style="color:#888;font-size:13px">Loading...</p></div>
+    </div>
     <div class="section-title">Team Members</div>
     <table id="usersTable">
       <thead>
@@ -167,5 +175,54 @@
 <div class="toast" id="toast"></div>
 
 <script src="/js/admin.js"></script>
+<script>
+async function loadStorage() {
+  try {
+    const r = await fetch('/api/admin/storage');
+    const d = await r.json();
+    if (d.error) { document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Error: ' + d.error + '</p>'; return; }
+    
+    const fmt = (bytes) => {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+      if (bytes < 1024*1024*1024) return (bytes/1024/1024).toFixed(1) + ' MB';
+      return (bytes/1024/1024/1024).toFixed(2) + ' GB';
+    };
+
+    const pct = d.disk.percent;
+    const barColor = pct > 80 ? '#c0392b' : pct > 60 ? '#F39C12' : '#27AE60';
+
+    document.getElementById('storagePanel').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:700;color:#2A2B29">Disk Usage</span>
+          <span style="font-size:13px;color:#888">${fmt(d.disk.used)} of ${fmt(d.disk.total)} used (${pct}%)</span>
+        </div>
+        <div style="background:#e0d9d5;border-radius:8px;height:12px;overflow:hidden">
+          <div style="background:${barColor};width:${pct}%;height:100%;border-radius:8px;transition:width 0.3s"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:4px">${fmt(d.disk.available)} available</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:#faf7f5;border-radius:8px;padding:12px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Database</div>
+          <div style="font-size:18px;font-weight:700;color:#2A2B29">${fmt(d.database.size)}</div>
+          <div style="font-size:11px;color:#888">app.db</div>
+        </div>
+        <div style="background:#faf7f5;border-radius:8px;padding:12px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Uploaded Files</div>
+          <div style="font-size:18px;font-weight:700;color:#2A2B29">${fmt(d.lead_files.size)}</div>
+          <div style="font-size:11px;color:#888">${d.lead_files.count} files in lead folders</div>
+        </div>
+      </div>
+      ${pct > 70 ? '<div style="margin-top:12px;background:#fff3cd;border:1.5px solid #F39C12;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404">⚠️ Disk usage above 70% — consider upgrading the Render disk size.</div>' : ''}
+      ${pct > 85 ? '<div style="margin-top:8px;background:#f8d7da;border:1.5px solid #c0392b;border-radius:8px;padding:10px 14px;font-size:13px;color:#721c24">🚨 Disk usage critical — upgrade the Render disk immediately.</div>' : ''}
+    `;
+  } catch(e) {
+    document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Could not load storage info.</p>';
+  }
+}
+document.addEventListener('DOMContentLoaded', loadStorage);
+</script>
 </body>
 </html>

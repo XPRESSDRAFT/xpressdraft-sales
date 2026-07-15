@@ -5,9 +5,15 @@ const MONDAY_API = 'https://api.monday.com/v2';
 
 // Board IDs
 const BOARDS = {
-  negotiations:      '18388602724',
+  negotiations:       '18388602724',
   free_consultations: '224212751',
-  proposal:          '18389820785',
+  proposal:           '18389820785',
+};
+
+// Group IDs on 26_3 Proposal board
+const PROPOSAL_GROUPS = {
+  new_requests:   'group_mkxz6tw3',
+  sent_proposals: 'group_mkxzcgkr',
 };
 
 // Column IDs on 26_2 Negotiations board
@@ -249,12 +255,14 @@ async function clickFreeConsultation(itemId) {
   return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.free_consultations, targetGroup);
 }
 
-// ── Click PROPOSAL REQUESTED button → move to Proposal board ─────────────────
+// ── Click PROPOSAL REQUESTED button → move to Proposal board NEW REQUESTS ────
 async function clickProposalRequested(itemId) {
-  const groups = await getGroups(BOARDS.proposal);
-  const targetGroup = groups[0]?.id;
-  if (!targetGroup) throw new Error('No groups found on Proposal board');
-  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, targetGroup);
+  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, PROPOSAL_GROUPS.new_requests);
+}
+
+// ── Move to SENT PROPOSALS (after proposal generated) ────────────────────────
+async function moveToSentProposals(itemId) {
+  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, PROPOSAL_GROUPS.sent_proposals);
 }
 
 // ── Click HELP REQUIRED button → move to HELP REQUIRED group ─────────────────
@@ -356,6 +364,8 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  moveToSentProposals,
+  PROPOSAL_GROUPS,
   getLeadFiles,
   moveToLost,
   updateLeadDetails,

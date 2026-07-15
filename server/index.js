@@ -114,6 +114,16 @@ function dbExec(sql) {
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
+// Pending proposal requests table
+await dbRun(`CREATE TABLE IF NOT EXISTS pending_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  monday_id TEXT NOT NULL,
+  client_name TEXT NOT NULL,
+  address TEXT DEFAULT '',
+  requested_at TEXT DEFAULT (datetime('now')),
+  status TEXT DEFAULT 'pending'
+)`).catch(() => {});
 
 // ── Migration: upsert all pricing items ──────────────────────────────────────
 const pricingUpdates = [
@@ -446,13 +456,18 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
 
-    // Move lead to FOLLOW UP CALLS in Monday.com
-    if (rec.monday_id || parsedData.monday_id) {
+    // Move lead to SENT PROPOSALS on 26_3 Proposal board
+    const mondayLeadId = rec.monday_id || parsedData.monday_id;
+    if (mondayLeadId) {
       try {
-        await monday.moveToFollowUp(rec.monday_id || parsedData.monday_id);
-        console.log('Lead moved to FOLLOW UP CALLS:', rec.monday_id || parsedData.monday_id);
+        await monday.moveToSentProposals(mondayLeadId);
+        console.log('Lead moved to SENT PROPOSALS:', mondayLeadId);
+        // Update any pending request to sent
+        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
       } catch(e) {
-        console.error('Monday follow up error:', e.message);
+        console.error('Monday sent proposals error:', e.message);
+        // Fallback to follow up
+        try { await monday.moveToFollowUp(mondayLeadId); } catch(e2) {}
       }
     }
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
@@ -478,6 +493,54 @@ if (process.env.NODE_ENV === 'production') {
   }, 10 * 60 * 1000); // every 10 minutes
 }
 
+// ── Storage stats ────────────────────────────────────────────────────────────
+app.get('/api/admin/storage', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+
+    // Get disk usage of /data
+    const diskTotal = execSync("df /data --output=size -B1 | tail -1").toString().trim();
+    const diskUsed = execSync("df /data --output=used -B1 | tail -1").toString().trim();
+    const diskAvail = execSync("df /data --output=avail -B1 | tail -1").toString().trim();
+
+    // Get database size
+    const dbPath = path.join(dataDir, 'app.db');
+    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+
+    // Get lead files size
+    const leadFilesPath = path.join(dataDir, 'lead_files');
+    let leadFilesSize = 0;
+    let leadFilesCount = 0;
+    if (fs.existsSync(leadFilesPath)) {
+      const getDirSize = (dir) => {
+        let size = 0;
+        const files = fs.readdirSync(dir);
+        files.forEach(f => {
+          const fp = path.join(dir, f);
+          const stat = fs.statSync(fp);
+          if (stat.isDirectory()) size += getDirSize(fp);
+          else { size += stat.size; leadFilesCount++; }
+        });
+        return size;
+      };
+      leadFilesSize = getDirSize(leadFilesPath);
+    }
+
+    res.json({
+      disk: {
+        total: parseInt(diskTotal),
+        used: parseInt(diskUsed),
+        available: parseInt(diskAvail),
+        percent: Math.round((parseInt(diskUsed) / parseInt(diskTotal)) * 100)
+      },
+      database: { size: dbSize },
+      lead_files: { size: leadFilesSize, count: leadFilesCount }
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Monday.com CRM routes ────────────────────────────────────────────────────
 
 // Get leads for current rep
@@ -487,9 +550,36 @@ app.get('/api/leads', requireAuth, async (req, res) => {
     const repName = user.monday_name || user.name;
     console.log('Loading leads for rep:', repName);
     const leads = await monday.getLeadsForRep(repName);
-    res.json(leads);
+    // Exclude leads that are pending proposal requests or sent proposals
+    const pending = await dbAll('SELECT monday_id FROM pending_requests WHERE user_id = ? AND status = ?', [req.session.userId, 'pending']);
+    const pendingIds = new Set(pending.map(p => p.monday_id));
+    const filtered = leads.filter(l => !pendingIds.has(l.monday_id));
+    res.json(filtered);
   } catch(e) {
     console.error('Get leads error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get pending proposal requests for current rep
+app.get('/api/pending-requests', requireAuth, async (req, res) => {
+  try {
+    const requests = await dbAll(
+      'SELECT * FROM pending_requests WHERE user_id = ? AND status = ? ORDER BY requested_at DESC',
+      [req.session.userId, 'pending']
+    );
+    res.json(requests);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Mark pending request as sent (admin only)
+app.patch('/api/pending-requests/:id/sent', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await dbRun('UPDATE pending_requests SET status = ? WHERE id = ?', ['sent', req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
@@ -501,7 +591,14 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
     const { action, notes } = req.body;
     console.log('Lead action:', action, 'for Monday ID:', mondayId);
     if (action === 'free_consultation') await monday.clickFreeConsultation(mondayId);
-    else if (action === 'proposal_requested') await monday.clickProposalRequested(mondayId);
+    else if (action === 'proposal_requested') {
+      await monday.clickProposalRequested(mondayId);
+      // Store pending request locally
+      const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+      const { client_name, address } = req.body;
+      await dbRun('INSERT INTO pending_requests (user_id, monday_id, client_name, address) VALUES (?, ?, ?, ?)',
+        [req.session.userId, mondayId, client_name || '', address || '']);
+    }
     else if (action === 'help_required') await monday.clickHelpRequired(mondayId);
     else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
     else if (action === 'move_stage') {
