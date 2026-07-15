@@ -80,8 +80,33 @@
           <div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Address</div><input id="leadDetailAddress" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Phone</div><input id="leadDetailPhone" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Email</div><input id="leadDetailEmail" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Status</div><input id="leadDetailStatus" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Source</div><input id="leadDetailSource" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Status</div>
+            <select id="leadDetailStatus" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box;background:#fff">
+              <option value="">-- Select --</option>
+              <option>TO DO</option>
+              <option>CONNECTED</option>
+              <option>call back</option>
+              <option>DISCOVERY CALL</option>
+              <option>DC - CALENDLY</option>
+              <option>Qualified</option>
+              <option>CALL ATTEMPT X1</option>
+              <option>CALL ATTEMPT X2</option>
+              <option>CALL ATTEMPT X3</option>
+              <option>FOLLOW UP EMAIL</option>
+              <option>WAITING FOR CLIENT</option>
+              <option>Opportunity created</option>
+              <option>LH</option>
+              <option>LOST</option>
+            </select>
+          </div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Source</div>
+            <select id="leadDetailSource" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box;background:#fff">
+              <option value="">-- Select --</option>
+              <option>CALLS</option>
+              <option>AI CALLS</option>
+              <option>WEBSITE ENQUIRIES</option>
+            </select>
+          </div>
           <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Arrival Date</div><input id="leadDetailArrival" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
           <div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Pipeline Stage</div><div id="leadDetailGroup" style="font-size:14px;color:#EA672F;font-weight:700"></div></div>
         </div>

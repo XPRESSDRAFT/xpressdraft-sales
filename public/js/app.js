@@ -510,9 +510,9 @@ function renderLeads(leads) {
     groups[g].push(l);
   });
 
-  const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED', 'LOST'];
-  // Add any other groups not in the predefined order
-  Object.keys(groups).forEach(g => { if (!groupOrder.includes(g)) groupOrder.push(g); });
+  const groupOrder = ['QUALIFIED LEADS', 'DISCOVERY CALLS', 'SEQUENCE CALL', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED'];
+  // Add any other groups not in the predefined order (excluding LOST)
+  Object.keys(groups).forEach(g => { if (!groupOrder.includes(g) && g !== 'LOST') groupOrder.push(g); });
 
   let html = '';
   groupOrder.forEach(gTitle => {
@@ -555,7 +555,9 @@ function openLead(mondayId) {
 
   // Highlight current pipeline stage button
   var stageMap = { 
+    'QUALIFIED LEADS':'qualified',
     'DISCOVERY CALLS':'discovery', 
+    'SEQUENCE CALL':'sequence',
     'FOLLOW UP EMAILS / CALLS':'followup', 
     'WAITING FOR CLIENTS':'waiting', 
     'CLOSED DEALS':'closed',
@@ -565,9 +567,9 @@ function openLead(mondayId) {
   var currentStage = stageMap[lead.group_title] || '';
   document.querySelectorAll('.stage-btn').forEach(function(btn) {
     var stage = btn.dataset.stage;
-    btn.style.background = stage === currentStage ? '#EA672F' : '#fff';
-    btn.style.color = stage === currentStage ? '#fff' : '#2A2B29';
-    btn.style.borderColor = stage === currentStage ? '#EA672F' : '#e0d9d5';
+    btn.style.background = stage === currentStage ? '#EA672F' : (stage === 'lost' ? '#fff' : '#fff');
+    btn.style.color = stage === currentStage ? '#fff' : (stage === 'lost' ? '#c0392b' : '#2A2B29');
+    btn.style.borderColor = stage === currentStage ? '#EA672F' : (stage === 'lost' ? '#c0392b' : '#e0d9d5');
   });
   // Show client enquiry (read-only)
   var enquiryEl = document.getElementById('leadEnquiry');
