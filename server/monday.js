@@ -5,7 +5,7 @@ const MONDAY_API = 'https://api.monday.com/v2';
 
 // Board IDs
 const BOARDS = {
-  negotiations:      '224210864',
+  negotiations:      '18390237344',
   free_consultations: '224212751',
   proposal:          '18389820785',
 };
