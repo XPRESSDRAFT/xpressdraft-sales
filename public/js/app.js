@@ -522,7 +522,7 @@ function renderLeads(leads) {
     html += '<div class="lead-group">' +
       '<div class="lead-group-title" style="color:' + stageInfo.color + '">' + stageInfo.label + ' <span class="lead-count" style="background:' + stageInfo.color + '">' + items.length + '</span></div>' +
       items.map(l => 
-        '<div class="lead-card" data-id="' + l.monday_id + '" onclick="openLead('' + l.monday_id + '')">' +
+        '<div class="lead-card" data-id="' + l.monday_id + '" onclick="openLead(&quot;' + l.monday_id + '&quot;)">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
         '<div class="lead-name">' + esc(l.name) + '</div>' +
         '<span style="font-size:10px;font-weight:700;color:' + stageInfo.color + ';background:' + stageInfo.color + '18;padding:2px 8px;border-radius:10px">' + stageInfo.label + '</span>' +
