@@ -98,9 +98,9 @@ async function getLeadsForRep(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
       
-      // Filter by salesperson
+      // Filter by salesperson - if no match found, show all
       const salesCol = cols[COLS.salesperson] || '';
-      if (repName && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
+      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
 
       leads.push({
         monday_id: item.id,
@@ -117,6 +117,7 @@ async function getLeadsForRep(repName) {
     }
   }
 
+  console.log('Monday leads found:', leads.length, 'for rep:', repName);
   return leads;
 }
 

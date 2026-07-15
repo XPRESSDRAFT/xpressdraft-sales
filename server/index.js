@@ -22,7 +22,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fetch = require('node-fetch');
 const sqlite3 = require('sqlite3').verbose();
-const SQLiteStore = require('connect-sqlite3')(session);
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -182,8 +182,12 @@ const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
+// Session store using connect-sqlite3
+const SQLiteStore = require('connect-sqlite3')(session);
+const sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
+
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: dataDir }),
+  store: sessionStore,
   cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
   secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
   resave: false,
