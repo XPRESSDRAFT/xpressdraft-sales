@@ -150,6 +150,27 @@ async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) 
   return data?.move_item_to_board?.id;
 }
 
+// ── Update multiple lead fields ──────────────────────────────────────────────
+async function updateLeadDetails(itemId, details) {
+  const updates = [];
+  if (details.address !== undefined) updates.push({ colId: COLS.address, value: JSON.stringify(details.address) });
+  if (details.phone !== undefined) updates.push({ colId: COLS.phone, value: JSON.stringify({ phone: details.phone, countryShortName: 'AU' }) });
+  if (details.email !== undefined) updates.push({ colId: COLS.email, value: JSON.stringify({ email: details.email, text: details.email }) });
+  if (details.source !== undefined) updates.push({ colId: COLS.source, value: JSON.stringify({ label: details.source }) });
+  if (details.status !== undefined) updates.push({ colId: COLS.status, value: JSON.stringify({ label: details.status }) });
+
+  for (const u of updates) {
+    try {
+      await query(`
+        mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
+          change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) { id }
+        }`, { boardId: BOARDS.negotiations, itemId, colId: u.colId, value: u.value });
+    } catch(e) {
+      console.error('Update field error:', u.colId, e.message);
+    }
+  }
+}
+
 // ── Update rep notes field (syncs to NOTES column) ───────────────────────────
 async function updateNotes(itemId, notes) {
   const value = JSON.stringify({ text: notes });
@@ -270,6 +291,7 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  updateLeadDetails,
   getGroupId,
   moveToGroup,
   moveToFollowUp,

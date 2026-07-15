@@ -546,6 +546,19 @@ app.get('/api/leads/:mondayId/files/:filename', requireAuth, (req, res) => {
   res.download(filePath);
 });
 
+// Update lead details
+app.patch('/api/leads/:mondayId/details', requireAuth, async (req, res) => {
+  try {
+    const { mondayId } = req.params;
+    const { address, phone, email, source, status } = req.body;
+    await monday.updateLeadDetails(mondayId, { address, phone, email, source, status });
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Update details error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Update notes
 app.patch('/api/leads/:mondayId/notes', requireAuth, async (req, res) => {
   try {

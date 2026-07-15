@@ -528,12 +528,12 @@ function openLead(mondayId) {
 
   // Populate the lead detail panel
   document.getElementById('leadDetailName').textContent = lead.name;
-  document.getElementById('leadDetailAddress').textContent = lead.address || '—';
-  document.getElementById('leadDetailPhone').textContent = lead.phone || '—';
-  document.getElementById('leadDetailEmail').textContent = lead.email || '—';
-  document.getElementById('leadDetailSource').textContent = lead.source || '—';
-  document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').textContent = lead.arrival || '—');
-  document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').textContent = lead.status || '—');
+  document.getElementById('leadDetailAddress').value = lead.address || '';
+  document.getElementById('leadDetailPhone').value = lead.phone || '';
+  document.getElementById('leadDetailEmail').value = lead.email || '';
+  document.getElementById('leadDetailSource').value = lead.source || '';
+  document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').value = lead.arrival || '');
+  document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').value = lead.status || '');
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
 
   // Highlight current pipeline stage button
@@ -606,6 +606,26 @@ function apiFetch(url, method, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(url, opts).then(r => r.json());
+}
+
+async function saveLeadDetails() {
+  if (!activeLead) return;
+  const details = {
+    address: document.getElementById('leadDetailAddress').value.trim(),
+    phone: document.getElementById('leadDetailPhone').value.trim(),
+    email: document.getElementById('leadDetailEmail').value.trim(),
+    source: document.getElementById('leadDetailSource').value.trim(),
+    arrival: document.getElementById('leadDetailArrival') ? document.getElementById('leadDetailArrival').value.trim() : '',
+    status: document.getElementById('leadDetailStatus') ? document.getElementById('leadDetailStatus').value.trim() : '',
+  };
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/details', 'PATCH', details);
+    // Update local data
+    Object.assign(activeLead, details);
+    showToast('Details saved to Monday.com');
+  } catch(e) {
+    showToast('Error saving: ' + e.message);
+  }
 }
 
 async function moveStage(stage) {
