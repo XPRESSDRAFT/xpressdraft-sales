@@ -263,7 +263,7 @@ async function registerMondayWebhook() {
       if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
       if (btn) btn.textContent = 'Register Webhook';
     } else {
-      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Monday.com webhook registered! (ID: ' + r.id + ') When you set a proposal status to SENT, the lead will reappear in the rep's Follow Up list.</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Monday.com webhook registered! (ID: ' + r.id + ') When you set a proposal status to SENT, the lead will reappear in the rep\'s Follow Up list.</span>';
       if (btn) btn.textContent = 'Registered ✓';
     }
   } catch(e) {
