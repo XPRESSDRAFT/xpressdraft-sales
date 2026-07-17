@@ -545,18 +545,19 @@ app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async 
     const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
     const webhookUrl = appUrl + '/api/monday-webhook';
 
+    const webhookConfig = JSON.stringify({ columnId: 'color_mkxzy23p' });
     const result = await monday.query(`
-      mutation {
+      mutation($url: String!, $config: String!) {
         create_webhook(
           board_id: 18389820785,
-          url: "${webhookUrl}",
+          url: $url,
           event: change_column_value,
-          config: "{\"columnId\":\"color_mkxzy23p\"}"
+          config: $config
         ) {
           id
           board_id
         }
-      }`);
+      }`, { url: webhookUrl, config: webhookConfig });
 
     if (result?.create_webhook?.id) {
       console.log('Monday webhook registered:', result.create_webhook.id);
