@@ -553,19 +553,43 @@ app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, 
     const userUri = userData?.resource?.uri;
     if (!userUri) return res.status(400).json({ error: 'Could not get Calendly user URI — check your token' });
 
-    // Register webhook
-    const webhookRes = await fetch('https://api.calendly.com/webhook_subscriptions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: webhookUrl,
-        events: ['invitee.created', 'invitee.canceled'],
-        user: userUri,
-        scope: 'user'
-      })
-    });
-    const webhookData = await webhookRes.json();
-    if (webhookData.message) return res.status(400).json({ error: webhookData.message });
+    // Get organization URI too
+    const orgUri = userData?.resource?.current_organization;
+    console.log('Calendly user URI:', userUri, '| org URI:', orgUri);
+
+    // Try organization scope first, fall back to user scope
+    let webhookData;
+    if (orgUri) {
+      const webhookRes = await fetch('https://api.calendly.com/webhook_subscriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          events: ['invitee.created', 'invitee.canceled'],
+          organization: orgUri,
+          scope: 'organization'
+        })
+      });
+      webhookData = await webhookRes.json();
+    }
+
+    // Fall back to user scope if org failed
+    if (!webhookData || webhookData.message) {
+      const webhookRes2 = await fetch('https://api.calendly.com/webhook_subscriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          events: ['invitee.created', 'invitee.canceled'],
+          organization: orgUri,
+          user: userUri,
+          scope: 'user'
+        })
+      });
+      webhookData = await webhookRes2.json();
+    }
+
+    if (webhookData.message) return res.status(400).json({ error: webhookData.message, details: webhookData });
     console.log('Calendly webhook registered:', webhookUrl);
     res.json({ ok: true, webhook: webhookData });
   } catch(e) {
