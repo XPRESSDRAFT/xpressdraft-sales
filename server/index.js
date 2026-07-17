@@ -547,7 +547,7 @@ app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async 
 
     const webhookConfig = JSON.stringify({ columnId: 'color_mkxzy23p' });
     const result = await monday.query(`
-      mutation($url: String!, $config: String!) {
+      mutation($url: String!, $config: JSON!) {
         create_webhook(
           board_id: 18389820785,
           url: $url,
