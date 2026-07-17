@@ -252,3 +252,23 @@ async function registerCalendly() {
     if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
   }
 }
+
+async function registerMondayWebhook() {
+  const btn = document.querySelector('[onclick="registerMondayWebhook()"]');
+  if (btn) btn.textContent = 'Registering...';
+  try {
+    const r = await api('POST', '/api/admin/monday/register-webhook', {});
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
+      if (btn) btn.textContent = 'Register Webhook';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Monday.com webhook registered! (ID: ' + r.id + ') When you set a proposal status to SENT, the lead will reappear in the rep's Follow Up list.</span>';
+      if (btn) btn.textContent = 'Registered ✓';
+    }
+  } catch(e) {
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
+    if (btn) btn.textContent = 'Register Webhook';
+  }
+}

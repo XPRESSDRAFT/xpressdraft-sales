@@ -104,7 +104,16 @@
         </div>
         <button onclick="registerCalendly()" class="btn btn-orange">Connect Calendly</button>
       </div>
-      <div id="calendlyStatus" style="font-size:13px;color:#888">Add <code>CALENDLY_TOKEN</code> to Render environment variables first, then click Connect.</div>
+      <div id="calendlyStatus" style="font-size:13px;color:#888;margin-bottom:20px">Add <code>CALENDLY_TOKEN</code> to Render environment variables first, then click Connect.</div>
+
+      <div style="border-top:1.5px solid #f0e8e4;padding-top:16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">Monday.com Webhook</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">When proposal status set to SENT → lead reappears in rep's Follow Up</div>
+        </div>
+        <button onclick="registerMondayWebhook()" class="btn btn-orange">Register Webhook</button>
+      </div>
+      <div id="mondayWebhookStatus" style="font-size:13px;color:#888">Click to register the Monday.com webhook on the 26_3 Proposal board.</div>
     </div>
 
     <div class="section-title">System Storage</div>

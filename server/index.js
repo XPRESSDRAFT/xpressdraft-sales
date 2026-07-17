@@ -536,6 +536,89 @@ app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Monday.com webhook registration ─────────────────────────────────────────
+app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const apiKey = process.env.MONDAY_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'MONDAY_API_KEY not set' });
+
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const webhookUrl = appUrl + '/api/monday-webhook';
+
+    const result = await monday.query(`
+      mutation {
+        create_webhook(
+          board_id: 18389820785,
+          url: "${webhookUrl}",
+          event: change_column_value,
+          config: "{\"columnId\":\"color_mkxzy23p\"}"
+        ) {
+          id
+          board_id
+        }
+      }`);
+
+    if (result?.create_webhook?.id) {
+      console.log('Monday webhook registered:', result.create_webhook.id);
+      res.json({ ok: true, id: result.create_webhook.id });
+    } else {
+      res.status(400).json({ error: 'Failed to register webhook', result });
+    }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Monday.com webhook ───────────────────────────────────────────────────────
+app.post('/api/monday-webhook', async (req, res) => {
+  try {
+    // Monday.com sends a challenge on first registration
+    if (req.body?.challenge) {
+      return res.json({ challenge: req.body.challenge });
+    }
+
+    const event = req.body?.event;
+    if (!event) return res.json({ ok: true });
+
+    console.log('Monday webhook:', JSON.stringify(event).slice(0, 200));
+
+    // Check if this is a status change to SENT on the Proposal board
+    const boardId = String(event.boardId || '');
+    const columnId = event.columnId || '';
+    const newValue = event.value?.label?.text || event.value?.label || '';
+    const itemId = String(event.pulseId || event.itemId || '');
+
+    if (boardId === '18389820785' && columnId === 'color_mkxzy23p' && 
+        newValue.toUpperCase() === 'SENT' && itemId) {
+      console.log('Monday: SENT status on Proposal board, item:', itemId);
+
+      // Find pending request for this item and mark as sent
+      const pending = await dbGet('SELECT * FROM pending_requests WHERE monday_id = ? AND status = ?', 
+        [itemId, 'pending']);
+      
+      if (pending) {
+        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', itemId]);
+        console.log('Pending request marked as sent for item:', itemId);
+
+        // Move lead back to FOLLOW UP EMAILS / CALLS in Negotiations board
+        try {
+          await monday.moveToFollowUp(itemId);
+          console.log('Lead moved to FOLLOW UP after SENT:', itemId);
+        } catch(e) {
+          console.error('Move to follow up error:', e.message);
+        }
+      } else {
+        console.log('No pending request found for item:', itemId);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Monday webhook error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Calendly webhook registration ────────────────────────────────────────────
 app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, res) => {
   try {
