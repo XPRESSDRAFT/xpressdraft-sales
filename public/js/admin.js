@@ -234,3 +234,21 @@ function esc(s) {
 loadUsers();
 loadPricing();
 loadPendingPortals();
+
+async function registerCalendly() {
+  const btn = document.querySelector('[onclick="registerCalendly()"]');
+  if (btn) btn.textContent = 'Connecting...';
+  try {
+    const r = await api('POST', '/api/admin/calendly/register', {});
+    const statusEl = document.getElementById('calendlyStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Calendly webhook registered successfully! New bookings will now create leads in Monday.com.</span>';
+      if (btn) btn.textContent = 'Connected ✓';
+    }
+  } catch(e) {
+    const statusEl = document.getElementById('calendlyStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
+  }
+}

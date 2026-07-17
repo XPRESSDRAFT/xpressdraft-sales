@@ -501,6 +501,7 @@ async function loadLeads() {
   const container = document.getElementById('leadsContainer');
   if (!container) return;
   loadPendingRequests();
+  checkReminders();
   container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
   try {
     const leads = await apiFetch('/api/leads');
@@ -523,6 +524,7 @@ const STAGE_LABELS = {
 };
 
 function renderLeads(leads) {
+  window._cachedLeads = leads;
   const container = document.getElementById('leadsContainer');
   if (!container) return;
 
@@ -534,12 +536,16 @@ function renderLeads(leads) {
     groups[g].push(l);
   });
 
+  // Render group filter tabs
+  renderGroupTabs(groups);
+
   const groupOrder = ['QUALIFIED LEADS', 'DISCOVERY CALLS', 'SEQUENCE CALL', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED'];
   // Add any other groups not in the predefined order (excluding LOST)
   Object.keys(groups).forEach(g => { if (!groupOrder.includes(g) && g !== 'LOST') groupOrder.push(g); });
 
   let html = '';
   groupOrder.forEach(gTitle => {
+    if (activeGroupFilter !== 'ALL' && gTitle !== activeGroupFilter) return;
     const items = groups[gTitle];
     if (!items || items.length === 0) return;
     const stageInfo = STAGE_LABELS[gTitle] || { label: gTitle, color: '#888' };
@@ -620,8 +626,9 @@ function openLead(mondayId) {
   if (enquiryEl) enquiryEl.textContent = lead.enquiry || 'No enquiry recorded.';
   // Rep notes - separate from enquiry
   document.getElementById('leadNotes').value = lead.rep_notes || '';
-  // Load files
+  // Load files and reminders
   loadLeadFiles(lead.monday_id);
+  loadLeadReminders(lead.monday_id);
 
   // Pre-fill the client fields for proposal
   if (document.getElementById('cName')) document.getElementById('cName').value = lead.name;
@@ -835,3 +842,108 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// ── Group filter tabs ─────────────────────────────────────────────────────────
+var activeGroupFilter = 'ALL';
+
+function renderGroupTabs(groups) {
+  const tabsEl = document.getElementById('groupFilterTabs');
+  if (!tabsEl) return;
+  const allGroups = ['ALL', ...Object.keys(groups).filter(g => g !== 'LOST')];
+  tabsEl.innerHTML = allGroups.map(g => {
+    const info = STAGE_LABELS[g] || { label: g === 'ALL' ? 'All Leads' : g, color: '#888' };
+    const count = g === 'ALL' ? Object.values(groups).reduce((a, b) => a + b.length, 0) : (groups[g] || []).length;
+    const isActive = g === activeGroupFilter;
+    return '<button onclick="filterLeads(&quot;' + g.replace(/"/g, '') + '&quot;)" style="' +
+      'background:' + (isActive ? info.color : '#fff') + ';' +
+      'color:' + (isActive ? '#fff' : info.color) + ';' +
+      'border:1.5px solid ' + info.color + ';' +
+      'padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">' +
+      (g === 'ALL' ? 'All Leads' : info.label) + ' (' + count + ')</button>';
+  }).join('');
+}
+
+function filterLeads(group) {
+  activeGroupFilter = group;
+  renderLeads(window._cachedLeads || []);
+}
+
+// ── Reminders ─────────────────────────────────────────────────────────────────
+async function checkReminders() {
+  try {
+    const reminders = await apiFetch('/api/reminders');
+    if (!reminders || reminders.length === 0) {
+      document.getElementById('reminderBanner') && (document.getElementById('reminderBanner').style.display = 'none');
+      return;
+    }
+    // Check for due reminders (within next 24 hours)
+    const now = new Date();
+    const due = reminders.filter(r => new Date(r.remind_at) <= new Date(now.getTime() + 24*60*60*1000));
+    const banner = document.getElementById('reminderBanner');
+    if (banner && due.length > 0) {
+      banner.style.display = 'block';
+      document.getElementById('reminderBannerText').textContent = 
+        due.length + ' reminder' + (due.length > 1 ? 's' : '') + ' due' + (due.some(r => new Date(r.remind_at) <= now) ? ' NOW' : ' soon');
+    }
+    // Populate reminders list
+    const container = document.getElementById('remindersContainer');
+    if (container) {
+      container.innerHTML = reminders.map(r =>
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#faf7f5;border-radius:8px;margin-bottom:8px">' +
+        '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:700;color:#2A2B29">' + esc(r.client_name) + '</div>' +
+        '<div style="font-size:12px;color:#888">' + esc(r.note || '') + '</div>' +
+        '<div style="font-size:11px;color:#EA672F;font-weight:700">' + new Date(r.remind_at).toLocaleString('en-AU') + '</div>' +
+        '</div>' +
+        '<button onclick="dismissReminder(' + r.id + ')" style="background:#c0392b;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Dismiss</button>' +
+        '</div>'
+      ).join('');
+    }
+  } catch(e) {}
+}
+
+async function dismissReminder(id) {
+  await apiFetch('/api/reminders/' + id, 'DELETE');
+  checkReminders();
+}
+
+async function loadLeadReminders(mondayId) {
+  const container = document.getElementById('leadRemindersList');
+  if (!container) return;
+  try {
+    const reminders = await apiFetch('/api/leads/' + mondayId + '/reminders');
+    if (!reminders || reminders.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0 0 8px">No reminders set.</p>';
+      return;
+    }
+    container.innerHTML = reminders.map(r =>
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+      '<div style="flex:1">' +
+      '<div style="font-size:12px;font-weight:700;color:#2A2B29">' + esc(r.note || 'Reminder') + '</div>' +
+      '<div style="font-size:11px;color:#EA672F">' + new Date(r.remind_at).toLocaleString('en-AU') + '</div>' +
+      '</div>' +
+      '<button onclick="dismissReminder(' + r.id + ');loadLeadReminders(&quot;' + mondayId + '&quot;)" style="background:#c0392b;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">✕</button>' +
+      '</div>'
+    ).join('');
+  } catch(e) {}
+}
+
+async function addReminder() {
+  if (!activeLead) return;
+  const date = document.getElementById('reminderDate').value;
+  const note = document.getElementById('reminderNote').value.trim();
+  if (!date) { toast('Please select a date and time'); return; }
+  await apiFetch('/api/leads/' + activeLead.monday_id + '/reminders', 'POST', {
+    remind_at: date,
+    note,
+    client_name: activeLead.name
+  });
+  document.getElementById('reminderDate').value = '';
+  document.getElementById('reminderNote').value = '';
+  toast('Reminder set');
+  loadLeadReminders(activeLead.monday_id);
+  checkReminders();
+}
+
+// Check reminders every 5 minutes
+setInterval(checkReminders, 5 * 60 * 1000);

@@ -114,6 +114,18 @@ function dbExec(sql) {
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
+// Reminders table
+await dbRun(`CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  monday_id TEXT NOT NULL,
+  client_name TEXT NOT NULL,
+  note TEXT DEFAULT '',
+  remind_at TEXT NOT NULL,
+  done INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+)`).catch(() => {});
+
 // Pending proposal requests table
 await dbRun(`CREATE TABLE IF NOT EXISTS pending_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -492,6 +504,154 @@ if (process.env.NODE_ENV === 'production') {
     } catch(e) {}
   }, 10 * 60 * 1000); // every 10 minutes
 }
+
+// ── Reminders routes ─────────────────────────────────────────────────────────
+app.get('/api/reminders', requireAuth, async (req, res) => {
+  const reminders = await dbAll(
+    'SELECT * FROM reminders WHERE user_id = ? AND done = 0 ORDER BY remind_at ASC',
+    [req.session.userId]
+  );
+  res.json(reminders);
+});
+
+app.get('/api/leads/:mondayId/reminders', requireAuth, async (req, res) => {
+  const reminders = await dbAll(
+    'SELECT * FROM reminders WHERE user_id = ? AND monday_id = ? AND done = 0 ORDER BY remind_at ASC',
+    [req.session.userId, req.params.mondayId]
+  );
+  res.json(reminders);
+});
+
+app.post('/api/leads/:mondayId/reminders', requireAuth, async (req, res) => {
+  const { note, remind_at, client_name } = req.body;
+  await dbRun(
+    'INSERT INTO reminders (user_id, monday_id, client_name, note, remind_at) VALUES (?, ?, ?, ?, ?)',
+    [req.session.userId, req.params.mondayId, client_name || '', note || '', remind_at]
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
+  await dbRun('UPDATE reminders SET done = 1 WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  res.json({ ok: true });
+});
+
+// ── Calendly webhook registration ────────────────────────────────────────────
+app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const token = process.env.CALENDLY_TOKEN;
+    if (!token) return res.status(400).json({ error: 'CALENDLY_TOKEN not set in environment variables' });
+
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const webhookUrl = appUrl + '/api/calendly-webhook';
+
+    // Get user URI first
+    const userRes = await fetch('https://api.calendly.com/users/me', {
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+    });
+    const userData = await userRes.json();
+    const userUri = userData?.resource?.uri;
+    if (!userUri) return res.status(400).json({ error: 'Could not get Calendly user URI — check your token' });
+
+    // Register webhook
+    const webhookRes = await fetch('https://api.calendly.com/webhook_subscriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: webhookUrl,
+        events: ['invitee.created', 'invitee.canceled'],
+        user: userUri,
+        scope: 'user'
+      })
+    });
+    const webhookData = await webhookRes.json();
+    if (webhookData.message) return res.status(400).json({ error: webhookData.message });
+    console.log('Calendly webhook registered:', webhookUrl);
+    res.json({ ok: true, webhook: webhookData });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Calendly rep mapping ─────────────────────────────────────────────────────
+const CALENDLY_REP_MAP = {
+  'here2help@xpressdraft.com.au': 'Christian Yamada',
+  // Add Evan when ready: 'evan@xpressdraft.com.au': 'Evan Dowman',
+};
+
+// ── Calendly webhook ──────────────────────────────────────────────────────────
+app.post('/api/calendly-webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('Calendly webhook:', event.event);
+    if (event.event === 'invitee.created') {
+      const invitee = event.payload?.invitee;
+      const name = invitee?.name || 'Unknown';
+      const email = invitee?.email || '';
+      const phone = invitee?.questions_and_answers?.find(q => q.question?.toLowerCase().includes('phone'))?.answer || '';
+      const startTime = event.payload?.event?.start_time || '';
+
+      // Identify assigned rep from event membership
+      const members = event.payload?.event?.event_memberships || [];
+      const assignedEmail = members[0]?.user_email || '';
+      const repName = CALENDLY_REP_MAP[assignedEmail] || '';
+      console.log('Calendly booking:', name, '| assigned to:', assignedEmail, '→', repName || 'unassigned');
+
+      // Get salesperson item ID from Monday.com salesperson board
+      let salespersonItemId = null;
+      if (repName) {
+        try {
+          const spData = await monday.query(`
+            query {
+              boards(ids: ["18390237344"]) {
+                items_page(limit: 50) {
+                  items { id name }
+                }
+              }
+            }`);
+          const spItems = spData?.boards?.[0]?.items_page?.items || [];
+          const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
+          if (match) salespersonItemId = match.id;
+        } catch(e) {
+          console.error('Calendly salesperson lookup error:', e.message);
+        }
+      }
+
+      // Create item in Monday.com DISCOVERY CALLS group
+      try {
+        const colVals = {
+          [monday.COLS.email]: { email, text: email },
+          [monday.COLS.status]: { label: 'DC - CALENDLY' },
+          [monday.COLS.source]: { label: 'CALENDLY' },
+          [monday.COLS.arrival]: { date: startTime ? startTime.split('T')[0] : new Date().toISOString().split('T')[0] }
+        };
+        if (phone) colVals[monday.COLS.phone] = { phone, countryShortName: 'AU' };
+        if (salespersonItemId) colVals[monday.COLS.salesperson] = { item_ids: [salespersonItemId] };
+
+        const columnValues = JSON.stringify(colVals);
+        const discGroupId = await monday.getGroupId(monday.BOARDS.negotiations, 'DISCOVERY CALLS');
+        if (discGroupId) {
+          await monday.query(`
+            mutation {
+              create_item(
+                board_id: ${monday.BOARDS.negotiations},
+                group_id: "${discGroupId}",
+                item_name: "${name.replace(/"/g, '\"')}",
+                column_values: ${JSON.stringify(columnValues)}
+              ) { id }
+            }`);
+          console.log('Calendly lead created:', name, '→ assigned to:', repName || 'unassigned');
+        }
+      } catch(e) {
+        console.error('Calendly Monday error:', e.message);
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Calendly webhook error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Storage stats ────────────────────────────────────────────────────────────
 app.get('/api/admin/storage', requireAuth, requireAdmin, async (req, res) => {

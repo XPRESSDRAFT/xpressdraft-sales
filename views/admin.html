@@ -95,6 +95,18 @@
 
   <!-- Users -->
   <div class="section">
+    <div class="section-title">Integrations</div>
+    <div style="margin-bottom:24px;background:#fff;border-radius:12px;padding:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">Calendly</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">Auto-create leads in Monday.com when a booking is made</div>
+        </div>
+        <button onclick="registerCalendly()" class="btn btn-orange">Connect Calendly</button>
+      </div>
+      <div id="calendlyStatus" style="font-size:13px;color:#888">Add <code>CALENDLY_TOKEN</code> to Render environment variables first, then click Connect.</div>
+    </div>
+
     <div class="section-title">System Storage</div>
     <div style="margin-bottom:24px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
