@@ -1,3 +1,18 @@
+// ── Sync call notes ↔ CRM notes ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var callNotesField = document.querySelector('[data-f="notes"]');
+  if (callNotesField) {
+    callNotesField.addEventListener('input', function() {
+      // Mirror to CRM notes if lead detail is open
+      var crmNotes = document.getElementById('leadNotes');
+      if (crmNotes && document.getElementById('leadDetailPanel') && 
+          document.getElementById('leadDetailPanel').style.display !== 'none') {
+        crmNotes.value = callNotesField.value;
+      }
+    });
+  }
+});
+
 // ── Session keep-alive & expiry detection ─────────────────────────────────────
 (function() {
   // Ping server every 8 minutes to keep session alive
@@ -48,7 +63,18 @@ function gather(){const d={};$$('[data-f]').forEach(el=>{const k=el.getAttribute
 function apply(data){$$('[data-f]').forEach(el=>{const k=el.getAttribute('data-f'),v=(data&&data[k])||'';if(el.classList.contains('yn')){el.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.textContent===v));}else el.value=v;});}
 $$('.yn').forEach(yn=>yn.querySelectorAll('button').forEach(b=>b.onclick=()=>{yn.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}));
 function resetForm(){state.checks={};state.editingId=null;setExp('new');apply({});$('#cName').value='';$('#cAddr').value='';if($('#cEmail'))$('#cEmail').value='';if($('#cPhone'))$('#cPhone').value='';$('#cDate').value=new Date().toISOString().slice(0,10);renderChecklist();updateProgress();$('#editingName').textContent='New client (unsaved)';}
-function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();});}
+function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},monday_id:state.mondayId||'',updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();
+  // Sync call notes to Monday.com if lead is loaded
+  if (state.mondayId) {
+    var notesField = document.querySelector('[data-f="notes"]');
+    var notes = notesField ? notesField.value : '';
+    if (notes) {
+      apiFetch('/api/leads/' + state.mondayId + '/notes', 'PATCH', { notes })
+        .then(() => console.log('Call notes synced to Monday.com'))
+        .catch(e => console.error('Notes sync error:', e.message));
+    }
+  }
+});}
 function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return;state.editingId=c.id;state.checks={...(c.checks||{})};setExp(c.exp||'new');$('#cName').value=c.name;$('#cAddr').value=c.addr||'';if($('#cEmail'))$('#cEmail').value=c.email||'';if($('#cPhone'))$('#cPhone').value=c.phone||'';$('#cDate').value=c.date||'';apply(c.fields||{});renderChecklist();updateProgress();$('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});toast('Opened "'+c.name+'"');});}
 function renderSaved(){load(list=>{const el=$('#savedList');if(!list.length){el.innerHTML='<div class="saved-empty">No clients saved yet. Fill in a call and hit Save.</div>';return;}list.sort((a,b)=>b.updated-a.updated);el.className='saved-list';el.innerHTML='';list.forEach(c=>{const n=STAGES.filter(s=>c.checks&&c.checks[s.k]).length,pct=Math.round(n/STAGES.length*100);const d=c.date?new Date(c.date).toLocaleDateString():'—';const badge=c.exp==='exp'?'<span class="sr-badge exp">Experienced</span>':'<span class="sr-badge new">New</span>';const row=document.createElement('div');row.className='saved-row';row.innerHTML=`<div class="sr-main"><div class="sr-name">${esc(c.name)}${badge}</div><div class="sr-meta">${esc(c.addr||'')} · ${d}</div></div><div class="sr-prog">${pct}%</div><div class="sr-actions"><button class="icon-btn" title="Open"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn" title="Delete"><svg viewBox="0 0 20 20" fill="none"><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;const[o,del]=row.querySelectorAll('.icon-btn');o.onclick=()=>openClient(c.id);del.onclick=()=>{if(confirm('Delete '+c.name+'?')){deleteRecord(c.id,()=>{renderSaved();toast('Deleted');});}};el.appendChild(row);});});}
 $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
@@ -635,6 +661,10 @@ function openLead(mondayId) {
   if (document.getElementById('cPhone')) document.getElementById('cPhone').value = lead.phone || '';
   if (document.getElementById('cEmail')) document.getElementById('cEmail').value = lead.email || '';
   if (document.getElementById('cAddr')) document.getElementById('cAddr').value = lead.address || '';
+
+  // Pre-fill call notes field with lead rep notes
+  var callNotesField = document.querySelector('[data-f="notes"]');
+  if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
 
   // Show detail panel, hide list
   document.getElementById('leadsListPanel').style.display = 'none';
