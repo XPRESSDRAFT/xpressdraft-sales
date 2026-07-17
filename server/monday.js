@@ -379,6 +379,7 @@ module.exports = {
   clickStartProject,
   updateNotes,
   createPendingLoginItem,
+  query,
   BOARDS,
   COLS,
 };
