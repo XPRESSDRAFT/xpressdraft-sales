@@ -607,25 +607,23 @@ function openLead(mondayId) {
   document.getElementById('leadDetailSource').textContent = lead.source || '—';
   document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').value = lead.arrival || '');
   document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').value = lead.status || '');
-  // Files received from Monday.com - load dynamically
+  // Files received from Monday.com - parse name|url format
   var mondayFilesEl = document.getElementById('leadMondayFiles');
   if (mondayFilesEl) {
-    mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Loading files...</p>';
-    apiFetch('/api/leads/' + lead.monday_id + '/monday-files').then(function(files) {
-      if (!files || files.length === 0) {
-        mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files in Monday.com.</p>';
-        return;
-      }
-      mondayFilesEl.innerHTML = files.map(function(f) {
-        var url = f.public_url || f.url || '';
+    if (lead.files_received) {
+      var fileLines = lead.files_received.split('\n').filter(Boolean);
+      mondayFilesEl.innerHTML = fileLines.map(function(line) {
+        var parts = line.split('|');
+        var filename = parts[0] || 'file';
+        var url = parts[1] || '';
         return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
-          '<span style="font-size:12px;color:#2A2B29;flex:1">📎 ' + esc(f.name) + '</span>' +
-          (url ? '<a href="' + url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' : '<span style="font-size:11px;color:#888">No URL</span>') +
+          '<span style="font-size:12px;color:#2A2B29;flex:1">📎 ' + esc(filename) + '</span>' +
+          (url ? '<a href="' + url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' : '') +
           '</div>';
       }).join('');
-    }).catch(function() {
-      mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load files.</p>';
-    });
+    } else {
+      mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files in Monday.com.</p>';
+    }
   }
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
 

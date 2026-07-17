@@ -113,18 +113,17 @@ async function getLeadsForRep(repName) {
       // Skip LOST leads - kept in Monday.com only
       if (group.title === 'LOST') continue;
 
-      // Parse files from Monday.com file column
+      // Parse files from Monday.com file column - use text field which has direct URLs
       let filesReceived = '';
       const rawFiles = item.column_values.find(c => c.id === COLS.files);
-      console.log('Files raw for', item.name, ':', JSON.stringify(rawFiles).slice(0, 200));
-      if (rawFiles && rawFiles.value) {
-        try {
-          const parsed = JSON.parse(rawFiles.value);
-          if (parsed.files && parsed.files.length > 0) {
-            filesReceived = parsed.files.map(f => f.name || f.asset_id || 'file').join('\n');
-          }
-        } catch(e) {
-          filesReceived = rawFiles.text || '';
+      if (rawFiles && rawFiles.text) {
+        // text field contains comma-separated URLs
+        const urls = rawFiles.text.split(', ').filter(u => u.trim());
+        if (urls.length > 0) {
+          filesReceived = urls.map(url => {
+            const filename = decodeURIComponent(url.split('/').pop());
+            return filename + '|' + url;
+          }).join('\n');
         }
       }
 

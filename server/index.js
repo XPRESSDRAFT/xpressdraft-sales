@@ -571,15 +571,18 @@ app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async 
 // ── Monday.com webhook ───────────────────────────────────────────────────────
 app.post('/api/monday-webhook', async (req, res) => {
   try {
+    console.log('Monday webhook received:', JSON.stringify(req.body).slice(0, 300));
+    
     // Monday.com sends a challenge on first registration
     if (req.body?.challenge) {
+      console.log('Monday webhook challenge received');
       return res.json({ challenge: req.body.challenge });
     }
 
     const event = req.body?.event;
     if (!event) return res.json({ ok: true });
 
-    console.log('Monday webhook:', JSON.stringify(event).slice(0, 200));
+    console.log('Monday webhook event type:', event.type, '| boardId:', event.boardId, '| columnId:', event.columnId, '| value:', JSON.stringify(event.value).slice(0, 100));
 
     // Check if this is a status change to SENT on the Proposal board
     const boardId = String(event.boardId || '');
