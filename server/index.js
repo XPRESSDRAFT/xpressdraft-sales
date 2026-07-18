@@ -594,23 +594,28 @@ app.post('/api/monday-webhook', async (req, res) => {
         newValue.toUpperCase() === 'SENT' && itemId) {
       console.log('Monday: SENT status on Proposal board, item:', itemId);
 
-      // Find pending request for this item and mark as sent
+      // Mark pending request as sent if exists
       const pending = await dbGet('SELECT * FROM pending_requests WHERE monday_id = ? AND status = ?', 
         [itemId, 'pending']);
-      
       if (pending) {
         await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', itemId]);
         console.log('Pending request marked as sent for item:', itemId);
+      }
 
-        // Move lead back to FOLLOW UP EMAILS / CALLS in Negotiations board
-        try {
-          await monday.moveToFollowUp(itemId);
-          console.log('Lead moved to FOLLOW UP after SENT:', itemId);
-        } catch(e) {
-          console.error('Move to follow up error:', e.message);
-        }
-      } else {
-        console.log('No pending request found for item:', itemId);
+      // Always move lead to FOLLOW UP EMAILS / CALLS in Negotiations board
+      try {
+        await monday.moveToFollowUp(itemId);
+        console.log('Lead moved to FOLLOW UP after SENT:', itemId);
+      } catch(e) {
+        console.error('Move to follow up error:', e.message);
+      }
+
+      // Also move item to SENT PROPOSALS group on Proposal board
+      try {
+        await monday.moveToGroup(monday.BOARDS.proposal, itemId, monday.PROPOSAL_GROUPS.sent_proposals);
+        console.log('Item moved to SENT PROPOSALS group on Proposal board:', itemId);
+      } catch(e) {
+        console.error('Move to sent proposals error:', e.message);
       }
     }
 

@@ -875,6 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function searchLeads(query) {
   if (!window._cachedLeads) return;
   if (!query.trim()) {
+    activeGroupFilter = 'ALL';
     renderLeads(window._cachedLeads);
     return;
   }
@@ -885,7 +886,6 @@ function searchLeads(query) {
     (l.phone || '').toLowerCase().includes(q) ||
     (l.email || '').toLowerCase().includes(q)
   );
-  // Temporarily set ALL filter to show all results
   const prevFilter = activeGroupFilter;
   activeGroupFilter = 'ALL';
   renderLeads(filtered);
