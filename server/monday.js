@@ -114,10 +114,12 @@ async function getLeadsForRep(repName) {
       // Skip LOST leads - kept in Monday.com only
       if (group.title === 'LOST') continue;
 
-      // Filter by salesperson - board relation column requires separate query
-      // For now show all leads - salesperson filtering via monday_name will be added
+      // Filter by salesperson - only filter if salesCol has a value
       const salesCol = cols[COLS.salesperson] || '';
-      // Only filter if salesCol has a value AND doesn't match repName
+      const rawSalesCol = item.column_values.find(c => c.id === COLS.salesperson);
+      if (item.name === 'Steven Roll' || item.name === 'LUIZ BRAGA') {
+        console.log('SALES DEBUG:', item.name, '| text:', salesCol, '| raw:', JSON.stringify(rawSalesCol).slice(0, 200));
+      }
       if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
 
       // Parse files from Monday.com file column - use text field which has direct URLs
