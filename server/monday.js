@@ -41,7 +41,7 @@ function headers() {
   return {
     'Authorization': process.env.MONDAY_API_KEY,
     'Content-Type': 'application/json',
-    'API-Version': '2024-01'
+    'API-Version': '2024-10'
   };
 }
 
