@@ -224,8 +224,7 @@ async function getProposalFollowUpLeads(repName) {
           filesReceived = urls.map(url => {
             const filename = decodeURIComponent(url.split('/').pop());
             return filename + '|' + url;
-          }).join('
-');
+          }).join('\n');
         }
       }
 
