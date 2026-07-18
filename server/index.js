@@ -821,8 +821,8 @@ app.get('/api/leads', requireAuth, async (req, res) => {
 
     // Get leads from both boards in parallel
     const [negotiationLeads, proposalFollowUpLeads] = await Promise.all([
-      monday.getLeadsForRep(repName),
-      monday.getProposalFollowUpLeads(repName)
+      monday.getLeadsForRep(repName).catch(e => { console.error('Negotiations leads error:', e.message); return []; }),
+      monday.getProposalFollowUpLeads(repName).catch(e => { console.error('Proposal leads error:', e.message); return []; })
     ]);
 
     // Exclude pending proposal requests from negotiations leads

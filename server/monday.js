@@ -99,18 +99,18 @@ async function getLeadsForRep(repName) {
     }
   }
 
-  // Build query with rules filter if we have a salesperson ID
-  const rulesParam = salespersonItemId 
+  // Build GraphQL query string with optional rules filter
+  const rulesStr = salespersonItemId
     ? `, rules: [{column_id: "board_relation_mky4h701", compare_value: ["${salespersonItemId}"], operator: contains_terms}]`
     : '';
 
-  const data = await query(`
-    query($boardId: ID!) {
-      boards(ids: [$boardId]) {
+  const gqlQuery = `
+    query {
+      boards(ids: [${BOARDS.negotiations}]) {
         groups {
           id
           title
-          items_page(limit: 100${rulesParam}) {
+          items_page(limit: 100${rulesStr}) {
             items {
               id
               name
@@ -123,7 +123,9 @@ async function getLeadsForRep(repName) {
           }
         }
       }
-    }`, { boardId: BOARDS.negotiations });
+    }`;
+
+  const data = await query(gqlQuery);
 
   console.log('Monday raw response:', JSON.stringify(data).slice(0, 500));
   const groups = data?.boards?.[0]?.groups || [];
