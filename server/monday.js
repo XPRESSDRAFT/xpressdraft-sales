@@ -76,6 +76,27 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
+  // First get the salesperson item ID from the Salesperson board
+  let salespersonItemId = null;
+  if (repName) {
+    try {
+      const spData = await query(`
+        query {
+          boards(ids: ["18390237344"]) {
+            items_page(limit: 50) {
+              items { id name }
+            }
+          }
+        }`);
+      const spItems = spData?.boards?.[0]?.items_page?.items || [];
+      const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
+      if (match) salespersonItemId = match.id;
+      console.log('Salesperson item ID for', repName, ':', salespersonItemId);
+    } catch(e) {
+      console.error('Salesperson lookup error:', e.message);
+    }
+  }
+
   const data = await query(`
     query($boardId: ID!) {
       boards(ids: [$boardId]) {
@@ -86,7 +107,7 @@ async function getLeadsForRep(repName) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky4h701", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "board_relation_mky4h701"]) {
                 id
                 text
                 value
@@ -103,30 +124,25 @@ async function getLeadsForRep(repName) {
   const leads = [];
 
   for (const group of groups) {
+    if (group.title === 'LOST') continue;
     const items = group.items_page?.items || [];
     for (const item of items) {
       const cols = {};
+      item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      item.column_values.forEach(c => {
-        cols[c.id] = c.text || '';
-      });
-
-      // Skip LOST leads - kept in Monday.com only
-      if (group.title === 'LOST') continue;
-
-      // Filter by salesperson - only filter if salesCol has a value
-      const salesCol = cols[COLS.salesperson] || '';
-      const rawSalesCol = item.column_values.find(c => c.id === COLS.salesperson);
-      if (item.name === 'Steven Roll' || item.name === 'LUIZ BRAGA') {
-        console.log('SALES DEBUG:', item.name, '| text:', salesCol, '| raw:', JSON.stringify(rawSalesCol).slice(0, 200));
+      // Filter by salesperson using linked item ID matching
+      if (salespersonItemId) {
+        const salesRaw = item.column_values.find(c => c.id === 'board_relation_mky4h701');
+        const salesValue = salesRaw?.value ? JSON.parse(salesRaw.value) : null;
+        const linkedIds = salesValue?.linkedPulseIds?.map(l => String(l.linkedPulseId)) || [];
+        if (linkedIds.length > 0 && !linkedIds.includes(String(salespersonItemId))) continue;
+        if (linkedIds.length === 0) continue; // skip unassigned
       }
-      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
 
-      // Parse files from Monday.com file column - use text field which has direct URLs
+      // Parse files
       let filesReceived = '';
       const rawFiles = item.column_values.find(c => c.id === COLS.files);
       if (rawFiles && rawFiles.text) {
-        // text field contains comma-separated URLs
         const urls = rawFiles.text.split(', ').filter(u => u.trim());
         if (urls.length > 0) {
           filesReceived = urls.map(url => {
