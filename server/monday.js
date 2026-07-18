@@ -28,7 +28,7 @@ const COLS = {
   enquiry:     'long_text_mkxzds8g',
   address:     'text_mky7qn0k',
   files:       'file_mkxzg1me',
-  rep_name:    'text_mm5cr6w2',
+  rep_dropdown: 'dropdown_mm5cb995',
   notes:       'long_text_mkxzbgfq',
   btn_free:    'button_mkxz4xs4',
   btn_proposal:'button_mkxz6sxp',
@@ -77,6 +77,29 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
+  // Get salesperson item ID
+  let salespersonItemId = null;
+  if (repName) {
+    try {
+      const spData = await query(`
+        query {
+          boards(ids: ["18390237344"]) {
+            items_page(limit: 50) {
+              items { id name }
+            }
+          }
+        }`);
+      const spItems = spData?.boards?.[0]?.items_page?.items || [];
+      const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
+      if (match) {
+        salespersonItemId = match.id;
+        console.log('Salesperson item ID for', repName, ':', salespersonItemId);
+      }
+    } catch(e) {
+      console.error('Salesperson lookup error:', e.message);
+    }
+  }
+
   const data = await query(`
     query {
       boards(ids: [${BOARDS.negotiations}]) {
@@ -87,7 +110,7 @@ async function getLeadsForRep(repName) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "text_mm5cr6w2"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "dropdown_mm5cb995"]) {
                 id
                 text
                 value
@@ -110,16 +133,11 @@ async function getLeadsForRep(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      // Filter by rep name text column - fuzzy match
-      const repCol = cols['text_mm5cr6w2'] || '';
-      if (repName && repCol) {
-        const repColNorm = repCol.toLowerCase().replace(/[^a-z]/g, '');
-        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
-        // Match if either contains the other (handles partial names)
-        if (!repColNorm.includes(repNameNorm) && !repNameNorm.includes(repColNorm)) continue;
-      } else if (repName && !repCol) {
-        continue; // skip unassigned
-      }
+      // Filter by rep dropdown column
+      const repCol = (cols['dropdown_mm5cb995'] || '').toLowerCase().replace(/[^a-z]/g, '');
+      const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+      if (repName && repCol && !repCol.includes(repNameNorm) && !repNameNorm.includes(repCol)) continue;
+      if (repName && !repCol) continue;
 
       // Parse files
       let filesReceived = '';
