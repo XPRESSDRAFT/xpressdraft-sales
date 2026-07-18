@@ -536,6 +536,12 @@ app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Leads update timestamp (for frontend polling) ────────────────────────────
+let lastLeadsUpdate = Date.now();
+app.get('/api/leads/last-update', requireAuth, (req, res) => {
+  res.json({ timestamp: lastLeadsUpdate });
+});
+
 // ── Monday.com webhook registration ─────────────────────────────────────────
 app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -604,6 +610,7 @@ app.post('/api/monday-webhook', async (req, res) => {
 
       // Monday.com automation handles moving item to Follow Up group
       // We just mark pending request as sent if exists
+      lastLeadsUpdate = Date.now();
       console.log('SENT webhook processed for item:', itemId);
     }
 

@@ -528,7 +528,10 @@ async function loadLeads() {
   if (!container) return;
   loadPendingRequests();
   checkReminders();
-  container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
+  // Show subtle loading indicator without clearing leads
+  const refreshBtn = document.querySelector('[onclick="loadLeads()"]');
+  if (refreshBtn) refreshBtn.textContent = '↻ Refreshing...';
+  if (!window._cachedLeads) container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
   try {
     const leads = await apiFetch('/api/leads');
     leadsData = leads;
@@ -923,16 +926,27 @@ function checkNewLeads(leads) {
   _lastLeadCount = leads.length;
 }
 
-// Poll for new leads every 2 minutes
+// Poll for leads updates every 15 seconds using timestamp
+var _lastUpdateTimestamp = 0;
 setInterval(async function() {
-  if (document.getElementById('leadsPanel') && 
-      document.getElementById('leadsPanel').style.display !== 'none') {
-    try {
-      const leads = await apiFetch('/api/leads');
-      if (leads && Array.isArray(leads)) checkNewLeads(leads);
-    } catch(e) {}
-  }
-}, 2 * 60 * 1000);
+  const panel = document.getElementById('leadsPanel');
+  if (!panel || panel.style.display === 'none') return;
+  try {
+    const update = await apiFetch('/api/leads/last-update');
+    if (update && update.timestamp > _lastUpdateTimestamp) {
+      if (_lastUpdateTimestamp > 0) {
+        // New data available - show banner and reload
+        const leads = await apiFetch('/api/leads');
+        if (leads && Array.isArray(leads)) {
+          checkNewLeads(leads);
+          leadsData = leads;
+          renderLeads(leads);
+        }
+      }
+      _lastUpdateTimestamp = update.timestamp;
+    }
+  } catch(e) {}
+}, 15 * 1000);
 
 // ── Group filter tabs ─────────────────────────────────────────────────────────
 var activeGroupFilter = 'ALL';
