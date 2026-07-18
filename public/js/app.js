@@ -542,10 +542,11 @@ async function loadLeads() {
 }
 
 const STAGE_LABELS = {
-  'DISCOVERY CALLS':          { label: 'Discovery', color: '#3498DB' },
   'QUALIFIED LEADS':          { label: 'Qualified', color: '#1ABC9C' },
-  'FOLLOW UP EMAILS / CALLS': { label: 'Follow Up', color: '#9B59B6' },
+  'DISCOVERY CALLS':          { label: 'Discovery', color: '#3498DB' },
   'SEQUENCE CALL':            { label: 'Sequence', color: '#7F8C8D' },
+  'FOLLOW UP EMAILS / CALLS': { label: 'Follow Up', color: '#9B59B6' },
+  'PROPOSAL FOLLOW UP':       { label: 'Proposal Follow Up', color: '#E67E22' },
   'WAITING FOR CLIENTS':      { label: 'Waiting', color: '#F39C12' },
   'CLOSED DEALS':             { label: 'Closed', color: '#27AE60' },
   'HELP REQUIRED':            { label: 'Help Required', color: '#E74C3C' },
@@ -568,7 +569,7 @@ function renderLeads(leads) {
   // Render group filter tabs
   renderGroupTabs(groups);
 
-  const groupOrder = ['QUALIFIED LEADS', 'DISCOVERY CALLS', 'SEQUENCE CALL', 'FOLLOW UP EMAILS / CALLS', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED'];
+  const groupOrder = ['QUALIFIED LEADS', 'DISCOVERY CALLS', 'SEQUENCE CALL', 'FOLLOW UP EMAILS / CALLS', 'PROPOSAL FOLLOW UP', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED'];
   // Add any other groups not in the predefined order (excluding LOST)
   Object.keys(groups).forEach(g => { if (!groupOrder.includes(g) && g !== 'LOST') groupOrder.push(g); });
 
@@ -635,7 +636,8 @@ function openLead(mondayId) {
     'QUALIFIED LEADS':'qualified',
     'DISCOVERY CALLS':'discovery', 
     'SEQUENCE CALL':'sequence',
-    'FOLLOW UP EMAILS / CALLS':'followup', 
+    'FOLLOW UP EMAILS / CALLS':'followup',
+    'PROPOSAL FOLLOW UP':'propfollowup',
     'WAITING FOR CLIENTS':'waiting', 
     'CLOSED DEALS':'closed',
     'LOST':'lost',

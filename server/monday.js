@@ -254,7 +254,7 @@ async function getProposalFollowUpLeads(repName) {
         arrival,
         files_received: filesReceived,
         group_id: 'group_mky78qcz',
-        group_title: 'FOLLOW UP EMAILS / CALLS',
+        group_title: 'PROPOSAL FOLLOW UP',
         from_proposal_board: true,
       });
     }
