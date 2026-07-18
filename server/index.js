@@ -279,6 +279,7 @@ app.get('/', requireAuth, (req, res) => sendPage(res, 'app.html'));
 
 // Admin panel
 app.get('/admin', requireAuth, requireAdmin, (req, res) => sendPage(res, 'admin.html'));
+app.get('/commission', requireAuth, (req, res) => sendPage(res, 'commission.html'));
 
 // ── API: current user info ────────────────────────────────────────────────────
 app.get('/api/me', requireAuth, async (req, res) => {
