@@ -76,31 +76,23 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
-  // Get all item IDs assigned to this rep via the board relation
-  // We query the salesperson item and get linked item IDs from it
-  let assignedItemIds = new Set();
+  // Get salesperson item ID from Salesperson board
+  let salespersonItemId = null;
   if (repName) {
     try {
       const spData = await query(`
         query {
           boards(ids: ["18390237344"]) {
             items_page(limit: 50) {
-              items { 
-                id 
-                name
-                linked_items(link_to_item_column_id: "board_relation_mky4h701", linked_board_id: ${BOARDS.negotiations}) {
-                  id
-                }
-              }
+              items { id name }
             }
           }
         }`);
       const spItems = spData?.boards?.[0]?.items_page?.items || [];
       const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
       if (match) {
-        const linked = match.linked_items || [];
-        linked.forEach(l => assignedItemIds.add(String(l.id)));
-        console.log('Salesperson', repName, 'has', assignedItemIds.size, 'assigned leads');
+        salespersonItemId = match.id;
+        console.log('Salesperson item ID for', repName, ':', salespersonItemId);
       }
     } catch(e) {
       console.error('Salesperson lookup error:', e.message);
@@ -140,9 +132,21 @@ async function getLeadsForRep(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      // Filter by salesperson - only show leads assigned to this rep
-      if (assignedItemIds.size > 0 && !assignedItemIds.has(String(item.id))) continue;
-      if (assignedItemIds.size === 0 && repName) continue; // no leads assigned
+      // Filter by salesperson using board relation value
+      if (salespersonItemId) {
+        const salesRaw = item.column_values.find(c => c.id === 'board_relation_mky4h701');
+        // Log first 5 items to debug
+        if (leads.length < 5) console.log('RELATION DEBUG', item.name, ':', JSON.stringify(salesRaw));
+        let matched = false;
+        if (salesRaw?.value) {
+          try {
+            const parsed = JSON.parse(salesRaw.value);
+            const ids = (parsed.linkedPulseIds || []).map(l => String(l.linkedPulseId));
+            matched = ids.includes(String(salespersonItemId));
+          } catch(e) {}
+        }
+        if (!matched) continue;
+      }
 
       // Parse files
       let filesReceived = '';
