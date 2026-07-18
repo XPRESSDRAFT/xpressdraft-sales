@@ -159,22 +159,22 @@ async function getLeadsForRep(repName) {
 // ── Move item to a different group ───────────────────────────────────────────
 async function moveToGroup(boardId, itemId, groupId) {
   const data = await query(`
-    mutation($boardId: ID!, $itemId: ID!, $groupId: String!) {
-      move_item_to_group(board_id: $boardId, item_id: $itemId, group_id: $groupId) {
+    mutation($itemId: ID!, $groupId: String!) {
+      move_item_to_group(item_id: $itemId, group_id: $groupId) {
         id
       }
-    }`, { boardId, itemId, groupId });
+    }`, { itemId, groupId });
   return data?.move_item_to_group?.id;
 }
 
 // ── Move item to a different board ───────────────────────────────────────────
 async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) {
   const data = await query(`
-    mutation($boardId: ID!, $itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
-      move_item_to_board(board_id: $boardId, item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
+    mutation($itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
+      move_item_to_board(item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
         id
       }
-    }`, { boardId: sourceBoardId, itemId, targetBoardId, groupId: targetGroupId });
+    }`, { itemId, targetBoardId, groupId: targetGroupId });
   return data?.move_item_to_board?.id;
 }
 
