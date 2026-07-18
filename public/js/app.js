@@ -871,6 +871,69 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+// ── Search leads ─────────────────────────────────────────────────────────────
+function searchLeads(query) {
+  if (!window._cachedLeads) return;
+  if (!query.trim()) {
+    renderLeads(window._cachedLeads);
+    return;
+  }
+  const q = query.toLowerCase();
+  const filtered = window._cachedLeads.filter(l =>
+    (l.name || '').toLowerCase().includes(q) ||
+    (l.address || '').toLowerCase().includes(q) ||
+    (l.phone || '').toLowerCase().includes(q) ||
+    (l.email || '').toLowerCase().includes(q)
+  );
+  // Temporarily set ALL filter to show all results
+  const prevFilter = activeGroupFilter;
+  activeGroupFilter = 'ALL';
+  renderLeads(filtered);
+  activeGroupFilter = prevFilter;
+}
+
+// ── New leads alert ───────────────────────────────────────────────────────────
+var _lastLeadCount = null;
+var _lastLeadIds = new Set();
+
+function checkNewLeads(leads) {
+  if (_lastLeadIds.size === 0) {
+    // First load - just record current leads
+    leads.forEach(l => _lastLeadIds.add(l.monday_id));
+    _lastLeadCount = leads.length;
+    return;
+  }
+  const newLeads = leads.filter(l => !_lastLeadIds.has(l.monday_id));
+  if (newLeads.length > 0) {
+    // Show new leads banner
+    var banner = document.getElementById('newLeadsBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'newLeadsBanner';
+      banner.style.cssText = 'position:fixed;top:70px;right:20px;z-index:9999;background:#27AE60;color:#fff;padding:14px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+      banner.onclick = function() { banner.remove(); loadLeads(); };
+      document.body.appendChild(banner);
+    }
+    banner.textContent = '🔔 ' + newLeads.length + ' new lead' + (newLeads.length > 1 ? 's' : '') + ' arrived — click to refresh';
+    // Auto remove after 30 seconds
+    setTimeout(() => { if (banner) banner.remove(); }, 30000);
+  }
+  // Update tracked leads
+  leads.forEach(l => _lastLeadIds.add(l.monday_id));
+  _lastLeadCount = leads.length;
+}
+
+// Poll for new leads every 2 minutes
+setInterval(async function() {
+  if (document.getElementById('leadsPanel') && 
+      document.getElementById('leadsPanel').style.display !== 'none') {
+    try {
+      const leads = await apiFetch('/api/leads');
+      if (leads && Array.isArray(leads)) checkNewLeads(leads);
+    } catch(e) {}
+  }
+}, 2 * 60 * 1000);
+
 // ── Group filter tabs ─────────────────────────────────────────────────────────
 var activeGroupFilter = 'ALL';
 
