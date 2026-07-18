@@ -217,9 +217,9 @@ async function getProposalFollowUpLeads(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      // Filter by salesperson if repName provided
+      // Filter by salesperson - only filter if salesCol has a value
       const salesCol = cols['board_relation_mky41qm1'] || '';
-      if (repName && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
+      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
 
       // Parse files
       let filesReceived = '';
