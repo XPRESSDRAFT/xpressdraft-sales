@@ -114,6 +114,19 @@ function dbExec(sql) {
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'standard'").catch(() => {});
+// Commission records table
+await dbRun(`CREATE TABLE IF NOT EXISTS commission_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  client_name TEXT NOT NULL,
+  project_type TEXT DEFAULT '',
+  sale_amount REAL NOT NULL,
+  week_start TEXT NOT NULL,
+  paid INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+)`).catch(() => {});
+
 // Reminders table
 await dbRun(`CREATE TABLE IF NOT EXISTS reminders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -504,6 +517,92 @@ if (process.env.NODE_ENV === 'production') {
     } catch(e) {}
   }, 10 * 60 * 1000); // every 10 minutes
 }
+
+// ── Commission routes ────────────────────────────────────────────────────────
+
+// Get current week start (Wednesday 12am)
+function getWeekStart(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun, 3=Wed
+  const diff = (day >= 3) ? day - 3 : day + 4;
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0];
+}
+
+// Calculate commission for a given sales total and role
+function calcCommission(total, role) {
+  if (role === 'leader') {
+    if (total <= 8000) return total * 0.03;
+    if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
+    if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
+    return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
+  } else {
+    if (total <= 15000) return total * 0.02;
+    if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
+    return 15000 * 0.02 + 10000 * 0.03 + (total - 25000) * 0.04;
+  }
+}
+
+app.get('/api/commission/summary', requireAuth, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const weekStart = getWeekStart();
+    const records = await dbAll(
+      'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
+      [req.session.userId, weekStart]
+    );
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/commission/records', requireAuth, async (req, res) => {
+  try {
+    const { client_name, project_type, sale_amount } = req.body;
+    const weekStart = getWeekStart();
+    await dbRun(
+      'INSERT INTO commission_records (user_id, client_name, project_type, sale_amount, week_start) VALUES (?, ?, ?, ?, ?)',
+      [req.session.userId, client_name, project_type, parseFloat(sale_amount), weekStart]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/commission/records/:id', requireAuth, async (req, res) => {
+  try {
+    await dbRun('DELETE FROM commission_records WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all reps commission summary for current week
+app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const weekStart = req.query.week || getWeekStart();
+    const users = await dbAll('SELECT * FROM users WHERE active = 1');
+    const summary = [];
+    for (const user of users) {
+      const records = await dbAll(
+        'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
+        [user.id, weekStart]
+      );
+      const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+      const commission = calcCommission(totalSales, user.role || 'standard');
+      summary.push({ user, records, totalSales, commission, role: user.role || 'standard' });
+    }
+    res.json({ summary, weekStart });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── Reminders routes ─────────────────────────────────────────────────────────
 app.get('/api/reminders', requireAuth, async (req, res) => {

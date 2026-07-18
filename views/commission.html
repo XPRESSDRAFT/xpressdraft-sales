@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commission — Xpress Draft</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f3eae5; min-height: 100vh; }
+
+    .topbar { background: #2A2B29; color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .topbar-title { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+    .topbar a { color: #EA672F; font-size: 13px; text-decoration: none; font-weight: 600; }
+
+    .wrap { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+
+    /* Week banner */
+    .week-banner { background: #2A2B29; color: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+    .week-label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #EA672F; margin-bottom: 4px; }
+    .week-dates { font-size: 16px; font-weight: 700; }
+    .week-role { font-size: 12px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Stats grid */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 20px; text-align: center; }
+    .stat-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #888; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 800; color: #2A2B29; }
+    .stat-value.orange { color: #EA672F; }
+    .stat-value.green { color: #27AE60; }
+    .stat-sub { font-size: 11px; color: #888; margin-top: 4px; }
+
+    /* Tier progress */
+    .tier-card { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .tier-title { font-size: 13px; font-weight: 700; color: #2A2B29; margin-bottom: 16px; }
+    .tier-bar-wrap { margin-bottom: 12px; }
+    .tier-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 6px; }
+    .tier-bar-bg { background: #f0e8e4; border-radius: 8px; height: 12px; overflow: hidden; }
+    .tier-bar-fill { height: 100%; border-radius: 8px; background: #EA672F; transition: width 0.5s ease; }
+    .tier-info { font-size: 12px; color: #888; text-align: center; margin-top: 8px; }
+
+    /* Add sale form */
+    .add-card { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .add-title { font-size: 13px; font-weight: 700; color: #2A2B29; margin-bottom: 16px; }
+    .add-grid { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; align-items: end; }
+    .field label { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #888; display: block; margin-bottom: 4px; }
+    .field input, .field select { width: 100%; font-family: inherit; font-size: 13px; border: 1.5px solid #e0d9d5; border-radius: 8px; padding: 9px 12px; outline: none; background: #fff; }
+    .btn-add { background: #EA672F; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; height: 40px; }
+    .btn-add:hover { background: #d4581e; }
+
+    /* Records table */
+    .records-card { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .records-title { font-size: 13px; font-weight: 700; color: #2A2B29; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .records-empty { text-align: center; color: #888; font-size: 13px; padding: 24px; }
+    .record-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0e8e4; }
+    .record-row:last-child { border-bottom: none; }
+    .record-name { font-size: 14px; font-weight: 700; color: #2A2B29; flex: 1; }
+    .record-type { font-size: 12px; color: #888; }
+    .record-amount { font-size: 15px; font-weight: 700; color: #27AE60; }
+    .record-delete { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 16px; padding: 4px 8px; }
+
+    /* Admin section */
+    .admin-card { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; }
+    .admin-title { font-size: 13px; font-weight: 700; color: #2A2B29; margin-bottom: 16px; }
+    .rep-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #f0e8e4; }
+    .rep-row:last-child { border-bottom: none; }
+    .rep-name { font-size: 14px; font-weight: 700; color: #2A2B29; flex: 1; }
+    .rep-role { font-size: 11px; background: #f0e8e4; color: #888; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .rep-sales { font-size: 14px; font-weight: 700; color: #2A2B29; }
+    .rep-commission { font-size: 14px; font-weight: 700; color: #EA672F; }
+
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .add-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">💰 Commission Tracker</div>
+  <a href="/">← Back to Sales Tool</a>
+</div>
+
+<div class="wrap">
+
+  <!-- Week banner -->
+  <div class="week-banner">
+    <div>
+      <div class="week-label">Current Commission Week</div>
+      <div class="week-dates" id="weekDates">Loading...</div>
+      <div class="week-role" id="repRole"></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:#888;margin-bottom:4px">Resets every Wednesday</div>
+      <div id="daysLeft" style="font-size:13px;color:#EA672F;font-weight:700"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">This Week Sales</div>
+      <div class="stat-value orange" id="totalSales">$0</div>
+      <div class="stat-sub" id="dealCount">0 deals</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Commission Earned</div>
+      <div class="stat-value green" id="commissionEarned">$0</div>
+      <div class="stat-sub" id="commissionRate">at current rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Next Tier In</div>
+      <div class="stat-value" id="nextTierAmount">—</div>
+      <div class="stat-sub" id="nextTierRate"></div>
+    </div>
+  </div>
+
+  <!-- Tier progress bar -->
+  <div class="tier-card">
+    <div class="tier-title">Tier Progress</div>
+    <div class="tier-bar-wrap">
+      <div class="tier-bar-labels">
+        <span id="tierLabel1"></span>
+        <span id="tierLabel2"></span>
+        <span id="tierLabel3"></span>
+        <span id="tierLabel4"></span>
+      </div>
+      <div class="tier-bar-bg">
+        <div class="tier-bar-fill" id="tierBar" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="tier-info" id="tierInfo"></div>
+  </div>
+
+  <!-- Add sale -->
+  <div class="add-card">
+    <div class="add-title">Record a Sale</div>
+    <div class="add-grid">
+      <div class="field">
+        <label>Client Name</label>
+        <input type="text" id="saleClient" placeholder="e.g. John Smith">
+      </div>
+      <div class="field">
+        <label>Project Type</label>
+        <select id="saleType">
+          <option value="">Select...</option>
+          <option>Standard</option>
+          <option>As Built</option>
+          <option>DA Only</option>
+          <option>DA+BA</option>
+          <option>Granny Flat</option>
+          <option>Working Drawings Only</option>
+          <option>Shed</option>
+          <option>Storey Addition</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sale Amount ($)</label>
+        <input type="number" id="saleAmount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <button class="btn-add" onclick="addSale()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Records -->
+  <div class="records-card">
+    <div class="records-title">
+      <span>This Week's Sales</span>
+      <span id="weekTotal" style="color:#EA672F;font-size:14px"></span>
+    </div>
+    <div id="recordsList"><div class="records-empty">No sales recorded this week.</div></div>
+  </div>
+
+  <!-- Admin panel -->
+  <div class="admin-card" id="adminPanel" style="display:none">
+    <div class="admin-title">Team Commission Overview — <span id="adminWeekLabel"></span></div>
+    <div id="adminList"><div class="records-empty">Loading...</div></div>
+  </div>
+
+</div>
+
+<script>
+const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function getWeekEnd(start) {
+  const d = new Date(start);
+  d.setDate(d.getDate() + 7);
+  d.setSeconds(d.getSeconds() - 1);
+  return d;
+}
+
+function daysUntilReset() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day < 3 ? 3 - day : 10 - day;
+  return diff;
+}
+
+function calcCommission(total, role) {
+  if (role === 'leader') {
+    if (total <= 8000) return total * 0.03;
+    if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
+    if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
+    return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
+  } else {
+    if (total <= 15000) return total * 0.02;
+    if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
+    return 15000 * 0.02 + 10000 * 0.03 + (total - 25000) * 0.04;
+  }
+}
+
+function getTierInfo(total, role) {
+  const tiers = role === 'leader'
+    ? [ { limit: 8000, rate: '3%' }, { limit: 15000, rate: '4%' }, { limit: 25000, rate: '5%' }, { limit: Infinity, rate: '6%' } ]
+    : [ { limit: 15000, rate: '2%' }, { limit: 25000, rate: '3%' }, { limit: Infinity, rate: '4%' } ];
+
+  let currentTier = tiers[tiers.length - 1];
+  let nextTier = null;
+  for (let i = 0; i < tiers.length; i++) {
+    if (total < tiers[i].limit) {
+      currentTier = tiers[i];
+      nextTier = tiers[i + 1] || null;
+      break;
+    }
+  }
+  return { currentTier, nextTier, tiers };
+}
+
+function updateTierBar(total, role) {
+  const maxBar = role === 'leader' ? 25000 : 25000;
+  const pct = Math.min((total / maxBar) * 100, 100);
+  document.getElementById('tierBar').style.width = pct + '%';
+
+  const labels = role === 'leader'
+    ? ['$0', '$8K', '$15K', '$25K+']
+    : ['$0', '$15K', '$25K+', ''];
+
+  document.getElementById('tierLabel1').textContent = labels[0];
+  document.getElementById('tierLabel2').textContent = labels[1];
+  document.getElementById('tierLabel3').textContent = labels[2];
+  document.getElementById('tierLabel4').textContent = labels[3];
+
+  const { currentTier, nextTier } = getTierInfo(total, role);
+  document.getElementById('tierInfo').textContent = nextTier
+    ? `Currently earning ${currentTier.rate} — reach ${fmt(currentTier.limit)} to unlock ${nextTier.rate}`
+    : `Top tier! Earning ${currentTier.rate} on all sales`;
+
+  if (nextTier) {
+    const remaining = currentTier.limit - total;
+    document.getElementById('nextTierAmount').textContent = fmt(remaining);
+    document.getElementById('nextTierRate').textContent = `to unlock ${nextTier.rate} tier`;
+  } else {
+    document.getElementById('nextTierAmount').textContent = 'Max Tier';
+    document.getElementById('nextTierRate').textContent = 'Top rate achieved!';
+  }
+}
+
+async function loadSummary() {
+  const res = await fetch('/api/commission/summary');
+  const data = await res.json();
+  if (data.error) return;
+
+  const { records, totalSales, commission, weekStart, role } = data;
+
+  // Week dates
+  const start = new Date(weekStart);
+  const end = getWeekEnd(weekStart);
+  document.getElementById('weekDates').textContent =
+    start.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) +
+    ' – ' + end.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('repRole').textContent = role === 'leader' ? '👑 Leader' : '⭐ Standard Rep';
+
+  const days = daysUntilReset();
+  document.getElementById('daysLeft').textContent = days + ' day' + (days !== 1 ? 's' : '') + ' until reset';
+
+  // Stats
+  document.getElementById('totalSales').textContent = fmt(totalSales);
+  document.getElementById('dealCount').textContent = records.length + ' deal' + (records.length !== 1 ? 's' : '');
+  document.getElementById('commissionEarned').textContent = fmt(commission);
+
+  const { currentTier } = getTierInfo(totalSales, role);
+  document.getElementById('commissionRate').textContent = 'at ' + currentTier.rate + ' rate';
+
+  // Tier bar
+  updateTierBar(totalSales, role);
+
+  // Records list
+  document.getElementById('weekTotal').textContent = fmt(totalSales);
+  const list = document.getElementById('recordsList');
+  if (!records.length) {
+    list.innerHTML = '<div class="records-empty">No sales recorded this week yet.</div>';
+  } else {
+    list.innerHTML = records.map(r => `
+      <div class="record-row">
+        <div>
+          <div class="record-name">${r.client_name}</div>
+          <div class="record-type">${r.project_type || '—'}</div>
+        </div>
+        <div class="record-amount">${fmt(r.sale_amount)}</div>
+        <button class="record-delete" onclick="deleteSale(${r.id})" title="Remove">✕</button>
+      </div>
+    `).join('');
+  }
+}
+
+async function addSale() {
+  const client = document.getElementById('saleClient').value.trim();
+  const type = document.getElementById('saleType').value;
+  const amount = document.getElementById('saleAmount').value;
+  if (!client || !amount) { alert('Please enter client name and amount'); return; }
+  await fetch('/api/commission/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: client, project_type: type, sale_amount: amount })
+  });
+  document.getElementById('saleClient').value = '';
+  document.getElementById('saleAmount').value = '';
+  loadSummary();
+}
+
+async function deleteSale(id) {
+  if (!confirm('Remove this sale record?')) return;
+  await fetch('/api/commission/records/' + id, { method: 'DELETE' });
+  loadSummary();
+}
+
+async function loadAdminPanel() {
+  const res = await fetch('/api/admin/commission');
+  if (!res.ok) return;
+  const data = await res.json();
+  document.getElementById('adminPanel').style.display = 'block';
+  document.getElementById('adminWeekLabel').textContent = 'Week of ' + data.weekStart;
+  const list = document.getElementById('adminList');
+  if (!data.summary.length) {
+    list.innerHTML = '<div class="records-empty">No reps found.</div>';
+    return;
+  }
+  list.innerHTML = data.summary.map(s => `
+    <div class="rep-row">
+      <div class="rep-name">${s.user.name}</div>
+      <div class="rep-role">${s.role}</div>
+      <div style="text-align:right">
+        <div class="rep-sales">${fmt(s.totalSales)}</div>
+        <div style="font-size:11px;color:#888">${s.records.length} deals</div>
+      </div>
+      <div class="rep-commission">${fmt(s.commission)}</div>
+    </div>
+  `).join('');
+}
+
+loadSummary();
+fetch('/api/admin/commission').then(r => { if (r.ok) loadAdminPanel(); }).catch(() => {});
+</script>
+
+</body>
+</html>
