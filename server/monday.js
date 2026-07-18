@@ -114,9 +114,11 @@ async function getLeadsForRep(repName) {
       // Skip LOST leads - kept in Monday.com only
       if (group.title === 'LOST') continue;
 
-      // Filter by salesperson - only show leads explicitly assigned to this rep
+      // Filter by salesperson - board relation column requires separate query
+      // For now show all leads - salesperson filtering via monday_name will be added
       const salesCol = cols[COLS.salesperson] || '';
-      if (repName && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
+      // Only filter if salesCol has a value AND doesn't match repName
+      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
 
       // Parse files from Monday.com file column - use text field which has direct URLs
       let filesReceived = '';
@@ -195,7 +197,7 @@ async function getProposalFollowUpLeads(repName) {
             items {
               id
               name
-           column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky41qm1", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky41qm1", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -208,13 +210,12 @@ async function getProposalFollowUpLeads(repName) {
 
   const groups = data?.boards?.[0]?.groups || [];
   const leads = [];
+
   for (const group of groups) {
     const items = group.items_page?.items || [];
     for (const item of items) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
-
-  const groups = data?.boards?.[0]?.groups || [];
 
       // Filter by salesperson if repName provided
       const salesCol = cols['board_relation_mky41qm1'] || '';
