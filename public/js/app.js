@@ -901,27 +901,28 @@ var _lastLeadIds = new Set();
 
 function checkNewLeads(leads) {
   if (_lastLeadIds.size === 0) {
-    // First load - just record current leads
     leads.forEach(l => _lastLeadIds.add(l.monday_id));
     _lastLeadCount = leads.length;
     return;
   }
   const newLeads = leads.filter(l => !_lastLeadIds.has(l.monday_id));
   if (newLeads.length > 0) {
-    // Show new leads banner
     var banner = document.getElementById('newLeadsBanner');
     if (!banner) {
       banner = document.createElement('div');
       banner.id = 'newLeadsBanner';
       banner.style.cssText = 'position:fixed;top:70px;right:20px;z-index:9999;background:#27AE60;color:#fff;padding:14px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
-      banner.onclick = function() { banner.remove(); loadLeads(); };
+      banner.onclick = function() { banner.remove(); };
       document.body.appendChild(banner);
     }
-    banner.textContent = '🔔 ' + newLeads.length + ' new lead' + (newLeads.length > 1 ? 's' : '') + ' arrived — click to refresh';
-    // Auto remove after 30 seconds
+    var followUpNew = newLeads.filter(l => l.from_proposal_board);
+    var freshNew = newLeads.filter(l => !l.from_proposal_board);
+    var msg = '';
+    if (followUpNew.length > 0) msg += followUpNew.length + ' proposal(s) ready to follow up';
+    if (freshNew.length > 0) msg += (msg ? ' · ' : '') + freshNew.length + ' new lead(s) arrived';
+    banner.textContent = '🔔 ' + msg + ' — click to dismiss';
     setTimeout(() => { if (banner) banner.remove(); }, 30000);
   }
-  // Update tracked leads
   leads.forEach(l => _lastLeadIds.add(l.monday_id));
   _lastLeadCount = leads.length;
 }
