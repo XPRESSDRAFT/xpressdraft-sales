@@ -76,7 +76,7 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
-  // Get salesperson item ID from Salesperson board
+  // Get salesperson item ID
   let salespersonItemId = null;
   if (repName) {
     try {
@@ -99,17 +99,22 @@ async function getLeadsForRep(repName) {
     }
   }
 
+  // Build query with rules filter if we have a salesperson ID
+  const rulesParam = salespersonItemId 
+    ? `, rules: [{column_id: "board_relation_mky4h701", compare_value: ["${salespersonItemId}"], operator: contains_terms}]`
+    : '';
+
   const data = await query(`
     query($boardId: ID!) {
       boards(ids: [$boardId]) {
         groups {
           id
           title
-          items_page(limit: 100) {
+          items_page(limit: 100${rulesParam}) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "board_relation_mky4h701"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -131,22 +136,6 @@ async function getLeadsForRep(repName) {
     for (const item of items) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
-
-      // Filter by salesperson using board relation value
-      if (salespersonItemId) {
-        const salesRaw = item.column_values.find(c => c.id === 'board_relation_mky4h701');
-        // Log first 5 items to debug
-        if (leads.length < 5) console.log('RELATION DEBUG', item.name, ':', JSON.stringify(salesRaw));
-        let matched = false;
-        if (salesRaw?.value) {
-          try {
-            const parsed = JSON.parse(salesRaw.value);
-            const ids = (parsed.linkedPulseIds || []).map(l => String(l.linkedPulseId));
-            matched = ids.includes(String(salespersonItemId));
-          } catch(e) {}
-        }
-        if (!matched) continue;
-      }
 
       // Parse files
       let filesReceived = '';
