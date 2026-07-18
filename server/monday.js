@@ -215,7 +215,7 @@ async function getProposalFollowUpLeads(repName) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky41qm1", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "dropdown_mm5c51r2", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -235,9 +235,11 @@ async function getProposalFollowUpLeads(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      // Filter by salesperson - only filter if salesCol has a value
-      const salesCol = cols['board_relation_mky41qm1'] || '';
-      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
+      // Filter by rep dropdown column
+      const repCol = (cols['dropdown_mm5c51r2'] || '').toLowerCase().replace(/[^a-z]/g, '');
+      const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+      if (repName && repCol && !repCol.includes(repNameNorm) && !repNameNorm.includes(repCol)) continue;
+      if (repName && !repCol) continue;
 
       // Parse files
       let filesReceived = '';
