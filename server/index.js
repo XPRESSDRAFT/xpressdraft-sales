@@ -602,21 +602,9 @@ app.post('/api/monday-webhook', async (req, res) => {
         console.log('Pending request marked as sent for item:', itemId);
       }
 
-      // Always move lead to FOLLOW UP EMAILS / CALLS in Negotiations board
-      try {
-        await monday.moveToFollowUp(itemId);
-        console.log('Lead moved to FOLLOW UP after SENT:', itemId);
-      } catch(e) {
-        console.error('Move to follow up error:', e.message);
-      }
-
-      // Also move item to SENT PROPOSALS group on Proposal board
-      try {
-        await monday.moveToGroup(monday.BOARDS.proposal, itemId, monday.PROPOSAL_GROUPS.sent_proposals);
-        console.log('Item moved to SENT PROPOSALS group on Proposal board:', itemId);
-      } catch(e) {
-        console.error('Move to sent proposals error:', e.message);
-      }
+      // Monday.com automation handles moving item to Follow Up group
+      // We just mark pending request as sent if exists
+      console.log('SENT webhook processed for item:', itemId);
     }
 
     res.json({ ok: true });
@@ -823,12 +811,21 @@ app.get('/api/leads', requireAuth, async (req, res) => {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
     const repName = user.monday_name || user.name;
     console.log('Loading leads for rep:', repName);
-    const leads = await monday.getLeadsForRep(repName);
-    // Exclude leads that are pending proposal requests or sent proposals
+
+    // Get leads from both boards in parallel
+    const [negotiationLeads, proposalFollowUpLeads] = await Promise.all([
+      monday.getLeadsForRep(repName),
+      monday.getProposalFollowUpLeads(repName)
+    ]);
+
+    // Exclude pending proposal requests from negotiations leads
     const pending = await dbAll('SELECT monday_id FROM pending_requests WHERE user_id = ? AND status = ?', [req.session.userId, 'pending']);
     const pendingIds = new Set(pending.map(p => p.monday_id));
-    const filtered = leads.filter(l => !pendingIds.has(l.monday_id));
-    res.json(filtered);
+    const filteredNegotiations = negotiationLeads.filter(l => !pendingIds.has(l.monday_id));
+
+    // Merge both sources
+    const allLeads = [...filteredNegotiations, ...proposalFollowUpLeads];
+    res.json(allLeads);
   } catch(e) {
     console.error('Get leads error:', e.message);
     res.status(500).json({ error: e.message });
