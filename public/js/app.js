@@ -899,10 +899,14 @@ function searchLeads(query) {
 var _lastLeadCount = null;
 var _lastLeadIds = new Set();
 
+var _leadsInitialized = false;
+
 function checkNewLeads(leads) {
-  if (_lastLeadIds.size === 0) {
+  if (!_leadsInitialized) {
+    // First load — just record current leads as baseline, no banner
     leads.forEach(l => _lastLeadIds.add(l.monday_id));
     _lastLeadCount = leads.length;
+    _leadsInitialized = true;
     return;
   }
   const newLeads = leads.filter(l => !_lastLeadIds.has(l.monday_id));
