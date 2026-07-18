@@ -76,22 +76,32 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
-  // First get the salesperson item ID from the Salesperson board
-  let salespersonItemId = null;
+  // Get all item IDs assigned to this rep via the board relation
+  // We query the salesperson item and get linked item IDs from it
+  let assignedItemIds = new Set();
   if (repName) {
     try {
       const spData = await query(`
         query {
           boards(ids: ["18390237344"]) {
             items_page(limit: 50) {
-              items { id name }
+              items { 
+                id 
+                name
+                linked_items(link_to_item_column_id: "board_relation_mky4h701", linked_board_id: ${BOARDS.negotiations}) {
+                  id
+                }
+              }
             }
           }
         }`);
       const spItems = spData?.boards?.[0]?.items_page?.items || [];
       const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
-      if (match) salespersonItemId = match.id;
-      console.log('Salesperson item ID for', repName, ':', salespersonItemId);
+      if (match) {
+        const linked = match.linked_items || [];
+        linked.forEach(l => assignedItemIds.add(String(l.id)));
+        console.log('Salesperson', repName, 'has', assignedItemIds.size, 'assigned leads');
+      }
     } catch(e) {
       console.error('Salesperson lookup error:', e.message);
     }
@@ -130,14 +140,9 @@ async function getLeadsForRep(repName) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-      // Filter by salesperson using linked item ID matching
-      if (salespersonItemId) {
-        const salesRaw = item.column_values.find(c => c.id === 'board_relation_mky4h701');
-        const salesValue = salesRaw?.value ? JSON.parse(salesRaw.value) : null;
-        const linkedIds = salesValue?.linkedPulseIds?.map(l => String(l.linkedPulseId)) || [];
-        if (linkedIds.length > 0 && !linkedIds.includes(String(salespersonItemId))) continue;
-        if (linkedIds.length === 0) continue; // skip unassigned
-      }
+      // Filter by salesperson - only show leads assigned to this rep
+      if (assignedItemIds.size > 0 && !assignedItemIds.has(String(item.id))) continue;
+      if (assignedItemIds.size === 0 && repName) continue; // no leads assigned
 
       // Parse files
       let filesReceived = '';
