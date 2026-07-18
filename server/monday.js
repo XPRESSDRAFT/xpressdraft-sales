@@ -99,7 +99,7 @@ async function getLeadsForRep(repName) {
     }
   }
 
-  // Build GraphQL query string with optional rules filter
+  // Use board-level items_page with rules filter (rules only work at board level)
   const rulesStr = salespersonItemId
     ? `, rules: [{column_id: "board_relation_mky4h701", compare_value: ["${salespersonItemId}"], operator: contains_terms}]`
     : '';
@@ -107,18 +107,15 @@ async function getLeadsForRep(repName) {
   const gqlQuery = `
     query {
       boards(ids: [${BOARDS.negotiations}]) {
-        groups {
-          id
-          title
-          items_page(limit: 100${rulesStr}) {
-            items {
+        items_page(limit: 500${rulesStr}) {
+          items {
+            id
+            name
+            group { id title }
+            column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
               id
-              name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
-                id
-                text
-                value
-              }
+              text
+              value
             }
           }
         }
@@ -126,18 +123,16 @@ async function getLeadsForRep(repName) {
     }`;
 
   const data = await query(gqlQuery);
-
-  console.log('Monday raw response:', JSON.stringify(data).slice(0, 500));
-  const groups = data?.boards?.[0]?.groups || [];
-  console.log('Groups found:', groups.length, groups.map(g => g.title + '(' + (g.items_page?.items?.length || 0) + ' items)'));
+  const allItems = data?.boards?.[0]?.items_page?.items || [];
+  console.log('Monday items found:', allItems.length, 'for rep:', repName);
   const leads = [];
 
-  for (const group of groups) {
+  for (const item of allItems) {
+    const group = item.group || {};
     if (group.title === 'LOST') continue;
-    const items = group.items_page?.items || [];
-    for (const item of items) {
-      const cols = {};
-      item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
+
+    const cols = {};
+    item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
       // Parse files
       let filesReceived = '';
@@ -171,10 +166,9 @@ async function getLeadsForRep(repName) {
         source: cols[COLS.source] || '',
         arrival,
         files_received: filesReceived,
-        group_id: group.id,
-        group_title: group.title,
+        group_id: group.id || '',
+        group_title: group.title || '',
       });
-    }
   }
 
   console.log('Monday leads found:', leads.length, 'for rep:', repName);
