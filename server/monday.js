@@ -28,6 +28,7 @@ const COLS = {
   enquiry:     'long_text_mkxzds8g',
   address:     'text_mky7qn0k',
   files:       'file_mkxzg1me',
+  rep_name:    'text_mm5cr6w2',
   notes:       'long_text_mkxzbgfq',
   btn_free:    'button_mkxz4xs4',
   btn_proposal:'button_mkxz6sxp',
@@ -76,63 +77,49 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
-  // Get salesperson item ID
-  let salespersonItemId = null;
-  if (repName) {
-    try {
-      const spData = await query(`
-        query {
-          boards(ids: ["18390237344"]) {
-            items_page(limit: 50) {
-              items { id name }
-            }
-          }
-        }`);
-      const spItems = spData?.boards?.[0]?.items_page?.items || [];
-      const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
-      if (match) {
-        salespersonItemId = match.id;
-        console.log('Salesperson item ID for', repName, ':', salespersonItemId);
-      }
-    } catch(e) {
-      console.error('Salesperson lookup error:', e.message);
-    }
-  }
-
-  // Use board-level items_page with rules filter (rules only work at board level)
-  const rulesStr = salespersonItemId
-    ? `, rules: [{column_id: "board_relation_mky4h701", compare_value: ["${salespersonItemId}"], operator: contains_terms}]`
-    : '';
-
-  const gqlQuery = `
+  const data = await query(`
     query {
       boards(ids: [${BOARDS.negotiations}]) {
-        items_page(limit: 500${rulesStr}) {
-          items {
-            id
-            name
-            group { id title }
-            column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+        groups {
+          id
+          title
+          items_page(limit: 100) {
+            items {
               id
-              text
-              value
+              name
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "text_mm5cr6w2"]) {
+                id
+                text
+                value
+              }
             }
           }
         }
       }
-    }`;
+    }`);
 
-  const data = await query(gqlQuery);
-  const allItems = data?.boards?.[0]?.items_page?.items || [];
-  console.log('Monday items found:', allItems.length, 'for rep:', repName);
+  console.log('Monday raw response:', JSON.stringify(data).slice(0, 500));
+  const groups = data?.boards?.[0]?.groups || [];
+  console.log('Groups found:', groups.length, groups.map(g => g.title + '(' + (g.items_page?.items?.length || 0) + ' items)'));
   const leads = [];
 
-  for (const item of allItems) {
-    const group = item.group || {};
+  for (const group of groups) {
     if (group.title === 'LOST') continue;
+    const items = group.items_page?.items || [];
+    for (const item of items) {
+      const cols = {};
+      item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
-    const cols = {};
-    item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
+      // Filter by rep name text column - fuzzy match
+      const repCol = cols['text_mm5cr6w2'] || '';
+      if (repName && repCol) {
+        const repColNorm = repCol.toLowerCase().replace(/[^a-z]/g, '');
+        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
+        // Match if either contains the other (handles partial names)
+        if (!repColNorm.includes(repNameNorm) && !repNameNorm.includes(repColNorm)) continue;
+      } else if (repName && !repCol) {
+        continue; // skip unassigned
+      }
 
       // Parse files
       let filesReceived = '';
@@ -166,9 +153,10 @@ async function getLeadsForRep(repName) {
         source: cols[COLS.source] || '',
         arrival,
         files_received: filesReceived,
-        group_id: group.id || '',
-        group_title: group.title || '',
+        group_id: group.id,
+        group_title: group.title,
       });
+    }
   }
 
   console.log('Monday leads found:', leads.length, 'for rep:', repName);
