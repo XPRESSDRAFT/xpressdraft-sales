@@ -195,7 +195,7 @@ async function getProposalFollowUpLeads(repName) {
             items {
               id
               name
-            column_values(ids: [...]) {
+           column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "board_relation_mky41qm1", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -205,6 +205,14 @@ async function getProposalFollowUpLeads(repName) {
         }
       }
     }`, { boardId: BOARDS.proposal });
+
+  const groups = data?.boards?.[0]?.groups || [];
+  const leads = [];
+  for (const group of groups) {
+    const items = group.items_page?.items || [];
+    for (const item of items) {
+      const cols = {};
+      item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
 
   const groups = data?.boards?.[0]?.groups || [];
 
