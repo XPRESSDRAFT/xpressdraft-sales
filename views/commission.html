@@ -282,9 +282,13 @@ function updateTierBar(total, role) {
 
 async function loadSummary(userId = null) {
   const url = userId ? '/api/admin/commission/' + userId : '/api/commission/summary';
-  const res = await fetch(url);
-  const data = await res.json();
-  if (data.error) return;
+  let data;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) { console.error('loadSummary HTTP error:', res.status); return; }
+    data = await res.json();
+  } catch(e) { console.error('loadSummary error:', e.message); return; }
+  if (!data || data.error) { console.error('loadSummary data error:', data?.error); return; }
 
   const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, closedDeals, totalClosed, conversionRate } = data;
   const isAdmin = !!userId;
@@ -370,11 +374,14 @@ async function addSale() {
   });
   document.getElementById('saleClient').value = '';
   document.getElementById('saleAmount').value = '';
-  async function loadInvoiceSummary() {
+}
+
+async function loadInvoiceSummary() {
   const container = document.getElementById('invoiceContent');
   if (!container) return;
   try {
     const res = await fetch('/api/invoice/summary');
+    if (!res.ok) { container.innerHTML = '<p style="color:#c00">Session expired — please refresh.</p>'; return; }
     const d = await res.json();
     if (d.error) { container.innerHTML = '<p style="color:#c00">' + d.error + '</p>'; return; }
 
