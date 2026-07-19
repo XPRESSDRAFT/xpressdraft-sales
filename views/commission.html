@@ -392,15 +392,21 @@ async function loadInvoiceSummary() {
         <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Weekly Salary</div>
           <div style="font-size:20px;font-weight:800;color:#2A2B29">${fmt(d.weeklyBase)}</div>
+          <div style="font-size:11px;color:#888">ex GST</div>
         </div>
         <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
           <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission</div>
           <div style="font-size:20px;font-weight:800;color:#27AE60">${fmt(d.commission)}</div>
+          <div style="font-size:11px;color:#888">ex GST</div>
         </div>
         <div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
-          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Total to Invoice</div>
-          <div style="font-size:20px;font-weight:800;color:#EA672F">${fmt(d.total)}</div>
-          ${d.gst ? '<div style="font-size:11px;color:#888">incl. GST ' + fmt(d.gstAmount) + '</div>' : ''}
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Subtotal (ex GST)</div>
+          <div style="font-size:20px;font-weight:800;color:#fff">${fmt(d.subtotal)}</div>
+          ${d.gst ? `
+          <div style="border-top:1px solid #444;margin-top:8px;padding-top:8px">
+            <div style="font-size:11px;color:#888">+ GST (10%): ${fmt(d.gstAmount)}</div>
+            <div style="font-size:15px;font-weight:800;color:#EA672F;margin-top:4px">= ${fmt(d.total)} total</div>
+          </div>` : '<div style="font-size:11px;color:#888;margin-top:4px">No GST applicable</div>'}
         </div>
       </div>
 
