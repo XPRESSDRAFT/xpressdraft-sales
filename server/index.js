@@ -216,7 +216,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Ensure data dir exists for SQLite session store
+// Ensure data dir exists
 const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -224,15 +224,9 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 app.use(cookieSession({
   name: 'xpd_session',
   keys: [process.env.SESSION_SECRET || 'xpressdraft-secret-key'],
-  maxAge: 28800000, // 8 hours
-  secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours
-    httpOnly: true,
-    sameSite: 'lax'
-  }
+  maxAge: 8 * 60 * 60 * 1000, // 8 hours
+  httpOnly: true,
+  sameSite: 'lax'
 }));
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
