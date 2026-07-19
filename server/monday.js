@@ -5,9 +5,16 @@ const MONDAY_API = 'https://api.monday.com/v2';
 
 // Board IDs
 const BOARDS = {
-  negotiations:      '224210864',
+  negotiations:       '18388602724',
   free_consultations: '224212751',
-  proposal:          '18389820785',
+  proposal:           '18389820785',
+};
+
+// Group IDs on 26_3 Proposal board
+const PROPOSAL_GROUPS = {
+  new_requests:   'group_mkxz6tw3',
+  sent_proposals: 'group_mkxzcgkr',
+  follow_up:      'group_mky78qcz',
 };
 
 // Column IDs on 26_2 Negotiations board
@@ -21,6 +28,8 @@ const COLS = {
   enquiry:     'long_text_mkxzds8g',
   address:     'text_mky7qn0k',
   files:       'file_mkxzg1me',
+  rep_dropdown: 'dropdown_mm5cb995',
+  notes:       'long_text_mkxzbgfq',
   btn_free:    'button_mkxz4xs4',
   btn_proposal:'button_mkxz6sxp',
   btn_help:    'button_mkxz9mve',
@@ -33,7 +42,7 @@ function headers() {
   return {
     'Authorization': process.env.MONDAY_API_KEY,
     'Content-Type': 'application/json',
-    'API-Version': '2024-01'
+    'API-Version': '2024-10'
   };
 }
 
@@ -68,9 +77,32 @@ async function getGroupId(boardId, groupName) {
 
 // ── Get leads assigned to a salesperson ──────────────────────────────────────
 async function getLeadsForRep(repName) {
+  // Get salesperson item ID
+  let salespersonItemId = null;
+  if (repName) {
+    try {
+      const spData = await query(`
+        query {
+          boards(ids: ["18390237344"]) {
+            items_page(limit: 50) {
+              items { id name }
+            }
+          }
+        }`);
+      const spItems = spData?.boards?.[0]?.items_page?.items || [];
+      const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
+      if (match) {
+        salespersonItemId = match.id;
+        console.log('Salesperson item ID for', repName, ':', salespersonItemId);
+      }
+    } catch(e) {
+      console.error('Salesperson lookup error:', e.message);
+    }
+  }
+
   const data = await query(`
-    query($boardId: ID!) {
-      boards(ids: [$boardId]) {
+    query {
+      boards(ids: [${BOARDS.negotiations}]) {
         groups {
           id
           title
@@ -78,7 +110,7 @@ async function getLeadsForRep(repName) {
             items {
               id
               name
-              column_values(ids: ["${COLS.phone}", "${COLS.email}", "${COLS.address}", "${COLS.enquiry}", "${COLS.status}", "${COLS.source}", "${COLS.salesperson}"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me", "dropdown_mm5cb995"]) {
                 id
                 text
                 value
@@ -87,20 +119,42 @@ async function getLeadsForRep(repName) {
           }
         }
       }
-    }`, { boardId: BOARDS.negotiations });
-
+    }`);
   const groups = data?.boards?.[0]?.groups || [];
   const leads = [];
 
   for (const group of groups) {
+    if (group.title === 'LOST') continue;
     const items = group.items_page?.items || [];
     for (const item of items) {
       const cols = {};
       item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
-      
-      // Filter by salesperson - if no match found, show all
-      const salesCol = cols[COLS.salesperson] || '';
-      if (repName && salesCol && !salesCol.toLowerCase().includes(repName.toLowerCase())) continue;
+
+      // Filter by rep dropdown column
+      const repCol = (cols['dropdown_mm5cb995'] || '').toLowerCase().replace(/[^a-z]/g, '');
+      const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+      if (repName && repCol && !repCol.includes(repNameNorm) && !repNameNorm.includes(repCol)) continue;
+      if (repName && !repCol) continue;
+
+      // Parse files
+      let filesReceived = '';
+      const rawFiles = item.column_values.find(c => c.id === COLS.files);
+      if (rawFiles && rawFiles.text) {
+        const urls = rawFiles.text.split(', ').filter(u => u.trim());
+        if (urls.length > 0) {
+          filesReceived = urls.map(url => {
+            const filename = decodeURIComponent(url.split('/').pop());
+            return filename + '|' + url;
+          }).join('\n');
+        }
+      }
+
+      // Format arrival date as DD/MM/YYYY
+      let arrival = cols[COLS.arrival] || '';
+      if (arrival && arrival.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const parts = arrival.split('-');
+        arrival = parts[2].substring(0,2) + '/' + parts[1] + '/' + parts[0];
+      }
 
       leads.push({
         monday_id: item.id,
@@ -109,8 +163,11 @@ async function getLeadsForRep(repName) {
         email: cols[COLS.email] || '',
         address: cols[COLS.address] || '',
         enquiry: cols[COLS.enquiry] || '',
+        rep_notes: cols[COLS.notes] || '',
         status: cols[COLS.status] || '',
         source: cols[COLS.source] || '',
+        arrival,
+        files_received: filesReceived,
         group_id: group.id,
         group_title: group.title,
       });
@@ -124,34 +181,171 @@ async function getLeadsForRep(repName) {
 // ── Move item to a different group ───────────────────────────────────────────
 async function moveToGroup(boardId, itemId, groupId) {
   const data = await query(`
-    mutation($boardId: ID!, $itemId: ID!, $groupId: String!) {
-      move_item_to_group(board_id: $boardId, item_id: $itemId, group_id: $groupId) {
+    mutation($itemId: ID!, $groupId: String!) {
+      move_item_to_group(item_id: $itemId, group_id: $groupId) {
         id
       }
-    }`, { boardId, itemId, groupId });
+    }`, { itemId, groupId });
   return data?.move_item_to_group?.id;
 }
 
 // ── Move item to a different board ───────────────────────────────────────────
 async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) {
   const data = await query(`
-    mutation($boardId: ID!, $itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
-      move_item_to_board(board_id: $boardId, item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
+    mutation($itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
+      move_item_to_board(item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
         id
       }
-    }`, { boardId: sourceBoardId, itemId, targetBoardId, groupId: targetGroupId });
+    }`, { itemId, targetBoardId, groupId: targetGroupId });
   return data?.move_item_to_board?.id;
 }
 
-// ── Update enquiry/notes field ────────────────────────────────────────────────
-async function updateEnquiry(itemId, notes) {
+// ── Get Follow Up leads from Proposal board ──────────────────────────────────
+async function getProposalFollowUpLeads(repName) {
+  const data = await query(`
+    query($boardId: ID!) {
+      boards(ids: [$boardId]) {
+        groups(ids: ["group_mky78qcz"]) {
+          id
+          title
+          items_page(limit: 100) {
+            items {
+              id
+              name
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "dropdown_mm5c51r2", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+                id
+                text
+                value
+              }
+            }
+          }
+        }
+      }
+    }`, { boardId: BOARDS.proposal });
+
+  const groups = data?.boards?.[0]?.groups || [];
+  const leads = [];
+
+  for (const group of groups) {
+    const items = group.items_page?.items || [];
+    for (const item of items) {
+      const cols = {};
+      item.column_values.forEach(c => { cols[c.id] = c.text || ''; });
+
+      // Filter by rep dropdown column
+      const repCol = (cols['dropdown_mm5c51r2'] || '').toLowerCase().replace(/[^a-z]/g, '');
+      const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+      if (repName && repCol && !repCol.includes(repNameNorm) && !repNameNorm.includes(repCol)) continue;
+      if (repName && !repCol) continue;
+
+      // Parse files
+      let filesReceived = '';
+      const rawFiles = item.column_values.find(c => c.id === 'file_mkxzg1me');
+      if (rawFiles && rawFiles.text) {
+        const urls = rawFiles.text.split(', ').filter(u => u.trim());
+        if (urls.length > 0) {
+          filesReceived = urls.map(url => {
+            const filename = decodeURIComponent(url.split('/').pop());
+            return filename + '|' + url;
+          }).join('\n');
+        }
+      }
+
+      // Format arrival date
+      let arrival = cols['date_mm135v04'] || '';
+      if (arrival && arrival.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const parts = arrival.split('-');
+        arrival = parts[2].substring(0,2) + '/' + parts[1] + '/' + parts[0];
+      }
+
+      leads.push({
+        monday_id: item.id,
+        name: item.name,
+        phone: cols['phone_mky18hs6'] || '',
+        email: cols['email_mky1wg4h'] || '',
+        address: cols['text_mky7qn0k'] || '',
+        enquiry: cols['long_text_mkxzds8g'] || '',
+        rep_notes: cols['long_text_mkxzbgfq'] || '',
+        status: cols['color_mkxzy23p'] || '',
+        source: cols['color_mky1aas7'] || '',
+        arrival,
+        files_received: filesReceived,
+        group_id: 'group_mky78qcz',
+        group_title: 'PROPOSAL FOLLOW UP',
+        from_proposal_board: true,
+      });
+    }
+  }
+
+  console.log('Proposal Follow Up leads found:', leads.length, 'for rep:', repName);
+  return leads;
+}
+
+// ── Get file download URLs from Monday.com assets ────────────────────────────
+async function getFileDownloadUrl(assetId) {
+  const data = await query(`
+    query($assetId: ID!) {
+      assets(ids: [$assetId]) {
+        id
+        name
+        public_url
+        url
+      }
+    }`, { assetId });
+  const asset = data?.assets?.[0];
+  return asset ? { name: asset.name, url: asset.public_url || asset.url } : null;
+}
+
+// ── Get all files for a lead item ─────────────────────────────────────────────
+async function getLeadFiles(itemId) {
+  const data = await query(`
+    query($itemId: ID!) {
+      items(ids: [$itemId]) {
+        assets {
+          id
+          name
+          public_url
+          url
+          file_size
+          created_at
+        }
+      }
+    }`, { itemId });
+  const assets = data?.items?.[0]?.assets || [];
+  console.log('Monday files for item', itemId, ':', JSON.stringify(assets).slice(0, 300));
+  return assets;
+}
+
+// ── Update multiple lead fields ──────────────────────────────────────────────
+async function updateLeadDetails(itemId, details) {
+  const updates = [];
+  if (details.address !== undefined) updates.push({ colId: COLS.address, value: JSON.stringify(details.address) });
+  if (details.phone !== undefined) updates.push({ colId: COLS.phone, value: JSON.stringify({ phone: details.phone, countryShortName: 'AU' }) });
+  if (details.email !== undefined) updates.push({ colId: COLS.email, value: JSON.stringify({ email: details.email, text: details.email }) });
+  if (details.source !== undefined) updates.push({ colId: COLS.source, value: JSON.stringify({ label: details.source }) });
+  if (details.status !== undefined) updates.push({ colId: COLS.status, value: JSON.stringify({ label: details.status }) });
+
+  for (const u of updates) {
+    try {
+      await query(`
+        mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
+          change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) { id }
+        }`, { boardId: BOARDS.negotiations, itemId, colId: u.colId, value: u.value });
+    } catch(e) {
+      console.error('Update field error:', u.colId, e.message);
+    }
+  }
+}
+
+// ── Update rep notes field (syncs to NOTES column) ───────────────────────────
+async function updateNotes(itemId, notes) {
   const value = JSON.stringify({ text: notes });
   const data = await query(`
     mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
       change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) {
         id
       }
-    }`, { boardId: BOARDS.negotiations, itemId, colId: COLS.enquiry, value });
+    }`, { boardId: BOARDS.negotiations, itemId, colId: COLS.notes, value });
   return data?.change_column_value?.id;
 }
 
@@ -163,12 +357,14 @@ async function clickFreeConsultation(itemId) {
   return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.free_consultations, targetGroup);
 }
 
-// ── Click PROPOSAL REQUESTED button → move to Proposal board ─────────────────
+// ── Click PROPOSAL REQUESTED button → move to Proposal board NEW REQUESTS ────
 async function clickProposalRequested(itemId) {
-  const groups = await getGroups(BOARDS.proposal);
-  const targetGroup = groups[0]?.id;
-  if (!targetGroup) throw new Error('No groups found on Proposal board');
-  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, targetGroup);
+  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, PROPOSAL_GROUPS.new_requests);
+}
+
+// ── Move to SENT PROPOSALS (after proposal generated) ────────────────────────
+async function moveToSentProposals(itemId) {
+  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.proposal, PROPOSAL_GROUPS.sent_proposals);
 }
 
 // ── Click HELP REQUIRED button → move to HELP REQUIRED group ─────────────────
@@ -180,8 +376,15 @@ async function clickHelpRequired(itemId) {
 
 // ── Move to FOLLOW UP CALLS (after proposal sent) ────────────────────────────
 async function moveToFollowUp(itemId) {
-  const groupId = await getGroupId(BOARDS.negotiations, 'FOLLOW UP CALLS');
+  const groupId = await getGroupId(BOARDS.negotiations, 'FOLLOW UP EMAILS / CALLS');
   if (!groupId) throw new Error('FOLLOW UP CALLS group not found');
+  return await moveToGroup(BOARDS.negotiations, itemId, groupId);
+}
+
+// ── Move to LOST ─────────────────────────────────────────────────────────────
+async function moveToLost(itemId) {
+  const groupId = await getGroupId(BOARDS.negotiations, 'LOST');
+  if (!groupId) throw new Error('LOST group not found');
   return await moveToGroup(BOARDS.negotiations, itemId, groupId);
 }
 
@@ -263,14 +466,23 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  getProposalFollowUpLeads,
+  moveToSentProposals,
+  PROPOSAL_GROUPS,
+  getLeadFiles,
+  moveToLost,
+  updateLeadDetails,
+  getGroupId,
+  moveToGroup,
   moveToFollowUp,
   moveToClosedDeals,
   clickFreeConsultation,
   clickProposalRequested,
   clickHelpRequired,
   clickStartProject,
-  updateEnquiry,
+  updateNotes,
   createPendingLoginItem,
+  query,
   BOARDS,
   COLS,
 };

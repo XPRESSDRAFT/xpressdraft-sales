@@ -92,6 +92,7 @@ async function loadUsers() {
       <td style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" data-rename="${u.id}" data-name="${esc(u.name)}">Rename</button>
         <button class="btn btn-ghost btn-sm" data-phone="${u.id}" data-phoneval="${esc(u.phone||'')}">Phone</button>
+        <button class="btn btn-ghost btn-sm" data-monday="${u.id}" data-mondayval="${esc(u.monday_name||'')}">Monday Name</button>
         <button class="btn btn-ghost btn-sm" data-toggle="${u.id}" data-active="${u.active}">
           ${u.active ? 'Deactivate' : 'Activate'}
         </button>
@@ -99,6 +100,18 @@ async function loadUsers() {
       </td>
     `;
     tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-monday]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.monday;
+      const current = btn.dataset.mondayval;
+      const newName = prompt('Enter Monday.com name (exactly as shown in Monday.com):', current);
+      if (newName === null) return;
+      await api('PATCH', '/api/users/' + id, { monday_name: newName.trim() });
+      toast('Monday.com name updated');
+      loadUsers();
+    });
   });
 
   tbody.querySelectorAll('[data-phone]').forEach(btn => {
@@ -221,3 +234,41 @@ function esc(s) {
 loadUsers();
 loadPricing();
 loadPendingPortals();
+
+async function registerCalendly() {
+  const btn = document.querySelector('[onclick="registerCalendly()"]');
+  if (btn) btn.textContent = 'Connecting...';
+  try {
+    const r = await api('POST', '/api/admin/calendly/register', {});
+    const statusEl = document.getElementById('calendlyStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Calendly webhook registered successfully! New bookings will now create leads in Monday.com.</span>';
+      if (btn) btn.textContent = 'Connected ✓';
+    }
+  } catch(e) {
+    const statusEl = document.getElementById('calendlyStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
+  }
+}
+
+async function registerMondayWebhook() {
+  const btn = document.querySelector('[onclick="registerMondayWebhook()"]');
+  if (btn) btn.textContent = 'Registering...';
+  try {
+    const r = await api('POST', '/api/admin/monday/register-webhook', {});
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
+      if (btn) btn.textContent = 'Register Webhook';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Monday.com webhook registered! (ID: ' + r.id + ') When you set a proposal status to SENT, the lead will reappear in the rep\'s Follow Up list.</span>';
+      if (btn) btn.textContent = 'Registered ✓';
+    }
+  } catch(e) {
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
+    if (btn) btn.textContent = 'Register Webhook';
+  }
+}

@@ -18,6 +18,7 @@ function generatePassword() {
   return pwd.sort(() => Math.random() - 0.5).join('');
 }
 const session = require('express-session');
+const cookieSession = require('cookie-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fetch = require('node-fetch');
@@ -69,6 +70,7 @@ function dbExec(sql) {
     password TEXT NOT NULL,
     name TEXT NOT NULL,
     phone TEXT NOT NULL DEFAULT '',
+    monday_name TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'user',
     active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
@@ -111,6 +113,43 @@ function dbExec(sql) {
 
 // ── Migration: add phone column if not exists ────────────────────────────────
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'standard'").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN leader_id INTEGER DEFAULT NULL").catch(() => {});
+// Commission records table
+await dbRun(`CREATE TABLE IF NOT EXISTS commission_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  client_name TEXT NOT NULL,
+  project_type TEXT DEFAULT '',
+  sale_amount REAL NOT NULL,
+  week_start TEXT NOT NULL,
+  paid INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+)`).catch(() => {});
+
+// Reminders table
+await dbRun(`CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  monday_id TEXT NOT NULL,
+  client_name TEXT NOT NULL,
+  note TEXT DEFAULT '',
+  remind_at TEXT NOT NULL,
+  done INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+)`).catch(() => {});
+
+// Pending proposal requests table
+await dbRun(`CREATE TABLE IF NOT EXISTS pending_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  monday_id TEXT NOT NULL,
+  client_name TEXT NOT NULL,
+  address TEXT DEFAULT '',
+  requested_at TEXT DEFAULT (datetime('now')),
+  status TEXT DEFAULT 'pending'
+)`).catch(() => {});
 
 // ── Migration: upsert all pricing items ──────────────────────────────────────
 const pricingUpdates = [
@@ -144,7 +183,7 @@ console.log('Pricing migration complete');
 const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
 if (!adminExists && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12);
-  await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [process.env.ADMIN_EMAIL, hash, 'Admin', 'admin']);
+  await dbRun('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [process.env.ADMIN_EMAIL, hash, 'Admin', 'admin']);
   console.log('Admin account created:', process.env.ADMIN_EMAIL);
 }
 
@@ -177,39 +216,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Ensure data dir exists for SQLite session store
+// Ensure data dir exists
 const fs = require('fs');
 const dataDir = process.env.NODE_ENV === 'production' ? '/data' : path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-// Session store
-let sessionStore;
-try {
-  const SQLiteStore = require('connect-sqlite3')(session);
-  sessionStore = new SQLiteStore({ db: 'sessions.db', dir: dataDir });
-} catch(e) {
-  console.warn('SQLiteStore failed:', e.message);
-  // Use custom store based on existing db
-  const EventEmitter = require('events');
-  sessionStore = Object.assign(Object.create(session.Store.prototype), {
-    get(sid, cb) { db.get('SELECT data FROM sessions WHERE sid=? AND expires>?',[sid,Date.now()],(e,r)=>cb(e,r?JSON.parse(r.data):null)); },
-    set(sid, s, cb) { const exp=Date.now()+28800000; db.run('INSERT OR REPLACE INTO sessions(sid,data,expires) VALUES(?,?,?)',[sid,JSON.stringify(s),exp],cb||(()=>{})); },
-    destroy(sid, cb) { db.run('DELETE FROM sessions WHERE sid=?',[sid],cb||(()=>{})); }
-  });
-  db.run('CREATE TABLE IF NOT EXISTS sessions(sid TEXT PRIMARY KEY,data TEXT,expires INTEGER)');
-}
-
-app.use(session({
-  store: sessionStore,
-  cookie: { maxAge: 28800000, rolling: true }, // 8 hours, resets on activity
-  secret: process.env.SESSION_SECRET || 'xpd-dev-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 8 * 60 * 60 * 1000, // 8 hours
-    httpOnly: true,
-    sameSite: 'lax'
-  }
+app.use(cookieSession({
+  name: 'xpd_session',
+  keys: [process.env.SESSION_SECRET || 'xpressdraft-secret-key'],
+  maxAge: 8 * 60 * 60 * 1000, // 8 hours
+  httpOnly: true,
+  sameSite: 'lax'
 }));
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
@@ -257,10 +274,11 @@ app.get('/', requireAuth, (req, res) => sendPage(res, 'app.html'));
 
 // Admin panel
 app.get('/admin', requireAuth, requireAdmin, (req, res) => sendPage(res, 'admin.html'));
+app.get('/commission', requireAuth, (req, res) => sendPage(res, 'commission.html'));
 
 // ── API: current user info ────────────────────────────────────────────────────
 app.get('/api/me', requireAuth, async (req, res) => {
-  const me = await dbGet('SELECT id, email, name, phone, role FROM users WHERE id = ?', [req.session.userId]);
+  const me = await dbGet('SELECT id, email, name, phone, monday_name, role FROM users WHERE id = ?', [req.session.userId]);
   res.json(me || { name: req.session.name, role: req.session.role });
 });
 
@@ -296,7 +314,7 @@ app.post('/api/pricing', requireAuth, requireAdmin, async (req, res) => {
 
 // ── API: user management (admin only) ────────────────────────────────────────
 app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
-  const users = await dbAll('SELECT id, email, name, phone, role, active, created_at FROM users ORDER BY created_at DESC', []);
+  const users = await dbAll('SELECT id, email, name, phone, monday_name, role, active, created_at FROM users ORDER BY created_at DESC', []);
   res.json(users);
 });
 
@@ -321,7 +339,7 @@ app.post('/api/users', requireAuth, requireAdmin, async (req, res) => {
 });
 
 app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
-  const { active, password, name, phone } = req.body;
+  const { active, password, name, phone, monday_name } = req.body;
   const id = req.params.id;
   if (active !== undefined) {
     await dbRun('UPDATE users SET active = ? WHERE id = ?', [active ? 1 : 0, id]);
@@ -331,6 +349,9 @@ app.patch('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
   }
   if (phone !== undefined) {
     await dbRun('UPDATE users SET phone = ? WHERE id = ?', [phone || '', id]);
+  }
+  if (monday_name !== undefined) {
+    await dbRun('UPDATE users SET monday_name = ? WHERE id = ?', [monday_name || '', id]);
   }
   if (password) {
     const hash = bcrypt.hashSync(password, 12);
@@ -379,6 +400,21 @@ const pandadoc = require('./pandadoc');
 const emailModule = require('./email');
 const stripeModule = require('./stripe');
 const monday = require('./monday');
+const multer = require('multer');
+
+// File storage for lead files
+const leadFilesDir = path.join(dataDir, 'lead_files');
+if (!fs.existsSync(leadFilesDir)) fs.mkdirSync(leadFilesDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(leadFilesDir, req.params.mondayId);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, file.originalname)
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 const twilio = require('./twilio');
 
 // Generate and send proposal
@@ -441,13 +477,18 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
 
-    // Move lead to FOLLOW UP CALLS in Monday.com
-    if (rec.monday_id || parsedData.monday_id) {
+    // Move lead to SENT PROPOSALS on 26_3 Proposal board
+    const mondayLeadId = rec.monday_id || parsedData.monday_id;
+    if (mondayLeadId) {
       try {
-        await monday.moveToFollowUp(rec.monday_id || parsedData.monday_id);
-        console.log('Lead moved to FOLLOW UP CALLS:', rec.monday_id || parsedData.monday_id);
+        await monday.moveToSentProposals(mondayLeadId);
+        console.log('Lead moved to SENT PROPOSALS:', mondayLeadId);
+        // Update any pending request to sent
+        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
       } catch(e) {
-        console.error('Monday follow up error:', e.message);
+        console.error('Monday sent proposals error:', e.message);
+        // Fallback to follow up
+        try { await monday.moveToFollowUp(mondayLeadId); } catch(e2) {}
       }
     }
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
@@ -473,16 +514,648 @@ if (process.env.NODE_ENV === 'production') {
   }, 10 * 60 * 1000); // every 10 minutes
 }
 
+// ── Commission routes ────────────────────────────────────────────────────────
+
+// Get current week start (Wednesday 12am)
+function getWeekStart(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun, 3=Wed
+  const diff = (day >= 3) ? day - 3 : day + 4;
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0];
+}
+
+// Calculate commission for a given sales total and role
+function calcCommission(total, role) {
+  if (role === 'leader') {
+    if (total <= 8000) return total * 0.03;
+    if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
+    if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
+    return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
+  } else {
+    if (total <= 15000) return total * 0.02;
+    if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
+    return 15000 * 0.02 + 10000 * 0.03 + (total - 25000) * 0.04;
+  }
+}
+
+app.get('/api/commission/summary', requireAuth, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const weekStart = getWeekStart();
+    const records = await dbAll(
+      'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
+      [req.session.userId, weekStart]
+    );
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+
+    // Get sent proposals count from Monday.com
+    let sentProposals = 0;
+    let closedDeals = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
+    let totalClosed = closedDeals.reduce((sum, r) => sum + r.sale_amount, 0);
+    try {
+      const repName = user.monday_name || user.name;
+      const proposalData = await monday.query(`
+        query {
+          boards(ids: ["18389820785"]) {
+            groups(ids: ["group_mkxzcgkr"]) {
+              items_page(limit: 100) {
+                items {
+                  id
+                  column_values(ids: ["dropdown_mm5c51r2"]) { id text value }
+                }
+              }
+            }
+          }
+        }`);
+      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+      sentProposals = sentItems.filter(item => {
+        const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
+        return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+      }).length;
+    } catch(e) { console.error('Sent proposals error:', e.message); }
+
+    const conversionRate = sentProposals > 0 ? Math.round((closedDeals.length / sentProposals) * 100) : 0;
+    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard', sentProposals, closedDeals: closedDeals.length, totalClosed, conversionRate });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/commission/records', requireAuth, async (req, res) => {
+  try {
+    const { client_name, project_type, sale_amount } = req.body;
+    const weekStart = getWeekStart();
+    await dbRun(
+      'INSERT INTO commission_records (user_id, client_name, project_type, sale_amount, week_start) VALUES (?, ?, ?, ?, ?)',
+      [req.session.userId, client_name, project_type, parseFloat(sale_amount), weekStart]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/commission/records/:id', requireAuth, async (req, res) => {
+  try {
+    await dbRun('DELETE FROM commission_records WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all reps commission summary for current week
+app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const weekStart = req.query.week || getWeekStart();
+    const users = await dbAll('SELECT * FROM users');
+    const summary = [];
+    for (const user of users) {
+      const records = await dbAll(
+        'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
+        [user.id, weekStart]
+      );
+      const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+      const commission = calcCommission(totalSales, user.role || 'standard');
+      // If leader, calculate override
+      let totalOverride = 0;
+      if (user.role === 'leader') {
+        const reps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+        for (const rep of reps) {
+          const repRecs = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
+          const repSales = repRecs.reduce((sum, r) => sum + r.sale_amount, 0);
+          totalOverride += repSales * 0.02;
+        }
+      }
+      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard' });
+    }
+    res.json({ summary, weekStart });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Pipeline stats ───────────────────────────────────────────────────────────
+app.get('/api/admin/pipeline', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await dbAll('SELECT * FROM users WHERE role != ?', ['admin']);
+    const pipeline = [];
+
+    for (const user of users) {
+      const repName = user.monday_name || user.name;
+
+      // Get leads from Negotiations board
+      const leadsData = await monday.getLeadsForRep(repName).catch(() => []);
+
+      // Count by stage
+      const stageCounts = {};
+      leadsData.forEach(l => {
+        const g = l.group_title || 'Other';
+        stageCounts[g] = (stageCounts[g] || 0) + 1;
+      });
+
+      // Get proposals sent from 26_3 Proposal board SENT PROPOSALS group
+      const proposalData = await monday.query(`
+        query {
+          boards(ids: ["18389820785"]) {
+            groups(ids: ["group_mkxzcgkr"]) {
+              items_page(limit: 100) {
+                items {
+                  id
+                  name
+                  column_values(ids: ["dropdown_mm5c51r2", "numbers_mm5cr6w3"]) {
+                    id text value
+                  }
+                }
+              }
+            }
+          }
+        }`).catch(() => null);
+
+      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+      const repSentProposals = sentItems.filter(item => {
+        const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
+        return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+      });
+
+      // Get closed deals value from commission records
+      const weekStart = getWeekStart();
+      const allRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
+      const totalClosed = allRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+      const closedCount = allRecords.length;
+
+      // Conversion rate: closed / sent proposals
+      const conversionRate = repSentProposals.length > 0
+        ? Math.round((closedCount / repSentProposals.length) * 100)
+        : 0;
+
+      pipeline.push({
+        user,
+        totalLeads: leadsData.length,
+        stageCounts,
+        sentProposals: repSentProposals.length,
+        closedDeals: closedCount,
+        totalClosed,
+        conversionRate
+      });
+    }
+
+    res.json(pipeline);
+  } catch(e) {
+    console.error('Pipeline stats error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: set rep role ──────────────────────────────────────────────────────
+app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body;
+    await dbRun('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: assign rep to leader
+app.patch('/api/admin/users/:id/leader', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { leader_id } = req.body;
+    await dbRun('UPDATE users SET leader_id = ? WHERE id = ?', [leader_id || null, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get commission summary for a specific user (view-as-rep)
+app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.userId]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const weekStart = req.query.week || getWeekStart();
+    const records = await dbAll(
+      'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
+      [user.id, weekStart]
+    );
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+
+    // If leader, get assigned reps' sales
+    let repOverrides = [];
+    if (user.role === 'leader') {
+      const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+      for (const rep of assignedReps) {
+        const repRecords = await dbAll(
+          'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
+          [rep.id, weekStart]
+        );
+        const repSales = repRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+        const overrideCommission = repSales * 0.02;
+        repOverrides.push({ rep, repSales, overrideCommission, records: repRecords });
+      }
+    }
+
+    const totalOverride = repOverrides.reduce((sum, r) => sum + r.overrideCommission, 0);
+    res.json({ user, records, totalSales, commission, weekStart, role: user.role || 'standard', repOverrides, totalOverride, totalEarnings: commission + totalOverride });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: add/edit commission record for any user
+app.post('/api/admin/commission/:userId/records', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { client_name, project_type, sale_amount, week_start } = req.body;
+    const weekStart = week_start || getWeekStart();
+    await dbRun(
+      'INSERT INTO commission_records (user_id, client_name, project_type, sale_amount, week_start) VALUES (?, ?, ?, ?, ?)',
+      [req.params.userId, client_name, project_type, parseFloat(sale_amount), weekStart]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/commission/records/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await dbRun('DELETE FROM commission_records WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all users with roles and leaders
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await dbAll('SELECT id, name, email, role, leader_id, active FROM users ORDER BY name');
+    res.json(users);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Reminders routes ─────────────────────────────────────────────────────────
+app.get('/api/reminders', requireAuth, async (req, res) => {
+  const reminders = await dbAll(
+    'SELECT * FROM reminders WHERE user_id = ? AND done = 0 ORDER BY remind_at ASC',
+    [req.session.userId]
+  );
+  res.json(reminders);
+});
+
+app.get('/api/leads/:mondayId/reminders', requireAuth, async (req, res) => {
+  const reminders = await dbAll(
+    'SELECT * FROM reminders WHERE user_id = ? AND monday_id = ? AND done = 0 ORDER BY remind_at ASC',
+    [req.session.userId, req.params.mondayId]
+  );
+  res.json(reminders);
+});
+
+app.post('/api/leads/:mondayId/reminders', requireAuth, async (req, res) => {
+  const { note, remind_at, client_name } = req.body;
+  await dbRun(
+    'INSERT INTO reminders (user_id, monday_id, client_name, note, remind_at) VALUES (?, ?, ?, ?, ?)',
+    [req.session.userId, req.params.mondayId, client_name || '', note || '', remind_at]
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/reminders/:id', requireAuth, async (req, res) => {
+  await dbRun('UPDATE reminders SET done = 1 WHERE id = ? AND user_id = ?', [req.params.id, req.session.userId]);
+  res.json({ ok: true });
+});
+
+// ── Leads update timestamp (for frontend polling) ────────────────────────────
+let lastLeadsUpdate = Date.now();
+app.get('/api/leads/last-update', requireAuth, (req, res) => {
+  res.json({ timestamp: lastLeadsUpdate });
+});
+
+// ── Monday.com webhook registration ─────────────────────────────────────────
+app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const apiKey = process.env.MONDAY_API_KEY;
+    if (!apiKey) return res.status(400).json({ error: 'MONDAY_API_KEY not set' });
+
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const webhookUrl = appUrl + '/api/monday-webhook';
+
+    const result = await monday.query(`
+      mutation($url: String!) {
+        create_webhook(
+          board_id: 18389820785,
+          url: $url,
+          event: change_column_value
+        ) {
+          id
+          board_id
+        }
+      }`, { url: webhookUrl });
+
+    if (result?.create_webhook?.id) {
+      console.log('Monday webhook registered:', result.create_webhook.id);
+      res.json({ ok: true, id: result.create_webhook.id });
+    } else {
+      res.status(400).json({ error: 'Failed to register webhook', result });
+    }
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Monday.com webhook ───────────────────────────────────────────────────────
+app.post('/api/monday-webhook', async (req, res) => {
+  try {
+    console.log('Monday webhook received:', JSON.stringify(req.body).slice(0, 300));
+    
+    // Monday.com sends a challenge on first registration
+    if (req.body?.challenge) {
+      console.log('Monday webhook challenge received');
+      return res.json({ challenge: req.body.challenge });
+    }
+
+    const event = req.body?.event;
+    if (!event) return res.json({ ok: true });
+
+    console.log('Monday webhook event type:', event.type, '| boardId:', event.boardId, '| columnId:', event.columnId, '| value:', JSON.stringify(event.value).slice(0, 100));
+
+    // Check if this is a status change to SENT on the Proposal board
+    const boardId = String(event.boardId || '');
+    const columnId = event.columnId || '';
+    const newValue = event.value?.label?.text || event.value?.label || '';
+    const itemId = String(event.pulseId || event.itemId || '');
+
+    if (boardId === '18389820785' && columnId === 'color_mkxzy23p' && 
+        newValue.toUpperCase() === 'SENT' && itemId) {
+      console.log('Monday: SENT status on Proposal board, item:', itemId);
+
+      // Mark pending request as sent if exists
+      const pending = await dbGet('SELECT * FROM pending_requests WHERE monday_id = ? AND status = ?', 
+        [itemId, 'pending']);
+      if (pending) {
+        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', itemId]);
+        console.log('Pending request marked as sent for item:', itemId);
+      }
+
+      // Monday.com automation handles moving item to Follow Up group
+      // We just mark pending request as sent if exists
+      lastLeadsUpdate = Date.now();
+      console.log('SENT webhook processed for item:', itemId);
+    }
+
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Monday webhook error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Calendly webhook registration ────────────────────────────────────────────
+app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const token = process.env.CALENDLY_TOKEN;
+    if (!token) return res.status(400).json({ error: 'CALENDLY_TOKEN not set in environment variables' });
+
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const webhookUrl = appUrl + '/api/calendly-webhook';
+
+    // Get user URI first
+    const userRes = await fetch('https://api.calendly.com/users/me', {
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+    });
+    const userData = await userRes.json();
+    const userUri = userData?.resource?.uri;
+    if (!userUri) return res.status(400).json({ error: 'Could not get Calendly user URI — check your token' });
+
+    // Get organization URI too
+    const orgUri = userData?.resource?.current_organization;
+    console.log('Calendly user URI:', userUri, '| org URI:', orgUri);
+
+    // Try organization scope first, fall back to user scope
+    let webhookData;
+    if (orgUri) {
+      const webhookRes = await fetch('https://api.calendly.com/webhook_subscriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          events: ['invitee.created', 'invitee.canceled'],
+          organization: orgUri,
+          scope: 'organization'
+        })
+      });
+      webhookData = await webhookRes.json();
+    }
+
+    // Fall back to user scope if org failed
+    if (!webhookData || webhookData.message) {
+      const webhookRes2 = await fetch('https://api.calendly.com/webhook_subscriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          events: ['invitee.created', 'invitee.canceled'],
+          organization: orgUri,
+          user: userUri,
+          scope: 'user'
+        })
+      });
+      webhookData = await webhookRes2.json();
+    }
+
+    if (webhookData.message) return res.status(400).json({ error: webhookData.message, details: webhookData });
+    console.log('Calendly webhook registered:', webhookUrl);
+    res.json({ ok: true, webhook: webhookData });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Calendly rep mapping ─────────────────────────────────────────────────────
+const CALENDLY_REP_MAP = {
+  'here2help@xpressdraft.com.au': 'Christian Yamada',
+  'evan.dowman@xpressdraft.com.au': 'Evan Dowman',
+};
+
+// ── Calendly webhook ──────────────────────────────────────────────────────────
+app.post('/api/calendly-webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('Calendly webhook:', event.event);
+    if (event.event === 'invitee.created') {
+      const invitee = event.payload?.invitee;
+      const name = invitee?.name || 'Unknown';
+      const email = invitee?.email || '';
+      const phone = invitee?.questions_and_answers?.find(q => q.question?.toLowerCase().includes('phone'))?.answer || '';
+      const startTime = event.payload?.event?.start_time || '';
+
+      // Identify assigned rep from event membership
+      const members = event.payload?.event?.event_memberships || [];
+      const assignedEmail = members[0]?.user_email || '';
+      const repName = CALENDLY_REP_MAP[assignedEmail] || '';
+      console.log('Calendly booking:', name, '| assigned to:', assignedEmail, '→', repName || 'unassigned');
+
+      // Get salesperson item ID from Monday.com salesperson board
+      let salespersonItemId = null;
+      if (repName) {
+        try {
+          const spData = await monday.query(`
+            query {
+              boards(ids: ["18390237344"]) {
+                items_page(limit: 50) {
+                  items { id name }
+                }
+              }
+            }`);
+          const spItems = spData?.boards?.[0]?.items_page?.items || [];
+          const match = spItems.find(i => i.name.toLowerCase().includes(repName.toLowerCase()));
+          if (match) salespersonItemId = match.id;
+        } catch(e) {
+          console.error('Calendly salesperson lookup error:', e.message);
+        }
+      }
+
+      // Create item in Monday.com DISCOVERY CALLS group
+      try {
+        const colVals = {
+          [monday.COLS.email]: { email, text: email },
+          [monday.COLS.status]: { label: 'DC - CALENDLY' },
+          [monday.COLS.source]: { label: 'CALENDLY' },
+          [monday.COLS.arrival]: { date: startTime ? startTime.split('T')[0] : new Date().toISOString().split('T')[0] }
+        };
+        if (phone) colVals[monday.COLS.phone] = { phone, countryShortName: 'AU' };
+        if (salespersonItemId) colVals[monday.COLS.salesperson] = { item_ids: [salespersonItemId] };
+
+        const columnValues = JSON.stringify(colVals);
+        const discGroupId = await monday.getGroupId(monday.BOARDS.negotiations, 'DISCOVERY CALLS');
+        if (discGroupId) {
+          await monday.query(`
+            mutation {
+              create_item(
+                board_id: ${monday.BOARDS.negotiations},
+                group_id: "${discGroupId}",
+                item_name: "${name.replace(/"/g, '\"')}",
+                column_values: ${JSON.stringify(columnValues)}
+              ) { id }
+            }`);
+          console.log('Calendly lead created:', name, '→ assigned to:', repName || 'unassigned');
+        }
+      } catch(e) {
+        console.error('Calendly Monday error:', e.message);
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Calendly webhook error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Storage stats ────────────────────────────────────────────────────────────
+app.get('/api/admin/storage', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+
+    // Get disk usage of /data
+    const diskTotal = execSync("df /data --output=size -B1 | tail -1").toString().trim();
+    const diskUsed = execSync("df /data --output=used -B1 | tail -1").toString().trim();
+    const diskAvail = execSync("df /data --output=avail -B1 | tail -1").toString().trim();
+
+    // Get database size
+    const dbPath = path.join(dataDir, 'app.db');
+    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+
+    // Get lead files size
+    const leadFilesPath = path.join(dataDir, 'lead_files');
+    let leadFilesSize = 0;
+    let leadFilesCount = 0;
+    if (fs.existsSync(leadFilesPath)) {
+      const getDirSize = (dir) => {
+        let size = 0;
+        const files = fs.readdirSync(dir);
+        files.forEach(f => {
+          const fp = path.join(dir, f);
+          const stat = fs.statSync(fp);
+          if (stat.isDirectory()) size += getDirSize(fp);
+          else { size += stat.size; leadFilesCount++; }
+        });
+        return size;
+      };
+      leadFilesSize = getDirSize(leadFilesPath);
+    }
+
+    res.json({
+      disk: {
+        total: parseInt(diskTotal),
+        used: parseInt(diskUsed),
+        available: parseInt(diskAvail),
+        percent: Math.round((parseInt(diskUsed) / parseInt(diskTotal)) * 100)
+      },
+      database: { size: dbSize },
+      lead_files: { size: leadFilesSize, count: leadFilesCount }
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Monday.com CRM routes ────────────────────────────────────────────────────
 
 // Get leads for current rep
 app.get('/api/leads', requireAuth, async (req, res) => {
   try {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
-    const leads = await monday.getLeadsForRep(user.name);
-    res.json(leads);
+    const repName = user.monday_name || user.name;
+    console.log('Loading leads for rep:', repName);
+
+    // Get leads from both boards in parallel
+    const [negotiationLeads, proposalFollowUpLeads] = await Promise.all([
+      monday.getLeadsForRep(repName).catch(e => { console.error('Negotiations leads error:', e.message); return []; }),
+      monday.getProposalFollowUpLeads(repName).catch(e => { console.error('Proposal leads error:', e.message); return []; })
+    ]);
+
+    // Exclude pending proposal requests from negotiations leads
+    const pending = await dbAll('SELECT monday_id FROM pending_requests WHERE user_id = ? AND status = ?', [req.session.userId, 'pending']);
+    const pendingIds = new Set(pending.map(p => p.monday_id));
+    const filteredNegotiations = negotiationLeads.filter(l => !pendingIds.has(l.monday_id));
+
+    // Merge both sources
+    const allLeads = [...filteredNegotiations, ...proposalFollowUpLeads];
+    res.json(allLeads);
   } catch(e) {
     console.error('Get leads error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get pending proposal requests for current rep
+app.get('/api/pending-requests', requireAuth, async (req, res) => {
+  try {
+    const requests = await dbAll(
+      'SELECT * FROM pending_requests WHERE user_id = ? AND status = ? ORDER BY requested_at DESC',
+      [req.session.userId, 'pending']
+    );
+    res.json(requests);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Mark pending request as sent (admin only)
+app.patch('/api/pending-requests/:id/sent', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await dbRun('UPDATE pending_requests SET status = ? WHERE id = ?', ['sent', req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
@@ -494,10 +1167,34 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
     const { action, notes } = req.body;
     console.log('Lead action:', action, 'for Monday ID:', mondayId);
     if (action === 'free_consultation') await monday.clickFreeConsultation(mondayId);
-    else if (action === 'proposal_requested') await monday.clickProposalRequested(mondayId);
+    else if (action === 'proposal_requested') {
+      await monday.clickProposalRequested(mondayId);
+      // Store pending request locally
+      const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+      const { client_name, address } = req.body;
+      await dbRun('INSERT INTO pending_requests (user_id, monday_id, client_name, address) VALUES (?, ?, ?, ?)',
+        [req.session.userId, mondayId, client_name || '', address || '']);
+    }
     else if (action === 'help_required') await monday.clickHelpRequired(mondayId);
     else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
-    if (notes) await monday.updateEnquiry(mondayId, notes);
+    else if (action === 'move_stage') {
+      const { stage } = req.body;
+      const stageMap = {
+        discovery: 'DISCOVERY CALLS',
+        followup: 'FOLLOW UP EMAILS / CALLS',
+        waiting: 'WAITING FOR CLIENTS',
+        qualified: 'QUALIFIED LEADS',
+        closed: 'CLOSED DEALS',
+        lost: 'LOST',
+        help: 'HELP REQUIRED'
+      };
+      const groupName = stageMap[stage];
+      if (groupName) {
+        const groupId = await monday.getGroupId(monday.BOARDS.negotiations, groupName);
+        if (groupId) await monday.moveToGroup(monday.BOARDS.negotiations, mondayId, groupId);
+      }
+    }
+    if (notes) await monday.updateNotes(mondayId, notes);
     res.json({ ok: true });
   } catch(e) {
     console.error('Lead action error:', e.message);
@@ -505,11 +1202,63 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
   }
 });
 
+// Get Monday.com files for a lead
+app.get('/api/leads/:mondayId/monday-files', requireAuth, async (req, res) => {
+  try {
+    const files = await monday.getLeadFiles(req.params.mondayId);
+    res.json(files);
+  } catch(e) {
+    console.error('Get Monday files error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get files for a lead
+app.get('/api/leads/:mondayId/files', requireAuth, (req, res) => {
+  const dir = path.join(leadFilesDir, req.params.mondayId);
+  if (!fs.existsSync(dir)) return res.json([]);
+  const files = fs.readdirSync(dir).map(name => ({ name, path: dir + '/' + name }));
+  res.json(files);
+});
+
+// Upload files for a lead
+app.post('/api/leads/:mondayId/files', requireAuth, upload.array('files', 10), (req, res) => {
+  res.json({ ok: true, count: req.files.length });
+});
+
+// Download a file
+app.get('/api/leads/:mondayId/files/:filename', requireAuth, (req, res) => {
+  const filePath = path.join(leadFilesDir, req.params.mondayId, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.download(filePath);
+});
+
+// Update lead details
+app.patch('/api/leads/:mondayId/details', requireAuth, async (req, res) => {
+  try {
+    const { mondayId } = req.params;
+    const { address, phone, email, source, status } = req.body;
+    await monday.updateLeadDetails(mondayId, { address, phone, email, source, status });
+    res.json({ ok: true });
+  } catch(e) {
+    console.error('Update details error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete a file
+app.delete('/api/leads/:mondayId/files/:filename', requireAuth, (req, res) => {
+  const filePath = path.join(leadFilesDir, req.params.mondayId, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  fs.unlinkSync(filePath);
+  res.json({ ok: true });
+});
+
 // Update notes
 app.patch('/api/leads/:mondayId/notes', requireAuth, async (req, res) => {
   try {
     const { notes } = req.body;
-    await monday.updateEnquiry(req.params.mondayId, notes);
+    await monday.updateNotes(req.params.mondayId, notes);
     res.json({ ok: true });
   } catch(e) {
     console.error('Update notes error:', e.message);

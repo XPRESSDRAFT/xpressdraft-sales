@@ -1,3 +1,18 @@
+// ── Sync call notes ↔ CRM notes ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  var callNotesField = document.querySelector('[data-f="notes"]');
+  if (callNotesField) {
+    callNotesField.addEventListener('input', function() {
+      // Mirror to CRM notes if lead detail is open
+      var crmNotes = document.getElementById('leadNotes');
+      if (crmNotes && document.getElementById('leadDetailPanel') && 
+          document.getElementById('leadDetailPanel').style.display !== 'none') {
+        crmNotes.value = callNotesField.value;
+      }
+    });
+  }
+});
+
 // ── Session keep-alive & expiry detection ─────────────────────────────────────
 (function() {
   // Ping server every 8 minutes to keep session alive
@@ -48,7 +63,18 @@ function gather(){const d={};$$('[data-f]').forEach(el=>{const k=el.getAttribute
 function apply(data){$$('[data-f]').forEach(el=>{const k=el.getAttribute('data-f'),v=(data&&data[k])||'';if(el.classList.contains('yn')){el.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.textContent===v));}else el.value=v;});}
 $$('.yn').forEach(yn=>yn.querySelectorAll('button').forEach(b=>b.onclick=()=>{yn.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}));
 function resetForm(){state.checks={};state.editingId=null;setExp('new');apply({});$('#cName').value='';$('#cAddr').value='';if($('#cEmail'))$('#cEmail').value='';if($('#cPhone'))$('#cPhone').value='';$('#cDate').value=new Date().toISOString().slice(0,10);renderChecklist();updateProgress();$('#editingName').textContent='New client (unsaved)';}
-function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();});}
+function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},monday_id:state.mondayId||'',updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();
+  // Sync call notes to Monday.com if lead is loaded
+  if (state.mondayId) {
+    var notesField = document.querySelector('[data-f="notes"]');
+    var notes = notesField ? notesField.value : '';
+    if (notes) {
+      apiFetch('/api/leads/' + state.mondayId + '/notes', 'PATCH', { notes })
+        .then(() => console.log('Call notes synced to Monday.com'))
+        .catch(e => console.error('Notes sync error:', e.message));
+    }
+  }
+});}
 function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return;state.editingId=c.id;state.checks={...(c.checks||{})};setExp(c.exp||'new');$('#cName').value=c.name;$('#cAddr').value=c.addr||'';if($('#cEmail'))$('#cEmail').value=c.email||'';if($('#cPhone'))$('#cPhone').value=c.phone||'';$('#cDate').value=c.date||'';apply(c.fields||{});renderChecklist();updateProgress();$('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});toast('Opened "'+c.name+'"');});}
 function renderSaved(){load(list=>{const el=$('#savedList');if(!list.length){el.innerHTML='<div class="saved-empty">No clients saved yet. Fill in a call and hit Save.</div>';return;}list.sort((a,b)=>b.updated-a.updated);el.className='saved-list';el.innerHTML='';list.forEach(c=>{const n=STAGES.filter(s=>c.checks&&c.checks[s.k]).length,pct=Math.round(n/STAGES.length*100);const d=c.date?new Date(c.date).toLocaleDateString():'—';const badge=c.exp==='exp'?'<span class="sr-badge exp">Experienced</span>':'<span class="sr-badge new">New</span>';const row=document.createElement('div');row.className='saved-row';row.innerHTML=`<div class="sr-main"><div class="sr-name">${esc(c.name)}${badge}</div><div class="sr-meta">${esc(c.addr||'')} · ${d}</div></div><div class="sr-prog">${pct}%</div><div class="sr-actions"><button class="icon-btn" title="Open"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn" title="Delete"><svg viewBox="0 0 20 20" fill="none"><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;const[o,del]=row.querySelectorAll('.icon-btn');o.onclick=()=>openClient(c.id);del.onclick=()=>{if(confirm('Delete '+c.name+'?')){deleteRecord(c.id,()=>{renderSaved();toast('Deleted');});}};el.appendChild(row);});});}
 $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
@@ -474,10 +500,38 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
 var leadsData = [];
 var activeLead = null;
 
+async function loadPendingRequests() {
+  const container = document.getElementById('pendingContainer');
+  const countEl = document.getElementById('pendingCount');
+  if (!container) return;
+  try {
+    const requests = await apiFetch('/api/pending-requests');
+    if (countEl) countEl.textContent = requests.length;
+    if (!requests || requests.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0 0 8px">No pending requests.</p>';
+      return;
+    }
+    container.innerHTML = requests.map(r =>
+      '<div style="background:#fff;border:1.5px solid #2196F3;border-radius:10px;padding:12px 16px;margin-bottom:8px">' +
+      '<div style="font-size:14px;font-weight:700;color:#2A2B29;margin-bottom:2px">' + esc(r.client_name) + '</div>' +
+      '<div style="font-size:12px;color:#888">' + esc(r.address || '—') + '</div>' +
+      '<div style="font-size:11px;color:#2196F3;margin-top:4px">Requested: ' + new Date(r.requested_at).toLocaleDateString('en-AU') + '</div>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    if (container) container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load requests.</p>';
+  }
+}
+
 async function loadLeads() {
   const container = document.getElementById('leadsContainer');
   if (!container) return;
-  container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
+  loadPendingRequests();
+  checkReminders();
+  // Show subtle loading indicator without clearing leads
+  const refreshBtn = document.querySelector('[onclick="loadLeads()"]');
+  if (refreshBtn) refreshBtn.textContent = '↻ Refreshing...';
+  if (!window._cachedLeads) container.innerHTML = '<p style="color:#888;padding:20px">Loading leads from Monday.com...</p>';
   try {
     const leads = await apiFetch('/api/leads');
     leadsData = leads;
@@ -487,7 +541,20 @@ async function loadLeads() {
   }
 }
 
+const STAGE_LABELS = {
+  'QUALIFIED LEADS':          { label: 'Qualified', color: '#1ABC9C' },
+  'DISCOVERY CALLS':          { label: 'Discovery', color: '#3498DB' },
+  'SEQUENCE CALL':            { label: 'Sequence', color: '#7F8C8D' },
+  'FOLLOW UP EMAILS / CALLS': { label: 'Follow Up', color: '#9B59B6' },
+  'PROPOSAL FOLLOW UP':       { label: 'Proposal Follow Up', color: '#E67E22' },
+  'WAITING FOR CLIENTS':      { label: 'Waiting', color: '#F39C12' },
+  'CLOSED DEALS':             { label: 'Closed', color: '#27AE60' },
+  'HELP REQUIRED':            { label: 'Help Required', color: '#E74C3C' },
+  'LOST':                     { label: 'Lost', color: '#95A5A6' },
+};
+
 function renderLeads(leads) {
+  window._cachedLeads = leads;
   const container = document.getElementById('leadsContainer');
   if (!container) return;
 
@@ -499,22 +566,32 @@ function renderLeads(leads) {
     groups[g].push(l);
   });
 
-  const groupOrder = ['DISCOVERY CALLS', 'FOLLOW UP CALLS', 'WAITING CLIENT', 'CLOSED DEALS', 'HELP REQUIRED'];
-  
+  // Render group filter tabs
+  renderGroupTabs(groups);
+
+  const groupOrder = ['QUALIFIED LEADS', 'DISCOVERY CALLS', 'SEQUENCE CALL', 'FOLLOW UP EMAILS / CALLS', 'PROPOSAL FOLLOW UP', 'WAITING FOR CLIENTS', 'CLOSED DEALS', 'HELP REQUIRED'];
+  // Add any other groups not in the predefined order (excluding LOST)
+  Object.keys(groups).forEach(g => { if (!groupOrder.includes(g) && g !== 'LOST') groupOrder.push(g); });
+
   let html = '';
   groupOrder.forEach(gTitle => {
+    if (activeGroupFilter !== 'ALL' && gTitle !== activeGroupFilter) return;
     const items = groups[gTitle];
     if (!items || items.length === 0) return;
-    html += `<div class="lead-group">
-      <div class="lead-group-title">${gTitle} <span class="lead-count">${items.length}</span></div>
-      ${items.map(l => `
-        <div class="lead-card" data-id="${l.monday_id}" onclick="openLead('${l.monday_id}')">
-          <div class="lead-name">${esc(l.name)}</div>
-          <div class="lead-meta">${esc(l.address || '')}${l.phone ? ' · ' + esc(l.phone) : ''}</div>
-          ${l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : ''}
-        </div>
-      `).join('')}
-    </div>`;
+    const stageInfo = STAGE_LABELS[gTitle] || { label: gTitle, color: '#888' };
+    html += '<div class="lead-group">' +
+      '<div class="lead-group-title" style="color:' + stageInfo.color + '">' + stageInfo.label + ' <span class="lead-count" style="background:' + stageInfo.color + '">' + items.length + '</span></div>' +
+      items.map(l => 
+        '<div class="lead-card" data-id="' + l.monday_id + '" onclick="openLead(&quot;' + l.monday_id + '&quot;)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+        '<div class="lead-name">' + esc(l.name) + '</div>' +
+        '<span style="font-size:10px;font-weight:700;color:' + stageInfo.color + ';background:' + stageInfo.color + '18;padding:2px 8px;border-radius:10px">' + stageInfo.label + '</span>' +
+        '</div>' +
+        '<div class="lead-meta">' + esc(l.address || '') + (l.phone ? ' · ' + esc(l.phone) : '') + '</div>' +
+        (l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : '') +
+        '</div>'
+      ).join('') +
+      '</div>';
   });
 
   if (!html) html = '<p style="color:#888;padding:20px">No leads assigned to you yet.</p>';
@@ -528,12 +605,59 @@ function openLead(mondayId) {
 
   // Populate the lead detail panel
   document.getElementById('leadDetailName').textContent = lead.name;
-  document.getElementById('leadDetailAddress').textContent = lead.address || '—';
-  document.getElementById('leadDetailPhone').textContent = lead.phone || '—';
-  document.getElementById('leadDetailEmail').textContent = lead.email || '—';
+  document.getElementById('leadDetailAddress').value = lead.address || '';
+  document.getElementById('leadDetailPhone').value = lead.phone || '';
+  document.getElementById('leadDetailEmail').value = lead.email || '';
   document.getElementById('leadDetailSource').textContent = lead.source || '—';
+  document.getElementById('leadDetailArrival') && (document.getElementById('leadDetailArrival').value = lead.arrival || '');
+  document.getElementById('leadDetailStatus') && (document.getElementById('leadDetailStatus').value = lead.status || '');
+  // Files received from Monday.com - parse name|url format
+  var mondayFilesEl = document.getElementById('leadMondayFiles');
+  if (mondayFilesEl) {
+    if (lead.files_received) {
+      var fileLines = lead.files_received.split('\n').filter(Boolean);
+      mondayFilesEl.innerHTML = fileLines.map(function(line) {
+        var parts = line.split('|');
+        var filename = parts[0] || 'file';
+        var url = parts[1] || '';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+          '<span style="font-size:12px;color:#2A2B29;flex:1">📎 ' + esc(filename) + '</span>' +
+          (url ? '<a href="' + url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' : '') +
+          '</div>';
+      }).join('');
+    } else {
+      mondayFilesEl.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files in Monday.com.</p>';
+    }
+  }
   document.getElementById('leadDetailGroup').textContent = lead.group_title || '—';
-  document.getElementById('leadNotes').value = lead.enquiry || '';
+
+  // Highlight current pipeline stage button
+  var stageMap = { 
+    'QUALIFIED LEADS':'qualified',
+    'DISCOVERY CALLS':'discovery', 
+    'SEQUENCE CALL':'sequence',
+    'FOLLOW UP EMAILS / CALLS':'followup',
+    'PROPOSAL FOLLOW UP':'propfollowup',
+    'WAITING FOR CLIENTS':'waiting', 
+    'CLOSED DEALS':'closed',
+    'LOST':'lost',
+    'HELP REQUIRED':'help'
+  };
+  var currentStage = stageMap[lead.group_title] || '';
+  document.querySelectorAll('.stage-btn').forEach(function(btn) {
+    var stage = btn.dataset.stage;
+    btn.style.background = stage === currentStage ? '#EA672F' : (stage === 'lost' ? '#fff' : '#fff');
+    btn.style.color = stage === currentStage ? '#fff' : (stage === 'lost' ? '#c0392b' : '#2A2B29');
+    btn.style.borderColor = stage === currentStage ? '#EA672F' : (stage === 'lost' ? '#c0392b' : '#e0d9d5');
+  });
+  // Show client enquiry (read-only)
+  var enquiryEl = document.getElementById('leadEnquiry');
+  if (enquiryEl) enquiryEl.textContent = lead.enquiry || 'No enquiry recorded.';
+  // Rep notes - separate from enquiry
+  document.getElementById('leadNotes').value = lead.rep_notes || '';
+  // Load files and reminders
+  loadLeadFiles(lead.monday_id);
+  loadLeadReminders(lead.monday_id);
 
   // Pre-fill the client fields for proposal
   if (document.getElementById('cName')) document.getElementById('cName').value = lead.name;
@@ -541,12 +665,29 @@ function openLead(mondayId) {
   if (document.getElementById('cEmail')) document.getElementById('cEmail').value = lead.email || '';
   if (document.getElementById('cAddr')) document.getElementById('cAddr').value = lead.address || '';
 
+  // Pre-fill call notes field with lead rep notes
+  var callNotesField = document.querySelector('[data-f="notes"]');
+  if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
+
   // Show detail panel, hide list
   document.getElementById('leadsListPanel').style.display = 'none';
   document.getElementById('leadDetailPanel').style.display = 'block';
 }
 
-function closeLeadDetail() {
+async function closeLeadDetail() {
+  // Auto-save notes before closing
+  if (activeLead) {
+    const notes = document.getElementById('leadNotes').value;
+    if (notes !== (activeLead.rep_notes || '')) {
+      try {
+        await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
+        activeLead.rep_notes = notes;
+        console.log('Notes auto-saved on close');
+      } catch(e) {
+        console.error('Auto-save failed:', e.message);
+      }
+    }
+  }
   activeLead = null;
   document.getElementById('leadsListPanel').style.display = 'block';
   document.getElementById('leadDetailPanel').style.display = 'none';
@@ -558,9 +699,9 @@ async function saveLeadNotes() {
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
     activeLead.enquiry = notes;
-    showToast('Notes saved to Monday.com');
+    toast('Notes saved to Monday.com');
   } catch(e) {
-    showToast('Error saving notes: ' + e.message);
+    toast('Error saving notes: ' + e.message);
   }
 }
 
@@ -569,17 +710,22 @@ async function leadAction(action) {
   const notes = document.getElementById('leadNotes').value;
   const labels = {
     free_consultation: 'Move to Free Consultations',
-    proposal_requested: 'Request Proposal',
+    proposal_requested: 'Request Proposal — this lead will disappear from your list until the proposal is sent',
     help_required: 'Move to Help Required',
   };
   if (!confirm('Are you sure? ' + (labels[action] || action))) return;
   try {
-    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action, notes });
-    showToast('Done — lead updated in Monday.com');
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', {
+      action,
+      notes,
+      client_name: activeLead.name,
+      address: activeLead.address || ''
+    });
+    toast('Done — lead updated');
     closeLeadDetail();
     loadLeads();
   } catch(e) {
-    showToast('Error: ' + e.message);
+    toast('Error: ' + e.message);
   }
 }
 
@@ -588,6 +734,122 @@ function apiFetch(url, method, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(url, opts).then(r => r.json());
+}
+
+async function saveLeadDetails() {
+  if (!activeLead) return;
+  const details = {
+    address: document.getElementById('leadDetailAddress').value.trim(),
+    phone: document.getElementById('leadDetailPhone').value.trim(),
+    email: document.getElementById('leadDetailEmail').value.trim(),
+    status: document.getElementById('leadDetailStatus') ? document.getElementById('leadDetailStatus').value.trim() : '',
+    arrival: document.getElementById('leadDetailArrival') ? document.getElementById('leadDetailArrival').value.trim() : '',
+  };
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/details', 'PATCH', details);
+    // Update local data
+    Object.assign(activeLead, details);
+    toast('Details saved to Monday.com');
+  } catch(e) {
+    toast('Error saving: ' + e.message);
+  }
+}
+
+async function moveStage(stage) {
+  if (!activeLead) return;
+  const stageLabels = {
+    discovery: 'DISCOVERY CALLS',
+    qualified: 'QUALIFIED LEADS',
+    followup: 'FOLLOW UP EMAILS / CALLS',
+    waiting: 'WAITING FOR CLIENTS',
+    closed: 'CLOSED DEALS',
+    lost: 'LOST'
+  };
+  if (!confirm(stage === 'lost' ? 'Mark this lead as Lost? It will be removed from your leads list.' : 'Move lead to ' + stageLabels[stage] + '?')) return;
+  try {
+    await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', { action: 'move_stage', stage });
+    if (stage === 'lost') {
+      toast('Lead marked as Lost — removed from your list');
+      closeLeadDetail();
+      loadLeads();
+    } else {
+      activeLead.group_title = stageLabels[stage];
+      document.getElementById('leadDetailGroup').textContent = stageLabels[stage];
+      toast('Lead moved to ' + stageLabels[stage]);
+    }
+  } catch(e) {
+    toast('Error: ' + e.message);
+  }
+}
+
+async function loadLeadFiles(mondayId) {
+  const container = document.getElementById('leadFiles');
+  if (!container) return;
+  try {
+    const files = await apiFetch('/api/leads/' + mondayId + '/files');
+    if (!files || files.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files uploaded yet.</p>';
+      return;
+    }
+    container.innerHTML = files.map(f => 
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+      '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + '</span>' +
+      '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' +
+      '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕ Delete</button>' +
+      '</div>'
+    ).join('');
+  } catch(e) {
+    container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">Could not load files.</p>';
+  }
+}
+
+function previewFiles() {
+  const input = document.getElementById('leadFileInput');
+  const preview = document.getElementById('filePreview');
+  if (!preview) return;
+  if (!input.files.length) { preview.textContent = ''; return; }
+  const names = Array.from(input.files).map(f => f.name).join(', ');
+  preview.textContent = input.files.length + ' file(s) selected: ' + names;
+}
+
+async function deleteLeadFile(mondayId, filename) {
+  if (!confirm('Delete ' + filename + '?')) return;
+  try {
+    const res = await fetch('/api/leads/' + mondayId + '/files/' + encodeURIComponent(filename), { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      toast('File deleted');
+      loadLeadFiles(mondayId);
+    } else {
+      toast('Delete failed: ' + (data.error || 'unknown error'));
+    }
+  } catch(e) {
+    toast('Delete failed: ' + e.message);
+  }
+}
+
+async function uploadLeadFiles() {
+  if (!activeLead) return;
+  const input = document.getElementById('leadFileInput');
+  if (!input.files.length) { toast('Please select files first'); return; }
+  const formData = new FormData();
+  for (const file of input.files) formData.append('files', file);
+  try {
+    const res = await fetch('/api/leads/' + activeLead.monday_id + '/files', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast(input.files.length + ' file(s) uploaded');
+      input.value = '';
+      var preview = document.getElementById('filePreview');
+      if (preview) preview.textContent = '';
+      loadLeadFiles(activeLead.monday_id);
+    }
+  } catch(e) {
+    toast('Upload failed: ' + e.message);
+  }
 }
 
 function openProposalFromLead() {
@@ -601,7 +863,7 @@ function openProposalFromLead() {
   if (document.getElementById('cPhone')) document.getElementById('cPhone').value = activeLead.phone || '';
   if (document.getElementById('cEmail')) document.getElementById('cEmail').value = activeLead.email || '';
   if (document.getElementById('cAddr')) document.getElementById('cAddr').value = activeLead.address || '';
-  showToast('Lead loaded — complete the call details and send proposal');
+  toast('Lead loaded — complete the call details and send proposal');
 }
 
 // Load leads when leads tab is active
@@ -613,3 +875,190 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// ── Search leads ─────────────────────────────────────────────────────────────
+function searchLeads(query) {
+  if (!window._cachedLeads) return;
+  if (!query.trim()) {
+    activeGroupFilter = 'ALL';
+    renderLeads(window._cachedLeads);
+    return;
+  }
+  const q = query.toLowerCase();
+  const filtered = window._cachedLeads.filter(l =>
+    (l.name || '').toLowerCase().includes(q) ||
+    (l.address || '').toLowerCase().includes(q) ||
+    (l.phone || '').toLowerCase().includes(q) ||
+    (l.email || '').toLowerCase().includes(q)
+  );
+  const prevFilter = activeGroupFilter;
+  activeGroupFilter = 'ALL';
+  renderLeads(filtered);
+  activeGroupFilter = prevFilter;
+}
+
+// ── New leads alert ───────────────────────────────────────────────────────────
+var _lastLeadCount = null;
+var _lastLeadIds = new Set();
+
+var _leadsInitialized = false;
+
+function checkNewLeads(leads) {
+  if (!_leadsInitialized) {
+    // First load — just record current leads as baseline, no banner
+    leads.forEach(l => _lastLeadIds.add(l.monday_id));
+    _lastLeadCount = leads.length;
+    _leadsInitialized = true;
+    return;
+  }
+  const newLeads = leads.filter(l => !_lastLeadIds.has(l.monday_id));
+  if (newLeads.length > 0) {
+    var banner = document.getElementById('newLeadsBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'newLeadsBanner';
+      banner.style.cssText = 'position:fixed;top:70px;right:20px;z-index:9999;background:#27AE60;color:#fff;padding:14px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+      banner.onclick = function() { banner.remove(); };
+      document.body.appendChild(banner);
+    }
+    var followUpNew = newLeads.filter(l => l.from_proposal_board);
+    var freshNew = newLeads.filter(l => !l.from_proposal_board);
+    var msg = '';
+    if (followUpNew.length > 0) msg += followUpNew.length + ' proposal(s) ready to follow up';
+    if (freshNew.length > 0) msg += (msg ? ' · ' : '') + freshNew.length + ' new lead(s) arrived';
+    banner.textContent = '🔔 ' + msg + ' — click to dismiss';
+    setTimeout(() => { if (banner) banner.remove(); }, 30000);
+  }
+  leads.forEach(l => _lastLeadIds.add(l.monday_id));
+  _lastLeadCount = leads.length;
+}
+
+// Poll for leads updates every 15 seconds using timestamp
+var _lastUpdateTimestamp = 0;
+var _pollCount = 0;
+setInterval(async function() {
+  const panel = document.getElementById('leadsPanel');
+  if (!panel || panel.style.display === 'none') return;
+  _pollCount++;
+  try {
+    const update = await apiFetch('/api/leads/last-update');
+    // Refresh if webhook fired OR every 4th poll (60 seconds) for Monday.com group changes
+    const webhookFired = update && update.timestamp > _lastUpdateTimestamp && _lastUpdateTimestamp > 0;
+    const regularRefresh = _pollCount % 1 === 0; // every 15 seconds
+    if (webhookFired || regularRefresh) {
+      if (webhookFired) _lastUpdateTimestamp = update.timestamp;
+      const leads = await apiFetch('/api/leads');
+      if (leads && Array.isArray(leads)) {
+        if (webhookFired) checkNewLeads(leads);
+        leadsData = leads;
+        renderLeads(leads);
+      }
+    }
+    if (update && _lastUpdateTimestamp === 0) _lastUpdateTimestamp = update.timestamp;
+  } catch(e) {}
+}, 15 * 1000);
+
+// ── Group filter tabs ─────────────────────────────────────────────────────────
+var activeGroupFilter = 'ALL';
+
+function renderGroupTabs(groups) {
+  const tabsEl = document.getElementById('groupFilterTabs');
+  if (!tabsEl) return;
+  const allGroups = ['ALL', ...Object.keys(groups).filter(g => g !== 'LOST')];
+  tabsEl.innerHTML = allGroups.map(g => {
+    const info = STAGE_LABELS[g] || { label: g === 'ALL' ? 'All Leads' : g, color: '#888' };
+    const count = g === 'ALL' ? Object.values(groups).reduce((a, b) => a + b.length, 0) : (groups[g] || []).length;
+    const isActive = g === activeGroupFilter;
+    return '<button onclick="filterLeads(&quot;' + g.replace(/"/g, '') + '&quot;)" style="' +
+      'background:' + (isActive ? info.color : '#fff') + ';' +
+      'color:' + (isActive ? '#fff' : info.color) + ';' +
+      'border:1.5px solid ' + info.color + ';' +
+      'padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">' +
+      (g === 'ALL' ? 'All Leads' : info.label) + ' (' + count + ')</button>';
+  }).join('');
+}
+
+function filterLeads(group) {
+  activeGroupFilter = group;
+  renderLeads(window._cachedLeads || []);
+}
+
+// ── Reminders ─────────────────────────────────────────────────────────────────
+async function checkReminders() {
+  try {
+    const reminders = await apiFetch('/api/reminders');
+    if (!reminders || reminders.length === 0) {
+      document.getElementById('reminderBanner') && (document.getElementById('reminderBanner').style.display = 'none');
+      return;
+    }
+    // Check for due reminders (within next 24 hours)
+    const now = new Date();
+    const due = reminders.filter(r => new Date(r.remind_at) <= new Date(now.getTime() + 24*60*60*1000));
+    const banner = document.getElementById('reminderBanner');
+    if (banner && due.length > 0) {
+      banner.style.display = 'block';
+      document.getElementById('reminderBannerText').textContent = 
+        due.length + ' reminder' + (due.length > 1 ? 's' : '') + ' due' + (due.some(r => new Date(r.remind_at) <= now) ? ' NOW' : ' soon');
+    }
+    // Populate reminders list
+    const container = document.getElementById('remindersContainer');
+    if (container) {
+      container.innerHTML = reminders.map(r =>
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#faf7f5;border-radius:8px;margin-bottom:8px">' +
+        '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:700;color:#2A2B29">' + esc(r.client_name) + '</div>' +
+        '<div style="font-size:12px;color:#888">' + esc(r.note || '') + '</div>' +
+        '<div style="font-size:11px;color:#EA672F;font-weight:700">' + new Date(r.remind_at).toLocaleString('en-AU') + '</div>' +
+        '</div>' +
+        '<button onclick="dismissReminder(' + r.id + ')" style="background:#c0392b;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700">Dismiss</button>' +
+        '</div>'
+      ).join('');
+    }
+  } catch(e) {}
+}
+
+async function dismissReminder(id) {
+  await apiFetch('/api/reminders/' + id, 'DELETE');
+  checkReminders();
+}
+
+async function loadLeadReminders(mondayId) {
+  const container = document.getElementById('leadRemindersList');
+  if (!container) return;
+  try {
+    const reminders = await apiFetch('/api/leads/' + mondayId + '/reminders');
+    if (!reminders || reminders.length === 0) {
+      container.innerHTML = '<p style="font-size:12px;color:#888;margin:0 0 8px">No reminders set.</p>';
+      return;
+    }
+    container.innerHTML = reminders.map(r =>
+      '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
+      '<div style="flex:1">' +
+      '<div style="font-size:12px;font-weight:700;color:#2A2B29">' + esc(r.note || 'Reminder') + '</div>' +
+      '<div style="font-size:11px;color:#EA672F">' + new Date(r.remind_at).toLocaleString('en-AU') + '</div>' +
+      '</div>' +
+      '<button onclick="dismissReminder(' + r.id + ');loadLeadReminders(&quot;' + mondayId + '&quot;)" style="background:#c0392b;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px">✕</button>' +
+      '</div>'
+    ).join('');
+  } catch(e) {}
+}
+
+async function addReminder() {
+  if (!activeLead) return;
+  const date = document.getElementById('reminderDate').value;
+  const note = document.getElementById('reminderNote').value.trim();
+  if (!date) { toast('Please select a date and time'); return; }
+  await apiFetch('/api/leads/' + activeLead.monday_id + '/reminders', 'POST', {
+    remind_at: date,
+    note,
+    client_name: activeLead.name
+  });
+  document.getElementById('reminderDate').value = '';
+  document.getElementById('reminderNote').value = '';
+  toast('Reminder set');
+  loadLeadReminders(activeLead.monday_id);
+  checkReminders();
+}
+
+// Check reminders every 5 minutes
+setInterval(checkReminders, 5 * 60 * 1000);

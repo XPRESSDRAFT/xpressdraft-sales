@@ -62,12 +62,41 @@
       <h2 style="margin:0;font-size:22px;color:#2A2B29">My Leads</h2>
       <div style="display:flex;gap:10px">
         <button onclick="loadLeads()" class="btn btn-ghost btn-sm">↻ Refresh</button>
-        <button onclick="document.getElementById('leadsPanel').style.display='none'" class="btn btn-ghost btn-sm">✕ Close</button>
+        <button onclick="document.getElementById(&quot;leadsPanel&quot;).style.display=&quot;none&quot;" class="btn btn-ghost btn-sm">✕ Close</button>
       </div>
+    </div>
+
+    <!-- Reminder banner -->
+    <div id="reminderBanner" style="display:none;background:#EA672F;color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:16px;font-weight:700;font-size:14px;cursor:pointer" onclick="document.getElementById('remindersPanel').style.display='block'">
+      🔔 <span id="reminderBannerText">You have upcoming reminders</span> — Click to view
+    </div>
+
+    <!-- Search bar -->
+    <div style="margin-bottom:12px;position:relative">
+      <input type="text" id="leadsSearch" placeholder="🔍 Search by name, address, phone or email..." oninput="searchLeads(this.value)" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;background:#fff">
+    </div>
+
+    <!-- Group filter tabs -->
+    <div id="groupFilterTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:12px;border-bottom:1.5px solid #e0d9d5"></div>
+
+    <!-- Reminders summary panel -->
+    <div id="remindersPanel" style="display:none;background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;border:1.5px solid #EA672F">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#2A2B29">📅 Upcoming Reminders</div>
+        <button onclick="document.getElementById('remindersPanel').style.display='none'" style="background:none;border:none;color:#888;cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <div id="remindersContainer"><p style="color:#888;font-size:13px">No upcoming reminders.</p></div>
     </div>
 
     <!-- List view -->
     <div id="leadsListPanel">
+      <!-- Pending Proposal Requests -->
+      <div id="pendingRequestsSection" style="margin-bottom:24px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#2196F3;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          Pending Proposal Requests <span id="pendingCount" style="background:#2196F3;color:#fff;border-radius:10px;padding:2px 8px;font-size:11px">0</span>
+        </div>
+        <div id="pendingContainer"></div>
+      </div>
       <div id="leadsContainer"></div>
     </div>
 
@@ -77,16 +106,89 @@
       <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:16px">
         <h3 id="leadDetailName" style="margin:0 0 16px;font-size:20px;color:#2A2B29"></h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Address</div><div id="leadDetailAddress" style="font-size:14px;color:#2A2B29"></div></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Phone</div><div id="leadDetailPhone" style="font-size:14px;color:#2A2B29"></div></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Email</div><div id="leadDetailEmail" style="font-size:14px;color:#2A2B29"></div></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Source</div><div id="leadDetailSource" style="font-size:14px;color:#2A2B29"></div></div>
-          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Pipeline Stage</div><div id="leadDetailGroup" style="font-size:14px;color:#EA672F;font-weight:700"></div></div>
+          <div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Address</div><input id="leadDetailAddress" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Phone</div><input id="leadDetailPhone" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Email</div><input id="leadDetailEmail" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Status</div>
+            <select id="leadDetailStatus" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box;background:#fff">
+              <option value="">-- Select --</option>
+              <option>TO DO</option>
+              <option>CONNECTED</option>
+              <option>call back</option>
+              <option>DISCOVERY CALL</option>
+              <option>DC - CALENDLY</option>
+              <option>Qualified</option>
+              <option>CALL ATTEMPT X1</option>
+              <option>CALL ATTEMPT X2</option>
+              <option>CALL ATTEMPT X3</option>
+              <option>FOLLOW UP EMAIL</option>
+              <option>WAITING FOR CLIENT</option>
+              <option>Opportunity created</option>
+              <option>LH</option>
+              <option>LOST</option>
+            </select>
+          </div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Source</div>
+            <div id="leadDetailSource" style="font-size:13px;color:#2A2B29;padding:8px 12px;background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;min-height:38px"></div>
+          </div>
+          <div><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Arrival Date</div><input id="leadDetailArrival" type="text" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none;box-sizing:border-box"></div>
+          <div style="grid-column:1/-1"><div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Pipeline Stage</div><div id="leadDetailGroup" style="font-size:14px;color:#EA672F;font-weight:700"></div></div>
         </div>
+
+        <!-- Client Enquiry (read-only from Monday.com) -->
         <div style="margin-bottom:16px">
-          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Notes / Enquiry</div>
-          <textarea id="leadNotes" style="width:100%;min-height:120px;font-family:inherit;font-size:14px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical" placeholder="Add notes about this lead..."></textarea>
-          <button onclick="saveLeadNotes()" class="btn btn-ghost btn-sm" style="margin-top:8px">Save Notes</button>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Client Enquiry <span style="color:#EA672F">(from Monday.com)</span></div>
+          <div id="leadEnquiry" style="background:#faf7f5;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;font-size:13px;color:#2A2B29;min-height:60px;line-height:1.6;white-space:pre-wrap"></div>
+        </div>
+
+        <!-- Files Received from Monday.com -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Files Received <span style="color:#EA672F">(from Monday.com)</span></div>
+          <div id="leadMondayFiles" style="min-height:38px"></div>
+        </div>
+
+        <!-- Rep Notes (editable, syncs back to Monday.com) -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Rep Notes <span style="color:#888;font-weight:400">(syncs to Monday.com)</span></div>
+          <textarea id="leadNotes" style="width:100%;min-height:120px;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box;resize:vertical;background:#fff;" placeholder="Add your notes, next steps, follow up actions..."></textarea>
+          <p style="font-size:11px;color:#888;margin:6px 0 0">Notes are automatically saved when you go back to the leads list.</p>
+          <button onclick="saveLeadDetails()" style="margin-top:12px;width:100%;background:#2A2B29;color:#fff;border:none;padding:12px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">Save Details</button>
+        </div>
+
+        <!-- Reminders -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Reminders</div>
+          <div id="leadRemindersList" style="margin-bottom:8px"></div>
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center">
+            <input type="datetime-local" id="reminderDate" style="font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none">
+            <input type="text" id="reminderNote" placeholder="Reminder note..." style="font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 12px;outline:none">
+            <button onclick="addReminder()" style="background:#EA672F;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">+ Add</button>
+          </div>
+        </div>
+
+        <!-- File Upload -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Upload Files</div>
+          <div id="leadFiles" style="margin-bottom:10px"></div>
+          <div style="background:#faf7f5;border:2px dashed #e0d9d5;border-radius:8px;padding:16px;text-align:center">
+            <input type="file" id="leadFileInput" multiple style="display:none" onchange="previewFiles()">
+            <div id="filePreview" style="margin-bottom:10px;font-size:12px;color:#888"></div>
+            <button onclick="document.getElementById('leadFileInput').click()" style="background:#fff;color:#EA672F;border:2px solid #EA672F;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;margin-right:8px">📎 Choose Files</button>
+            <button onclick="uploadLeadFiles()" style="background:#EA672F;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer">⬆ Upload</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pipeline stage buttons -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Move Pipeline Stage</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <button onclick="moveStage('discovery')" class="btn stage-btn" data-stage="discovery" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:10px">DISCOVERY</button>
+          <button onclick="moveStage('qualified')" class="btn stage-btn" data-stage="qualified" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:10px">QUALIFIED</button>
+          <button onclick="moveStage('followup')" class="btn stage-btn" data-stage="followup" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:10px">FOLLOW UP</button>
+          <button onclick="moveStage('waiting')" class="btn stage-btn" data-stage="waiting" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:10px">WAITING</button>
+          <button onclick="moveStage('closed')" class="btn stage-btn" data-stage="closed" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:10px;border-radius:8px;font-weight:700;font-size:10px">CLOSED</button>
+          <button onclick="moveStage('lost')" class="btn stage-btn" data-stage="lost" style="background:#fff;color:#c0392b;border:1.5px solid #c0392b;padding:10px;border-radius:8px;font-weight:700;font-size:10px">MARK LOST →</button>
         </div>
       </div>
 
@@ -114,7 +216,8 @@
     <button class="btn btn-ghost" id="clearBtn">Clear form</button>
     <button class="btn btn-ghost" id="printBtn">Print</button>
     <button class="btn btn-proposal" id="proposalBtn">Generate Proposal</button>
-    <button class="btn" id="leadsTabBtn" onclick="document.getElementById('leadsPanel').style.display='block';loadLeads()" style="background:#2A2B29;color:#fff;border:1.5px solid #444">My Leads</button>
+    <button onclick="window.open('/commission','_blank')" class="btn" style="background:#27AE60;color:#fff;border:1.5px solid #27AE60">💰 Commission</button>
+    <button onclick="document.getElementById(&quot;leadsPanel&quot;).style.display=&quot;block&quot;;_lastLeadIds=new Set();_lastUpdateTimestamp=0;_leadsInitialized=false;loadLeads()" id="leadsTabBtn" style="background:#2A2B29;color:#fff;border:1.5px solid #444" class="btn">My Leads</button>
   </div>
 </div>
 

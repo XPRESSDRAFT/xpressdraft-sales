@@ -8,36 +8,32 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --orange: #EA672F;
-    --orange-d: #d45a26;
-    --dark: #2A2B29;
-    --page: #F3EAE5;
-    --card: #fff;
-    --grey: #888;
-    --border: #e0d9d5;
+    --orange: #EA672F; --orange-d: #d45a26; --dark: #2A2B29;
+    --page: #F3EAE5; --card: #fff; --grey: #888; --border: #e0d9d5;
   }
   body { font-family: 'Manrope', sans-serif; background: var(--page); color: var(--dark); }
-  .topbar {
-    background: var(--dark);
-    padding: 0 24px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+  .topbar { background: var(--dark); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   .logo { display: flex; align-items: center; gap: 8px; }
   .logo-text { font-size: 16px; font-weight: 800; color: #fff; }
   .logo-text span { color: var(--orange); }
   .top-right { display: flex; align-items: center; gap: 12px; }
   .top-right a { color: rgba(255,255,255,.6); font-size: 12px; text-decoration: none; }
   .top-right a:hover { color: #fff; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
   h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-  .page-sub { color: var(--grey); font-size: 13px; margin-bottom: 32px; }
-  .section { background: var(--card); border-radius: 14px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+  .page-sub { color: var(--grey); font-size: 13px; margin-bottom: 24px; }
+
+  /* Tab nav */
+  .tab-nav { display: flex; gap: 4px; margin-bottom: 24px; background: #e8dfd9; border-radius: 12px; padding: 4px; }
+  .tab-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: #888; transition: .15s; text-align: center; }
+  .tab-btn.active { background: #fff; color: var(--dark); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .tab-btn:hover:not(.active) { color: var(--dark); }
+
+  /* Tab panels */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .section { background: var(--card); border-radius: 14px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
   .section-title { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 18px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--grey); padding: 0 12px 10px; }
@@ -58,17 +54,14 @@
   .btn-sm { padding: 4px 10px; font-size: 11px; }
   .add-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: end; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
   .add-form .field label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
-  .add-form .field input, .add-form .field select {
-    font-family: inherit; font-size: 13px; color: var(--dark);
-    background: #faf7f5; border: 1.5px solid var(--border);
-    border-radius: 8px; padding: 9px 11px; outline: none; width: 100%;
-  }
+  .add-form .field input, .add-form .field select { font-family: inherit; font-size: 13px; color: var(--dark); background: #faf7f5; border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 11px; outline: none; width: 100%; }
   .add-form .field input:focus, .add-form .field select:focus { border-color: var(--orange); }
   .pricing-row td:first-child { font-size: 12px; color: var(--grey); font-family: monospace; }
   .price-input { font-family: inherit; font-size: 13px; color: var(--dark); background: transparent; border: none; outline: none; width: 80px; text-align: right; padding: 2px 4px; border-bottom: 1.5px solid transparent; }
   .price-input:focus { border-bottom-color: var(--orange); }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
   .toast.show { opacity: 1; }
+  @media (max-width: 600px) { .tab-btn { font-size: 11px; padding: 8px 8px; } }
 </style>
 </head>
 <body>
@@ -85,87 +78,541 @@
   </div>
   <div class="top-right">
     <a href="/">Sales Tool</a>
+    <a href="/commission">💰 Commission</a>
     <a href="#" id="logoutBtn">Sign out</a>
   </div>
 </div>
 
 <div class="wrap">
   <h1>Admin Panel</h1>
-  <div class="page-sub">Manage users and pricing. Changes take effect immediately.</div>
+  <div class="page-sub">Manage your team, pricing, integrations and system settings.</div>
 
-  <!-- Users -->
-  <div class="section">
-    <div class="section-title">Team Members</div>
-    <table id="usersTable">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Phone</th>
-          <th>Role</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="usersTbody"></tbody>
-    </table>
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="showTab('team')">👥 Team</button>
+    <button class="tab-btn" onclick="showTab('commission')">💰 Commission</button>
+    <button class="tab-btn" onclick="showTab('pipeline')">📊 Pipeline</button>
+    <button class="tab-btn" onclick="showTab('sales')">📋 Sales</button>
+    <button class="tab-btn" onclick="showTab('pricing')">💲 Pricing</button>
+    <button class="tab-btn" onclick="showTab('integrations')">🔗 Integrations</button>
+    <button class="tab-btn" onclick="showTab('system')">⚙️ System</button>
+  </div>
 
-    <div class="add-form">
-      <div class="field"><label>Name</label><input type="text" id="newName" placeholder="Alex"></div>
-      <div class="field"><label>Email</label><input type="email" id="newEmail" placeholder="alex@xpressdraft.com.au"></div>
-      <p style="font-size:12px;color:#888;margin:4px 0 8px">A secure password will be auto-generated and emailed to the user.</p>
-      <div class="field"><label>Role</label>
-        <select id="newRole">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
+  <!-- TEAM TAB -->
+  <div id="tab-team" class="tab-panel active">
+    <div class="section">
+      <div class="section-title">Team Members</div>
+      <table id="usersTable">
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersTbody"></tbody>
+      </table>
+      <div class="add-form">
+        <div class="field"><label>Name</label><input type="text" id="newName" placeholder="Alex"></div>
+        <div class="field"><label>Email</label><input type="email" id="newEmail" placeholder="alex@xpressdraft.com.au"></div>
+        <p style="font-size:12px;color:#888;margin:4px 0 8px">A secure password will be auto-generated and emailed to the user.</p>
+        <div class="field"><label>Role</label>
+          <select id="newRole">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div style="padding-bottom:1px"><button class="btn btn-orange" id="addUserBtn">Add user</button></div>
       </div>
-      <div style="padding-bottom:1px"><button class="btn btn-orange" id="addUserBtn">Add user</button></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pending Portal Logins <span id="portalBadge" style="background:#EA672F;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px;display:none"></span></div>
+      <p style="font-size:13px;color:#888;margin:0 0 16px">Clients who paid deposit on a job $5,000+. Generate their Monday.com portal login, then send the welcome email.</p>
+      <div id="portalList"><div style="color:#888;font-size:13px;font-style:italic">No pending portal logins.</div></div>
     </div>
   </div>
 
+  <!-- COMMISSION TAB -->
+  <div id="tab-commission" class="tab-panel">
+    <div class="section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="section-title" style="margin-bottom:0">Team Commission Overview</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:12px;color:#888">Week:</label>
+          <input type="date" id="adminWeekPicker" onchange="loadCommissionTab()" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+          <button onclick="loadCommissionTab()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="commissionOverview"><p style="color:#888;font-size:13px">Loading...</p></div>
+    </div>
 
-  <!-- Pending Portal Logins -->
-  <div class="section">
-    <div class="section-title">Pending Portal Logins <span id="portalBadge" style="background:#EA672F;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px;display:none"></span></div>
-    <p style="font-size:13px;color:#888;margin:0 0 16px">These clients have paid their deposit on a job $5,000+. Generate their Monday.com portal login, then enter the credentials below to send the welcome email.</p>
-    <div id="portalList"><div style="color:#888;font-size:13px;font-style:italic">No pending portal logins.</div></div>
+    <div class="section" id="repSettingsSection">
+      <div class="section-title">Rep Settings</div>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">Set each rep's role and assign them to a leader for override commission.</p>
+      <div id="repSettings"><p style="color:#888;font-size:13px">Loading...</p></div>
+    </div>
+
+    <div class="section" id="viewAsSection" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">Viewing: <span id="viewAsName" style="color:#EA672F"></span></div>
+        <button onclick="closeViewAs()" class="btn btn-ghost btn-sm">✕ Close</button>
+      </div>
+      <div id="viewAsContent"></div>
+    </div>
   </div>
 
-  <!-- Pricing -->
-  <div class="section">
-    <div class="section-title">Pricing Structure</div>
-    <table>
-      <thead>
-        <tr><th>Key</th><th>Description</th><th style="text-align:right">Price (ex GST)</th><th></th></tr>
-      </thead>
-      <tbody id="pricingTbody"></tbody>
-    </table>
+  <!-- PIPELINE TAB -->
+  <div id="tab-pipeline" class="tab-panel">
+    <div class="section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="section-title" style="margin-bottom:0">Pipeline Overview</div>
+        <button onclick="loadPipeline()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+      </div>
+      <div id="pipelineContent"><p style="color:#888;font-size:13px">Loading pipeline data...</p></div>
+    </div>
+  </div>
 
-    <!-- Add new pricing item -->
-    <div style="margin-top:20px;padding:16px;background:#faf7f5;border:1px solid #e0d9d5;border-radius:10px">
-      <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Add New Pricing Item</div>
-      <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:10px;align-items:end">
+  <!-- SALES MANAGEMENT TAB -->
+  <div id="tab-sales" class="tab-panel">
+    <div class="section">
+      <div class="section-title">Record a Sale</div>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">Add a sale for any rep. This updates their commission automatically.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
         <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Key</label>
-          <input id="newPriceKey" type="text" placeholder="e.g. base_deck" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Rep</label>
+          <select id="saleRepId" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none"></select>
         </div>
         <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Description</label>
-          <input id="newPriceLabel" type="text" placeholder="e.g. Deck — base fee" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client Name</label>
+          <input type="text" id="saleMgrClient" placeholder="e.g. John Smith" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
         </div>
         <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Price (ex GST)</label>
-          <input id="newPriceValue" type="number" placeholder="0" min="0" step="50" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Project Type</label>
+          <select id="saleMgrType" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
+            <option value="">Select...</option>
+            <option>Standard</option>
+            <option>As Built</option>
+            <option>DA Only</option>
+            <option>DA+BA</option>
+            <option>Granny Flat</option>
+            <option>Working Drawings Only</option>
+            <option>Shed</option>
+            <option>Storey Addition</option>
+          </select>
         </div>
-        <button id="addPriceBtn" class="btn btn-orange" style="white-space:nowrap">Add Item</button>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Amount ($)</label>
+          <input type="number" id="saleMgrAmount" placeholder="0.00" step="0.01" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
+        </div>
+        <button onclick="addMgrSale()" class="btn btn-orange" style="padding:10px 20px;white-space:nowrap">+ Record Sale</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">All Sales This Week</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label style="font-size:12px;color:#888">Week:</label>
+          <input type="date" id="salesWeekPicker" onchange="loadAllSales()" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+          <button onclick="loadAllSales()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="allSalesList"><p style="color:#888;font-size:13px">Loading...</p></div>
+    </div>
+  </div>
+
+  <!-- PRICING TAB -->
+  <div id="tab-pricing" class="tab-panel">
+    <div class="section">
+      <div class="section-title">Pricing Structure</div>
+      <table>
+        <thead><tr><th>Key</th><th>Description</th><th style="text-align:right">Price (ex GST)</th><th></th></tr></thead>
+        <tbody id="pricingTbody"></tbody>
+      </table>
+      <div style="margin-top:20px;padding:16px;background:#faf7f5;border:1px solid #e0d9d5;border-radius:10px">
+        <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Add New Pricing Item</div>
+        <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:10px;align-items:end">
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Key</label>
+            <input id="newPriceKey" type="text" placeholder="e.g. base_deck" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Description</label>
+            <input id="newPriceLabel" type="text" placeholder="e.g. Deck — base fee" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          </div>
+          <div>
+            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Price (ex GST)</label>
+            <input id="newPriceValue" type="number" placeholder="0" min="0" step="50" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
+          </div>
+          <button id="addPriceBtn" class="btn btn-orange" style="white-space:nowrap">Add Item</button>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- INTEGRATIONS TAB -->
+  <div id="tab-integrations" class="tab-panel">
+    <div class="section">
+      <div class="section-title">Integrations</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1.5px solid #f0e8e4">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">Calendly</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">Auto-create leads in Monday.com when a booking is made</div>
+        </div>
+        <button onclick="registerCalendly()" class="btn btn-orange">Connect Calendly</button>
+      </div>
+      <div id="calendlyStatus" style="font-size:13px;color:#888;padding:10px 0 16px">Add <code>CALENDLY_TOKEN</code> to Render environment variables first, then click Connect.</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1.5px solid #f0e8e4">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">Monday.com Webhook</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">When proposal status set to SENT → lead reappears in rep's Follow Up</div>
+        </div>
+        <button onclick="registerMondayWebhook()" class="btn btn-orange">Register Webhook</button>
+      </div>
+      <div id="mondayWebhookStatus" style="font-size:13px;color:#888;padding:10px 0">Click to register the Monday.com webhook on the 26_3 Proposal board.</div>
+    </div>
+  </div>
+
+  <!-- SYSTEM TAB -->
+  <div id="tab-system" class="tab-panel">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="section-title" style="margin-bottom:0">System Storage</div>
+        <button onclick="loadStorage()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+      </div>
+      <div id="storagePanel"><p style="color:#888;font-size:13px">Loading...</p></div>
+    </div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="/js/admin.js"></script>
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'commission') loadCommissionTab();
+  if (name === 'system') loadStorage();
+  if (name === 'sales') { loadRepDropdown(); loadAllSales(); }
+  if (name === 'pipeline') loadPipeline();
+}
+
+const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function loadCommissionTab() {
+  const week = document.getElementById('adminWeekPicker')?.value || '';
+  const url = '/api/admin/commission' + (week ? '?week=' + week : '');
+  const res = await fetch(url);
+  if (!res.ok) { document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Failed to load commission data.</p>'; return; }
+  const data = await res.json();
+
+  document.getElementById('commissionOverview').innerHTML = !data.summary.length
+    ? '<p style="color:#888;font-size:13px">No reps found.</p>'
+    : `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:8px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
+        <span>Rep</span><span>Role</span><span>Sales</span><span>Commission</span><span></span>
+      </div>` + data.summary.map(s => `
+      <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:12px 0;border-bottom:1px solid #f0e8e4;align-items:center">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#2A2B29">${s.user.name}</div>
+          <div style="font-size:11px;color:#888">${s.records.length} deals</div>
+        </div>
+        <span class="badge ${s.role === 'leader' ? 'badge-admin' : 'badge-user'}">${s.role}</span>
+        <div style="font-size:14px;font-weight:700;color:#2A2B29">${fmt(s.totalSales)}</div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.commission)}</div>
+          ${s.role === 'leader' && s.totalOverride > 0 ? '<div style="font-size:11px;color:#27AE60">+' + fmt(s.totalOverride) + ' override</div>' : ''}
+        </div>
+        <button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', '${week}')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button>
+      </div>`).join('');
+
+  // Load rep settings
+  const usersRes = await fetch('/api/admin/users');
+  const users = await usersRes.json();
+  const leaders = users.filter(u => u.role === 'leader');
+  document.getElementById('repSettings').innerHTML = users.map(u => `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center">
+      <div style="font-size:13px;font-weight:700;color:#2A2B29">${u.name}</div>
+      <select onchange="setRole(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
+        <option value="standard" ${u.role === 'standard' || u.role === 'user' ? 'selected' : ''}>Standard</option>
+        <option value="leader" ${u.role === 'leader' ? 'selected' : ''}>Leader</option>
+      </select>
+      <select onchange="setLeader(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
+        <option value="">No Leader</option>
+        ${leaders.filter(l => l.id !== u.id).map(l => `<option value="${l.id}" ${u.leader_id == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+      </select>
+    </div>`).join('');
+}
+
+async function viewAs(userId, name, week) {
+  window._viewingUserId = userId;
+  window._viewingName = name;
+  const section = document.getElementById('viewAsSection');
+  section.style.display = 'block';
+  document.getElementById('viewAsName').textContent = name;
+  const url = '/api/admin/commission/' + userId + (week ? '?week=' + week : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings } = data;
+
+  const calcTier = (total, r) => {
+    if (r === 'leader') {
+      if (total <= 8000) return '3%';
+      if (total <= 15000) return '4%';
+      if (total <= 25000) return '5%';
+      return '6%';
+    } else {
+      if (total <= 15000) return '2%';
+      if (total <= 25000) return '3%';
+      return '4%';
+    }
+  };
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+    <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Sales</div>
+      <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(totalSales)}</div>
+      <div style="font-size:11px;color:#888">${records.length} deals · ${calcTier(totalSales, role)} rate</div>
+    </div>
+    <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission</div>
+      <div style="font-size:22px;font-weight:800;color:#27AE60">${fmt(commission)}</div>
+    </div>
+    ${role === 'leader' ? `<div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Total Earnings</div>
+      <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(totalEarnings)}</div>
+      <div style="font-size:11px;color:#888">incl. override</div>
+    </div>` : '<div></div>'}
+  </div>`;
+
+  html += records.length
+    ? records.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4">
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${r.client_name}</div><div style="font-size:11px;color:#888">${r.project_type || '—'}</div></div>
+        <div style="font-size:14px;font-weight:700;color:#27AE60">${fmt(r.sale_amount)}</div>
+        <button onclick="adminDeleteSale(${r.id})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">✕</button>
+      </div>`).join('')
+    : '<p style="color:#888;font-size:13px;padding:12px 0">No sales this week.</p>';
+
+  // Add sale form
+  html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
+    <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Add Sale for ${name}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+      <div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:4px">Client</label>
+        <input type="text" id="adminSaleClient" placeholder="Client name" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none"></div>
+      <div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:4px">Amount ($)</label>
+        <input type="number" id="adminSaleAmount" placeholder="0.00" step="0.01" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none"></div>
+      <button onclick="adminAddSale(${userId})" style="background:#EA672F;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer">+ Add</button>
+    </div>
+  </div>`;
+
+  if (role === 'leader' && repOverrides && repOverrides.length > 0) {
+    html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
+      <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Override Commission (+2% on team)</div>` +
+      repOverrides.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0e8e4">
+        <div style="flex:1;font-size:13px;font-weight:700">${r.rep.name}</div>
+        <div style="font-size:13px;color:#888">${fmt(r.repSales)}</div>
+        <div style="font-size:13px;font-weight:700;color:#27AE60">+${fmt(r.overrideCommission)}</div>
+      </div>`).join('') + '</div>';
+  }
+
+  document.getElementById('viewAsContent').innerHTML = html;
+  section.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeViewAs() {
+  document.getElementById('viewAsSection').style.display = 'none';
+  window._viewingUserId = null;
+}
+
+async function adminDeleteSale(id) {
+  if (!confirm('Remove this sale record?')) return;
+  await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
+  viewAs(window._viewingUserId, window._viewingName, document.getElementById('adminWeekPicker')?.value || '');
+}
+
+async function adminAddSale(userId) {
+  const client = document.getElementById('adminSaleClient').value.trim();
+  const amount = document.getElementById('adminSaleAmount').value;
+  if (!client || !amount) { alert('Enter client and amount'); return; }
+  await fetch('/api/admin/commission/' + userId + '/records', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: client, sale_amount: amount })
+  });
+  viewAs(userId, window._viewingName, document.getElementById('adminWeekPicker')?.value || '');
+}
+
+async function setRole(userId, role) {
+  await fetch('/api/admin/users/' + userId + '/role', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) });
+  loadCommissionTab();
+}
+
+async function setLeader(userId, leaderId) {
+  await fetch('/api/admin/users/' + userId + '/leader', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leader_id: leaderId || null }) });
+  loadCommissionTab();
+}
+
+async function loadPipeline() {
+  const container = document.getElementById('pipelineContent');
+  container.innerHTML = '<p style="color:#888;font-size:13px">Loading... this may take a moment.</p>';
+  try {
+    const res = await fetch('/api/admin/pipeline');
+    const data = await res.json();
+    if (data.error) { container.innerHTML = '<p style="color:#c00">' + data.error + '</p>'; return; }
+
+    const stageColors = {
+      'QUALIFIED LEADS': '#1ABC9C', 'DISCOVERY CALLS': '#3498DB',
+      'SEQUENCE CALL': '#7F8C8D', 'FOLLOW UP EMAILS / CALLS': '#9B59B6',
+      'PROPOSAL FOLLOW UP': '#E67E22', 'WAITING FOR CLIENTS': '#F39C12',
+      'CLOSED DEALS': '#27AE60', 'HELP REQUIRED': '#E74C3C'
+    };
+
+    container.innerHTML = data.map(rep => {
+      const stageHtml = Object.entries(rep.stageCounts)
+        .filter(([g]) => g !== 'LOST')
+        .map(([g, count]) => {
+          const color = stageColors[g] || '#888';
+          const label = g.replace(' EMAILS / CALLS', '').replace(' CALLS', '');
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8e4">' +
+            '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>' +
+            '<div style="flex:1;font-size:12px;color:#555">' + label + '</div>' +
+            '<div style="font-size:13px;font-weight:700;color:#2A2B29">' + count + '</div>' +
+            '</div>';
+        }).join('');
+
+      return '<div style="background:#faf7f5;border-radius:12px;padding:20px;margin-bottom:16px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+          '<div style="font-size:16px;font-weight:800;color:#2A2B29">' + rep.user.name + '</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.totalLeads + ' leads</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Pipeline Stages</div>' +
+            (stageHtml || '<p style="color:#888;font-size:12px">No leads</p>') +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Proposals</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
+              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
+                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Sent</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#3498DB">' + rep.sentProposals + '</div>' +
+              '</div>' +
+              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
+                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Closed</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#27AE60">' + rep.closedDeals + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px">' +
+              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Closed Value</div>' +
+              '<div style="font-size:18px;font-weight:800;color:#EA672F">' + fmt(rep.totalClosed) + '</div>' +
+            '</div>' +
+            '<div style="background:#2A2B29;border-radius:8px;padding:10px;text-align:center">' +
+              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Conversion Rate</div>' +
+              '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.conversionRate + '%</div>' +
+              '<div style="font-size:11px;color:#888">' + rep.closedDeals + ' of ' + rep.sentProposals + ' proposals</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
+  }
+}
+
+async function loadRepDropdown() {
+  const res = await fetch('/api/admin/users');
+  const users = await res.json();
+  const sel = document.getElementById('saleRepId');
+  if (!sel) return;
+  sel.innerHTML = users.map(u => '<option value="' + u.id + '">' + u.name + '</option>').join('');
+}
+
+async function addMgrSale() {
+  const repId = document.getElementById('saleRepId').value;
+  const client = document.getElementById('saleMgrClient').value.trim();
+  const type = document.getElementById('saleMgrType').value;
+  const amount = document.getElementById('saleMgrAmount').value;
+  if (!client || !amount) { alert('Enter client name and amount'); return; }
+  const res = await fetch('/api/admin/commission/' + repId + '/records', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: client, project_type: type, sale_amount: amount })
+  });
+  const data = await res.json();
+  if (data.ok) {
+    document.getElementById('saleMgrClient').value = '';
+    document.getElementById('saleMgrAmount').value = '';
+    const t = document.getElementById('toast'); t.textContent = 'Sale recorded'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+    loadAllSales();
+  }
+}
+
+async function loadAllSales() {
+  const week = document.getElementById('salesWeekPicker')?.value || '';
+  const url = '/api/admin/commission' + (week ? '?week=' + week : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  const container = document.getElementById('allSalesList');
+  if (!data.summary) { container.innerHTML = '<p style="color:#c00">Failed to load.</p>'; return; }
+  const allRecords = [];
+  data.summary.forEach(s => s.records.forEach(r => allRecords.push({ ...r, repName: s.user.name })));
+  if (!allRecords.length) { container.innerHTML = '<p style="color:#888;font-size:13px">No sales recorded this week.</p>'; return; }
+  allRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  container.innerHTML = allRecords.map(r =>
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center;font-size:13px">' +
+    '<span style="font-weight:700">' + r.repName + '</span>' +
+    '<span>' + r.client_name + '</span>' +
+    '<span style="color:#888">' + (r.project_type || '-') + '</span>' +
+    '<span style="font-weight:700;color:#27AE60">' + fmt(r.sale_amount) + '</span>' +
+    '<button onclick="deleteMgrSale(' + r.id + ')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">x</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function deleteMgrSale(id) {
+  if (!confirm('Remove this sale?')) return;
+  await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
+  loadAllSales();
+}
+
+async function loadStorage() {
+  try {
+    const r = await fetch('/api/admin/storage');
+    const d = await r.json();
+    if (d.error) { document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Error: ' + d.error + '</p>'; return; }
+    const fmtb = b => b < 1024 ? b + ' B' : b < 1024*1024 ? (b/1024).toFixed(1) + ' KB' : b < 1024*1024*1024 ? (b/1024/1024).toFixed(1) + ' MB' : (b/1024/1024/1024).toFixed(2) + ' GB';
+    const pct = d.disk.percent;
+    const barColor = pct > 80 ? '#c0392b' : pct > 60 ? '#F39C12' : '#27AE60';
+    document.getElementById('storagePanel').innerHTML = `
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:700">Disk Usage</span>
+          <span style="font-size:13px;color:#888">${fmtb(d.disk.used)} of ${fmtb(d.disk.total)} used (${pct}%)</span>
+        </div>
+        <div style="background:#e0d9d5;border-radius:8px;height:12px;overflow:hidden">
+          <div style="background:${barColor};width:${pct}%;height:100%;border-radius:8px"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:4px">${fmtb(d.disk.available)} available</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:#faf7f5;border-radius:8px;padding:12px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Database</div>
+          <div style="font-size:18px;font-weight:700">${fmtb(d.database.size)}</div>
+        </div>
+        <div style="background:#faf7f5;border-radius:8px;padding:12px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Uploaded Files</div>
+          <div style="font-size:18px;font-weight:700">${fmtb(d.lead_files.size)}</div>
+          <div style="font-size:11px;color:#888">${d.lead_files.count} files</div>
+        </div>
+      </div>
+      ${pct > 70 ? '<div style="margin-top:12px;background:#fff3cd;border:1.5px solid #F39C12;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404">⚠️ Disk usage above 70% — consider upgrading the Render disk.</div>' : ''}`;
+  } catch(e) {
+    document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Could not load storage info.</p>';
+  }
+}
+</script>
 </body>
 </html>
