@@ -935,23 +935,26 @@ function checkNewLeads(leads) {
 
 // Poll for leads updates every 15 seconds using timestamp
 var _lastUpdateTimestamp = 0;
+var _pollCount = 0;
 setInterval(async function() {
   const panel = document.getElementById('leadsPanel');
   if (!panel || panel.style.display === 'none') return;
+  _pollCount++;
   try {
     const update = await apiFetch('/api/leads/last-update');
-    if (update && update.timestamp > _lastUpdateTimestamp) {
-      if (_lastUpdateTimestamp > 0) {
-        // New data available - show banner and reload
-        const leads = await apiFetch('/api/leads');
-        if (leads && Array.isArray(leads)) {
-          checkNewLeads(leads);
-          leadsData = leads;
-          renderLeads(leads);
-        }
+    // Refresh if webhook fired OR every 4th poll (60 seconds) for Monday.com group changes
+    const webhookFired = update && update.timestamp > _lastUpdateTimestamp && _lastUpdateTimestamp > 0;
+    const regularRefresh = _pollCount % 1 === 0; // every 15 seconds
+    if (webhookFired || regularRefresh) {
+      if (webhookFired) _lastUpdateTimestamp = update.timestamp;
+      const leads = await apiFetch('/api/leads');
+      if (leads && Array.isArray(leads)) {
+        if (webhookFired) checkNewLeads(leads);
+        leadsData = leads;
+        renderLeads(leads);
       }
-      _lastUpdateTimestamp = update.timestamp;
     }
+    if (update && _lastUpdateTimestamp === 0) _lastUpdateTimestamp = update.timestamp;
   } catch(e) {}
 }, 15 * 1000);
 
