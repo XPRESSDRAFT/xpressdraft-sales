@@ -538,7 +538,10 @@ async function setLeader(userId, leaderId) {
 }
 
 loadSummary();
-fetch('/api/admin/commission').then(r => { if (r.ok) loadAdminPanel(); }).catch(() => {});
+fetch('/api/admin/commission')
+  .then(r => r.json())
+  .then(data => { if (data.summary) loadAdminPanel(); })
+  .catch(e => console.error('Admin panel error:', e));
 </script>
 
 </body>

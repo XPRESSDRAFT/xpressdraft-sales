@@ -589,7 +589,7 @@ app.delete('/api/commission/records/:id', requireAuth, async (req, res) => {
 app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => {
   try {
     const weekStart = req.query.week || getWeekStart();
-    const users = await dbAll('SELECT * FROM users WHERE active = 1');
+    const users = await dbAll('SELECT * FROM users');
     const summary = [];
     for (const user of users) {
       const records = await dbAll(
