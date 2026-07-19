@@ -183,7 +183,7 @@ console.log('Pricing migration complete');
 const adminExists = await dbGet('SELECT id FROM users WHERE role = ?', ['admin']);
 if (!adminExists && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
   const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12);
-  await dbRun('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [process.env.ADMIN_EMAIL, hash, 'Admin', 'admin']);
+  await dbRun('INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, ?)', [process.env.ADMIN_EMAIL, hash, 'Admin', 'admin']);
   console.log('Admin account created:', process.env.ADMIN_EMAIL);
 }
 
