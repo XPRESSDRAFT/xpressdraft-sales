@@ -556,7 +556,36 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     );
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
     const commission = calcCommission(totalSales, user.role || 'standard');
-    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard' });
+
+    // Get sent proposals count from Monday.com
+    let sentProposals = 0;
+    let closedDeals = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
+    let totalClosed = closedDeals.reduce((sum, r) => sum + r.sale_amount, 0);
+    try {
+      const repName = user.monday_name || user.name;
+      const proposalData = await monday.query(`
+        query {
+          boards(ids: ["18389820785"]) {
+            groups(ids: ["group_mkxzcgkr"]) {
+              items_page(limit: 100) {
+                items {
+                  id
+                  column_values(ids: ["dropdown_mm5c51r2"]) { id text value }
+                }
+              }
+            }
+          }
+        }`);
+      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+      sentProposals = sentItems.filter(item => {
+        const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
+        return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+      }).length;
+    } catch(e) { console.error('Sent proposals error:', e.message); }
+
+    const conversionRate = sentProposals > 0 ? Math.round((closedDeals.length / sentProposals) * 100) : 0;
+    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard', sentProposals, closedDeals: closedDeals.length, totalClosed, conversionRate });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

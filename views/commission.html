@@ -144,6 +144,13 @@
     <div id="recordsList"><div class="records-empty">No sales recorded this week.</div></div>
   </div>
 
+  <!-- Conversion rate card -->
+  <div class="stat-card" id="conversionCard" style="margin-bottom:24px;background:#2A2B29">
+    <div class="stat-label" style="color:#888">Proposal Conversion Rate</div>
+    <div class="stat-value" id="conversionRate" style="color:#EA672F;font-size:32px">—</div>
+    <div class="stat-sub" id="conversionSub" style="color:#888">Loading...</div>
+  </div>
+
   <!-- Leader override section (shown only for leaders) -->
   <div class="records-card" id="overridePanel" style="display:none">
     <div class="records-title">
@@ -271,7 +278,7 @@ async function loadSummary(userId = null) {
   const data = await res.json();
   if (data.error) return;
 
-  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings } = data;
+  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, closedDeals, totalClosed, conversionRate } = data;
   const isAdmin = !!userId;
 
   // Week dates
@@ -291,6 +298,13 @@ async function loadSummary(userId = null) {
   document.getElementById('commissionEarned').textContent = fmt(commission);
 
   const { currentTier } = getTierInfo(totalSales, role);
+
+  // Update conversion rate card
+  const convCard = document.getElementById('conversionCard');
+  const convRate = document.getElementById('conversionRate');
+  const convSub = document.getElementById('conversionSub');
+  if (convRate) convRate.textContent = (conversionRate || 0) + '%';
+  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' proposals sent · ' + fmt(totalClosed || 0) + ' total';
   document.getElementById('commissionRate').textContent = 'at ' + currentTier.rate + ' rate';
 
   // Tier bar
@@ -377,6 +391,13 @@ async function viewAs(userId, name) {
   const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings } = data;
 
   const { currentTier } = getTierInfo(totalSales, role);
+
+  // Update conversion rate card
+  const convCard = document.getElementById('conversionCard');
+  const convRate = document.getElementById('conversionRate');
+  const convSub = document.getElementById('conversionSub');
+  if (convRate) convRate.textContent = (conversionRate || 0) + '%';
+  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' proposals sent · ' + fmt(totalClosed || 0) + ' total';
   let html = `
     <div class="stats" style="margin-bottom:16px">
       <div class="stat-card"><div class="stat-label">Sales</div><div class="stat-value orange">${fmt(totalSales)}</div><div class="stat-sub">${records.length} deals</div></div>
