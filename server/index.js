@@ -116,6 +116,29 @@ await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'standard'").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN leader_id INTEGER DEFAULT NULL").catch(() => {});
+// Salary settings table
+await dbRun(`CREATE TABLE IF NOT EXISTS salary_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL UNIQUE,
+  weekly_amount REAL NOT NULL DEFAULT 0,
+  gst INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT DEFAULT (datetime('now'))
+)`).catch(() => {});
+
+// Invoices table
+await dbRun(`CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  week_start TEXT NOT NULL,
+  salary_amount REAL NOT NULL DEFAULT 0,
+  commission_amount REAL NOT NULL DEFAULT 0,
+  total_amount REAL NOT NULL DEFAULT 0,
+  filename TEXT NOT NULL,
+  filepath TEXT NOT NULL,
+  submitted_at TEXT DEFAULT (datetime('now')),
+  status TEXT DEFAULT 'submitted'
+)`).catch(() => {});
+
 // Commission records table
 await dbRun(`CREATE TABLE IF NOT EXISTS commission_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -710,6 +733,116 @@ app.get('/api/admin/pipeline', requireAuth, requireAdmin, async (req, res) => {
     console.error('Pipeline stats error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Salary settings ──────────────────────────────────────────────────────────
+app.get('/api/admin/salary', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await dbAll('SELECT * FROM users WHERE role != ?', ['admin']);
+    const result = [];
+    for (const u of users) {
+      const salary = await dbGet('SELECT * FROM salary_settings WHERE user_id = ?', [u.id]);
+      result.push({ user: u, salary: salary || { weekly_amount: 0, gst: 1 } });
+    }
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/admin/salary/:userId', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { weekly_amount, gst } = req.body;
+    await dbRun(`INSERT INTO salary_settings (user_id, weekly_amount, gst) VALUES (?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET weekly_amount=excluded.weekly_amount, gst=excluded.gst, updated_at=datetime('now')`,
+      [req.params.userId, parseFloat(weekly_amount) || 0, gst ? 1 : 0]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get invoice summary for current rep
+app.get('/api/invoice/summary', requireAuth, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const salary = await dbGet('SELECT * FROM salary_settings WHERE user_id = ?', [req.session.userId]);
+    const weekStart = getWeekStart();
+
+    // Calculate pay date (next Wednesday after week ends on Tuesday)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7); // Tuesday end
+    const payDate = new Date(weekEnd);
+    payDate.setDate(payDate.getDate() + 1); // Wednesday
+    const payDateStr = payDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Commission this week
+    const records = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [req.session.userId, weekStart]);
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+
+    const weeklyBase = salary?.weekly_amount || 0;
+    const gst = salary?.gst !== 0;
+    const subtotal = weeklyBase + commission;
+    const gstAmount = gst ? subtotal * 0.1 : 0;
+    const total = subtotal + gstAmount;
+
+    // Check if invoice already submitted this week
+    const existing = await dbGet('SELECT * FROM invoices WHERE user_id = ? AND week_start = ?', [req.session.userId, weekStart]);
+
+    res.json({ weekStart, payDate: payDateStr, weeklyBase, commission, subtotal, gstAmount, gst, total, existing: existing || null });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Upload invoice
+const invoiceDir = path.join(dataDir, 'invoices');
+if (!fs.existsSync(invoiceDir)) fs.mkdirSync(invoiceDir, { recursive: true });
+
+const invoiceStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(invoiceDir, String(req.session.userId));
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')),
+});
+const invoiceUpload = multer({ storage: invoiceStorage, limits: { fileSize: 20 * 1024 * 1024 } });
+
+app.post('/api/invoice/upload', requireAuth, invoiceUpload.single('invoice'), async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const salary = await dbGet('SELECT * FROM salary_settings WHERE user_id = ?', [req.session.userId]);
+    const weekStart = getWeekStart();
+    const records = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [req.session.userId, weekStart]);
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+    const weeklyBase = salary?.weekly_amount || 0;
+    const subtotal = weeklyBase + commission;
+    const gstAmount = (salary?.gst !== 0) ? subtotal * 0.1 : 0;
+    const total = subtotal + gstAmount;
+
+    await dbRun(`INSERT INTO invoices (user_id, week_start, salary_amount, commission_amount, total_amount, filename, filepath)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.session.userId, weekStart, weeklyBase, commission, total, req.file.originalname, req.file.path]);
+
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: get all invoices
+app.get('/api/admin/invoices', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const invoices = await dbAll(`
+      SELECT i.*, u.name as rep_name 
+      FROM invoices i JOIN users u ON i.user_id = u.id 
+      ORDER BY i.submitted_at DESC`);
+    res.json(invoices);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: download invoice
+app.get('/api/admin/invoices/:id/download', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const inv = await dbGet('SELECT * FROM invoices WHERE id = ?', [req.params.id]);
+    if (!inv || !fs.existsSync(inv.filepath)) return res.status(404).json({ error: 'File not found' });
+    res.download(inv.filepath, inv.filename);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Admin: set rep role ──────────────────────────────────────────────────────

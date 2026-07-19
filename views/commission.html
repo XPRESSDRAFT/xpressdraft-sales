@@ -167,6 +167,14 @@
     <div style="font-size:12px;color:#888;margin-top:4px">Own commission + team override</div>
   </div>
 
+  <!-- Invoice section -->
+  <div class="records-card" id="invoiceSection">
+    <div class="records-title">
+      <span>📄 Your Invoice This Week</span>
+    </div>
+    <div id="invoiceContent"><p style="color:#888;font-size:13px">Loading...</p></div>
+  </div>
+
   <!-- Admin panel -->
   <div class="admin-card" id="adminPanel" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -362,7 +370,78 @@ async function addSale() {
   });
   document.getElementById('saleClient').value = '';
   document.getElementById('saleAmount').value = '';
-  loadSummary();
+  async function loadInvoiceSummary() {
+  const container = document.getElementById('invoiceContent');
+  if (!container) return;
+  try {
+    const res = await fetch('/api/invoice/summary');
+    const d = await res.json();
+    if (d.error) { container.innerHTML = '<p style="color:#c00">' + d.error + '</p>'; return; }
+
+    const alreadySubmitted = d.existing;
+
+    container.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Weekly Salary</div>
+          <div style="font-size:20px;font-weight:800;color:#2A2B29">${fmt(d.weeklyBase)}</div>
+        </div>
+        <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission</div>
+          <div style="font-size:20px;font-weight:800;color:#27AE60">${fmt(d.commission)}</div>
+        </div>
+        <div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Total to Invoice</div>
+          <div style="font-size:20px;font-weight:800;color:#EA672F">${fmt(d.total)}</div>
+          ${d.gst ? '<div style="font-size:11px;color:#888">incl. GST ' + fmt(d.gstAmount) + '</div>' : ''}
+        </div>
+      </div>
+
+      <div style="background:#faf7f5;border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:24px">📅</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Payment Due</div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">${d.payDate}</div>
+          <div style="font-size:12px;color:#888">Submit your invoice before this date to ensure timely payment.</div>
+        </div>
+      </div>
+
+      ${alreadySubmitted
+        ? '<div style="background:#e8f5e9;border:1.5px solid #27AE60;border-radius:10px;padding:14px;text-align:center"><div style="font-size:14px;font-weight:700;color:#27AE60">✅ Invoice submitted for this week</div><div style="font-size:12px;color:#888;margin-top:4px">' + alreadySubmitted.filename + ' — ' + new Date(alreadySubmitted.submitted_at).toLocaleDateString("en-AU") + '</div></div>'
+        : '<div style="background:#fff3e0;border:1.5px solid #EA672F;border-radius:10px;padding:16px">' +
+          '<div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Upload your invoice for this week</div>' +
+          '<div style="display:flex;gap:10px;align-items:center">' +
+          '<input type="file" id="invoiceFile" accept=".pdf,.doc,.docx" style="font-size:13px;flex:1;font-family:inherit;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px">' +
+          '<button onclick="uploadInvoice()" style="background:#EA672F;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap">⬆ Submit</button>' +
+          '</div>' +
+          '<div style="font-size:11px;color:#888;margin-top:8px">Accepted formats: PDF, DOC, DOCX · Max 20MB</div>' +
+          '</div>'
+      }`;
+  } catch(e) {
+    container.innerHTML = '<p style="color:#c00">Could not load invoice summary.</p>';
+  }
+}
+
+async function uploadInvoice() {
+  const input = document.getElementById('invoiceFile');
+  if (!input || !input.files.length) { toast('Please select a file first'); return; }
+  const formData = new FormData();
+  formData.append('invoice', input.files[0]);
+  try {
+    const res = await fetch('/api/invoice/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.ok) {
+      toast('Invoice submitted ✓');
+      loadInvoiceSummary();
+    } else {
+      toast('Upload failed: ' + (data.error || 'unknown error'));
+    }
+  } catch(e) {
+    toast('Upload failed: ' + e.message);
+  }
+}
+
+loadSummary();
 }
 
 async function deleteSale(id) {
@@ -532,6 +611,7 @@ async function setLeader(userId, leaderId) {
 }
 
 loadSummary();
+loadInvoiceSummary();
 fetch('/api/admin/commission')
   .then(r => r.json())
   .then(data => { 
