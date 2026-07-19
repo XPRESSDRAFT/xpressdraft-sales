@@ -91,6 +91,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" onclick="showTab('team')">👥 Team</button>
     <button class="tab-btn" onclick="showTab('commission')">💰 Commission</button>
+    <button class="tab-btn" onclick="showTab('pipeline')">📊 Pipeline</button>
     <button class="tab-btn" onclick="showTab('sales')">📋 Sales</button>
     <button class="tab-btn" onclick="showTab('pricing')">💲 Pricing</button>
     <button class="tab-btn" onclick="showTab('integrations')">🔗 Integrations</button>
@@ -156,6 +157,17 @@
         <button onclick="closeViewAs()" class="btn btn-ghost btn-sm">✕ Close</button>
       </div>
       <div id="viewAsContent"></div>
+    </div>
+  </div>
+
+  <!-- PIPELINE TAB -->
+  <div id="tab-pipeline" class="tab-panel">
+    <div class="section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="section-title" style="margin-bottom:0">Pipeline Overview</div>
+        <button onclick="loadPipeline()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+      </div>
+      <div id="pipelineContent"><p style="color:#888;font-size:13px">Loading pipeline data...</p></div>
     </div>
   </div>
 
@@ -287,6 +299,7 @@ function showTab(name) {
   if (name === 'commission') loadCommissionTab();
   if (name === 'system') loadStorage();
   if (name === 'sales') { loadRepDropdown(); loadAllSales(); }
+  if (name === 'pipeline') loadPipeline();
 }
 
 const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -440,6 +453,74 @@ async function setRole(userId, role) {
 async function setLeader(userId, leaderId) {
   await fetch('/api/admin/users/' + userId + '/leader', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leader_id: leaderId || null }) });
   loadCommissionTab();
+}
+
+async function loadPipeline() {
+  const container = document.getElementById('pipelineContent');
+  container.innerHTML = '<p style="color:#888;font-size:13px">Loading... this may take a moment.</p>';
+  try {
+    const res = await fetch('/api/admin/pipeline');
+    const data = await res.json();
+    if (data.error) { container.innerHTML = '<p style="color:#c00">' + data.error + '</p>'; return; }
+
+    const stageColors = {
+      'QUALIFIED LEADS': '#1ABC9C', 'DISCOVERY CALLS': '#3498DB',
+      'SEQUENCE CALL': '#7F8C8D', 'FOLLOW UP EMAILS / CALLS': '#9B59B6',
+      'PROPOSAL FOLLOW UP': '#E67E22', 'WAITING FOR CLIENTS': '#F39C12',
+      'CLOSED DEALS': '#27AE60', 'HELP REQUIRED': '#E74C3C'
+    };
+
+    container.innerHTML = data.map(rep => {
+      const stageHtml = Object.entries(rep.stageCounts)
+        .filter(([g]) => g !== 'LOST')
+        .map(([g, count]) => {
+          const color = stageColors[g] || '#888';
+          const label = g.replace(' EMAILS / CALLS', '').replace(' CALLS', '');
+          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8e4">' +
+            '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>' +
+            '<div style="flex:1;font-size:12px;color:#555">' + label + '</div>' +
+            '<div style="font-size:13px;font-weight:700;color:#2A2B29">' + count + '</div>' +
+            '</div>';
+        }).join('');
+
+      return '<div style="background:#faf7f5;border-radius:12px;padding:20px;margin-bottom:16px">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+          '<div style="font-size:16px;font-weight:800;color:#2A2B29">' + rep.user.name + '</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.totalLeads + ' leads</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Pipeline Stages</div>' +
+            (stageHtml || '<p style="color:#888;font-size:12px">No leads</p>') +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Proposals</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
+              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
+                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Sent</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#3498DB">' + rep.sentProposals + '</div>' +
+              '</div>' +
+              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
+                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Closed</div>' +
+                '<div style="font-size:22px;font-weight:800;color:#27AE60">' + rep.closedDeals + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px">' +
+              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Closed Value</div>' +
+              '<div style="font-size:18px;font-weight:800;color:#EA672F">' + fmt(rep.totalClosed) + '</div>' +
+            '</div>' +
+            '<div style="background:#2A2B29;border-radius:8px;padding:10px;text-align:center">' +
+              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Conversion Rate</div>' +
+              '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.conversionRate + '%</div>' +
+              '<div style="font-size:11px;color:#888">' + rep.closedDeals + ' of ' + rep.sentProposals + ' proposals</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
+  }
 }
 
 async function loadRepDropdown() {

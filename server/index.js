@@ -616,6 +616,79 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
   }
 });
 
+// ── Pipeline stats ───────────────────────────────────────────────────────────
+app.get('/api/admin/pipeline', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await dbAll('SELECT * FROM users WHERE role != ?', ['admin']);
+    const pipeline = [];
+
+    for (const user of users) {
+      const repName = user.monday_name || user.name;
+
+      // Get leads from Negotiations board
+      const leadsData = await monday.getLeadsForRep(repName).catch(() => []);
+
+      // Count by stage
+      const stageCounts = {};
+      leadsData.forEach(l => {
+        const g = l.group_title || 'Other';
+        stageCounts[g] = (stageCounts[g] || 0) + 1;
+      });
+
+      // Get proposals sent from 26_3 Proposal board SENT PROPOSALS group
+      const proposalData = await monday.query(`
+        query {
+          boards(ids: ["18389820785"]) {
+            groups(ids: ["group_mkxzcgkr"]) {
+              items_page(limit: 100) {
+                items {
+                  id
+                  name
+                  column_values(ids: ["dropdown_mm5c51r2", "numbers_mm5cr6w3"]) {
+                    id text value
+                  }
+                }
+              }
+            }
+          }
+        }`).catch(() => null);
+
+      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+      const repSentProposals = sentItems.filter(item => {
+        const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
+        return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+      });
+
+      // Get closed deals value from commission records
+      const weekStart = getWeekStart();
+      const allRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
+      const totalClosed = allRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+      const closedCount = allRecords.length;
+
+      // Conversion rate: closed / sent proposals
+      const conversionRate = repSentProposals.length > 0
+        ? Math.round((closedCount / repSentProposals.length) * 100)
+        : 0;
+
+      pipeline.push({
+        user,
+        totalLeads: leadsData.length,
+        stageCounts,
+        sentProposals: repSentProposals.length,
+        closedDeals: closedCount,
+        totalClosed,
+        conversionRate
+      });
+    }
+
+    res.json(pipeline);
+  } catch(e) {
+    console.error('Pipeline stats error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Admin: set rep role ──────────────────────────────────────────────────────
 app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
   try {
