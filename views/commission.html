@@ -132,35 +132,8 @@
     <div class="tier-info" id="tierInfo"></div>
   </div>
 
-  <!-- Add sale -->
-  <div class="add-card">
-    <div class="add-title">Record a Sale</div>
-    <div class="add-grid">
-      <div class="field">
-        <label>Client Name</label>
-        <input type="text" id="saleClient" placeholder="e.g. John Smith">
-      </div>
-      <div class="field">
-        <label>Project Type</label>
-        <select id="saleType">
-          <option value="">Select...</option>
-          <option>Standard</option>
-          <option>As Built</option>
-          <option>DA Only</option>
-          <option>DA+BA</option>
-          <option>Granny Flat</option>
-          <option>Working Drawings Only</option>
-          <option>Shed</option>
-          <option>Storey Addition</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Sale Amount ($)</label>
-        <input type="number" id="saleAmount" placeholder="0.00" min="0" step="0.01">
-      </div>
-      <button class="btn-add" onclick="addSale()">+ Add</button>
-    </div>
-  </div>
+  <!-- Add sale - admin only, shown in admin panel -->
+
 
   <!-- Records -->
   <div class="records-card">
@@ -540,8 +513,17 @@ async function setLeader(userId, leaderId) {
 loadSummary();
 fetch('/api/admin/commission')
   .then(r => r.json())
-  .then(data => { if (data.summary) loadAdminPanel(); })
-  .catch(e => console.error('Admin panel error:', e));
+  .then(data => { 
+    if (data.summary) loadAdminPanel(); 
+    else {
+      document.getElementById('adminPanel').style.display = 'block';
+      document.getElementById('adminList').innerHTML = '<div class="records-empty" style="color:#c00">Error: ' + (data.error || JSON.stringify(data)) + '</div>';
+    }
+  })
+  .catch(e => {
+    document.getElementById('adminPanel').style.display = 'block';
+    document.getElementById('adminList').innerHTML = '<div class="records-empty" style="color:#c00">Failed to load: ' + e.message + '</div>';
+  });
 </script>
 
 </body>
