@@ -115,6 +115,7 @@ function dbExec(sql) {
 await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'standard'").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN leader_id INTEGER DEFAULT NULL").catch(() => {});
 // Commission records table
 await dbRun(`CREATE TABLE IF NOT EXISTS commission_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -597,9 +598,110 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
       );
       const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
       const commission = calcCommission(totalSales, user.role || 'standard');
-      summary.push({ user, records, totalSales, commission, role: user.role || 'standard' });
+      // If leader, calculate override
+      let totalOverride = 0;
+      if (user.role === 'leader') {
+        const reps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+        for (const rep of reps) {
+          const repRecs = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
+          const repSales = repRecs.reduce((sum, r) => sum + r.sale_amount, 0);
+          totalOverride += repSales * 0.02;
+        }
+      }
+      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard' });
     }
     res.json({ summary, weekStart });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: set rep role ──────────────────────────────────────────────────────
+app.patch('/api/admin/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body;
+    await dbRun('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: assign rep to leader
+app.patch('/api/admin/users/:id/leader', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { leader_id } = req.body;
+    await dbRun('UPDATE users SET leader_id = ? WHERE id = ?', [leader_id || null, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get commission summary for a specific user (view-as-rep)
+app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.userId]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const weekStart = req.query.week || getWeekStart();
+    const records = await dbAll(
+      'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
+      [user.id, weekStart]
+    );
+    const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
+    const commission = calcCommission(totalSales, user.role || 'standard');
+
+    // If leader, get assigned reps' sales
+    let repOverrides = [];
+    if (user.role === 'leader') {
+      const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+      for (const rep of assignedReps) {
+        const repRecords = await dbAll(
+          'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
+          [rep.id, weekStart]
+        );
+        const repSales = repRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+        const overrideCommission = repSales * 0.02;
+        repOverrides.push({ rep, repSales, overrideCommission, records: repRecords });
+      }
+    }
+
+    const totalOverride = repOverrides.reduce((sum, r) => sum + r.overrideCommission, 0);
+    res.json({ user, records, totalSales, commission, weekStart, role: user.role || 'standard', repOverrides, totalOverride, totalEarnings: commission + totalOverride });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: add/edit commission record for any user
+app.post('/api/admin/commission/:userId/records', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { client_name, project_type, sale_amount, week_start } = req.body;
+    const weekStart = week_start || getWeekStart();
+    await dbRun(
+      'INSERT INTO commission_records (user_id, client_name, project_type, sale_amount, week_start) VALUES (?, ?, ?, ?, ?)',
+      [req.params.userId, client_name, project_type, parseFloat(sale_amount), weekStart]
+    );
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/commission/records/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    await dbRun('DELETE FROM commission_records WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all users with roles and leaders
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await dbAll('SELECT id, name, email, role, leader_id, active FROM users ORDER BY name');
+    res.json(users);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

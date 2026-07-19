@@ -171,10 +171,47 @@
     <div id="recordsList"><div class="records-empty">No sales recorded this week.</div></div>
   </div>
 
+  <!-- Leader override section (shown only for leaders) -->
+  <div class="records-card" id="overridePanel" style="display:none">
+    <div class="records-title">
+      <span>Team Override Commission <span style="font-size:11px;color:#888;font-weight:400">(+2% on assigned reps)</span></span>
+      <span id="overrideTotal" style="color:#27AE60;font-size:14px"></span>
+    </div>
+    <div id="overrideList"></div>
+  </div>
+
+  <!-- Total earnings for leader -->
+  <div class="stat-card" id="totalEarningsCard" style="display:none;margin-bottom:24px;text-align:center;background:#2A2B29;color:#fff">
+    <div class="stat-label" style="color:#888">Total Earnings This Week</div>
+    <div class="stat-value" id="totalEarnings" style="color:#EA672F;font-size:32px"></div>
+    <div style="font-size:12px;color:#888;margin-top:4px">Own commission + team override</div>
+  </div>
+
   <!-- Admin panel -->
   <div class="admin-card" id="adminPanel" style="display:none">
-    <div class="admin-title">Team Commission Overview — <span id="adminWeekLabel"></span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="admin-title" style="margin-bottom:0">Team Overview — <span id="adminWeekLabel"></span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="font-size:12px;color:#888">Week:</label>
+        <input type="date" id="adminWeekPicker" onchange="loadAdminPanel()" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+      </div>
+    </div>
     <div id="adminList"><div class="records-empty">Loading...</div></div>
+
+    <!-- Role & Leader assignment -->
+    <div style="margin-top:24px;border-top:1.5px solid #f0e8e4;padding-top:20px">
+      <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Rep Settings</div>
+      <div id="repSettings"></div>
+    </div>
+
+    <!-- View as rep -->
+    <div id="viewAsRepPanel" style="display:none;margin-top:24px;border-top:1.5px solid #f0e8e4;padding-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:#2A2B29">Viewing: <span id="viewAsName" style="color:#EA672F"></span></div>
+        <button onclick="closeViewAs()" style="background:none;border:1.5px solid #e0d9d5;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px">✕ Close</button>
+      </div>
+      <div id="viewAsContent"></div>
+    </div>
   </div>
 
 </div>
@@ -255,12 +292,14 @@ function updateTierBar(total, role) {
   }
 }
 
-async function loadSummary() {
-  const res = await fetch('/api/commission/summary');
+async function loadSummary(userId = null) {
+  const url = userId ? '/api/admin/commission/' + userId : '/api/commission/summary';
+  const res = await fetch(url);
   const data = await res.json();
   if (data.error) return;
 
-  const { records, totalSales, commission, weekStart, role } = data;
+  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings } = data;
+  const isAdmin = !!userId;
 
   // Week dates
   const start = new Date(weekStart);
@@ -297,9 +336,30 @@ async function loadSummary() {
           <div class="record-type">${r.project_type || '—'}</div>
         </div>
         <div class="record-amount">${fmt(r.sale_amount)}</div>
-        <button class="record-delete" onclick="deleteSale(${r.id})" title="Remove">✕</button>
+        <button class="record-delete" onclick="${isAdmin ? 'adminDeleteSale(' + r.id + ')' : 'deleteSale(' + r.id + ')'}" title="Remove">✕</button>
       </div>
     `).join('');
+  }
+
+  // Show leader override section
+  if (role === 'leader' && repOverrides && repOverrides.length > 0) {
+    document.getElementById('overridePanel').style.display = 'block';
+    document.getElementById('totalEarningsCard').style.display = 'block';
+    document.getElementById('overrideTotal').textContent = fmt(totalOverride || 0);
+    document.getElementById('totalEarnings').textContent = fmt(totalEarnings || 0);
+    document.getElementById('overrideList').innerHTML = repOverrides.map(r => `
+      <div class="rep-row">
+        <div class="rep-name">${r.rep.name}</div>
+        <div style="text-align:right">
+          <div class="rep-sales">${fmt(r.repSales)}</div>
+          <div style="font-size:11px;color:#888">${r.records.length} deals</div>
+        </div>
+        <div class="rep-commission">+${fmt(r.overrideCommission)}</div>
+      </div>
+    `).join('');
+  } else {
+    document.getElementById('overridePanel').style.display = 'none';
+    document.getElementById('totalEarningsCard').style.display = 'none';
   }
 }
 
@@ -324,28 +384,157 @@ async function deleteSale(id) {
   loadSummary();
 }
 
+async function adminDeleteSale(id) {
+  if (!confirm('Remove this sale record?')) return;
+  await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
+  const viewingId = window._viewingUserId;
+  if (viewingId) viewAs(viewingId, window._viewingName);
+}
+
+async function viewAs(userId, name) {
+  window._viewingUserId = userId;
+  window._viewingName = name;
+  const panel = document.getElementById('viewAsRepPanel');
+  panel.style.display = 'block';
+  document.getElementById('viewAsName').textContent = name;
+  const week = document.getElementById('adminWeekPicker').value || '';
+  const url = '/api/admin/commission/' + userId + (week ? '?week=' + week : '');
+  const res = await fetch(url);
+  const data = await res.json();
+  const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings } = data;
+
+  const { currentTier } = getTierInfo(totalSales, role);
+  let html = `
+    <div class="stats" style="margin-bottom:16px">
+      <div class="stat-card"><div class="stat-label">Sales</div><div class="stat-value orange">${fmt(totalSales)}</div><div class="stat-sub">${records.length} deals</div></div>
+      <div class="stat-card"><div class="stat-label">Commission</div><div class="stat-value green">${fmt(commission)}</div><div class="stat-sub">${currentTier.rate} rate</div></div>
+      ${role === 'leader' ? '<div class="stat-card"><div class="stat-label">Total Earnings</div><div class="stat-value" style="color:#EA672F">' + fmt(totalEarnings) + '</div><div class="stat-sub">incl. override</div></div>' : ''}
+    </div>`;
+
+  if (records.length) {
+    html += records.map(r => `
+      <div class="record-row">
+        <div><div class="record-name">${r.client_name}</div><div class="record-type">${r.project_type || '—'}</div></div>
+        <div class="record-amount">${fmt(r.sale_amount)}</div>
+        <button class="record-delete" onclick="adminDeleteSale(${r.id})" title="Remove">✕</button>
+      </div>`).join('');
+  } else {
+    html += '<div class="records-empty">No sales this week.</div>';
+  }
+
+  // Add sale form for admin
+  html += `
+    <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
+      <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Add Sale for ${name}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end">
+        <div class="field"><label>Client</label><input type="text" id="adminSaleClient" placeholder="Client name"></div>
+        <div class="field"><label>Amount ($)</label><input type="number" id="adminSaleAmount" placeholder="0.00" step="0.01"></div>
+        <button class="btn-add" onclick="adminAddSale(${userId})">+ Add</button>
+      </div>
+    </div>`;
+
+  if (role === 'leader' && repOverrides && repOverrides.length > 0) {
+    html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
+      <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Override Commission (+2%)</div>`;
+    html += repOverrides.map(r => `
+      <div class="rep-row">
+        <div class="rep-name">${r.rep.name}</div>
+        <div class="rep-sales">${fmt(r.repSales)}</div>
+        <div class="rep-commission">+${fmt(r.overrideCommission)}</div>
+      </div>`).join('');
+    html += '</div>';
+  }
+
+  document.getElementById('viewAsContent').innerHTML = html;
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeViewAs() {
+  document.getElementById('viewAsRepPanel').style.display = 'none';
+  window._viewingUserId = null;
+}
+
+async function adminAddSale(userId) {
+  const client = document.getElementById('adminSaleClient').value.trim();
+  const amount = document.getElementById('adminSaleAmount').value;
+  if (!client || !amount) { alert('Enter client and amount'); return; }
+  await fetch('/api/admin/commission/' + userId + '/records', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ client_name: client, sale_amount: amount })
+  });
+  viewAs(userId, window._viewingName);
+}
+
 async function loadAdminPanel() {
-  const res = await fetch('/api/admin/commission');
+  const week = document.getElementById('adminWeekPicker')?.value || '';
+  const url = '/api/admin/commission' + (week ? '?week=' + week : '');
+  const res = await fetch(url);
   if (!res.ok) return;
   const data = await res.json();
   document.getElementById('adminPanel').style.display = 'block';
   document.getElementById('adminWeekLabel').textContent = 'Week of ' + data.weekStart;
+
   const list = document.getElementById('adminList');
   if (!data.summary.length) {
     list.innerHTML = '<div class="records-empty">No reps found.</div>';
-    return;
-  }
-  list.innerHTML = data.summary.map(s => `
-    <div class="rep-row">
-      <div class="rep-name">${s.user.name}</div>
-      <div class="rep-role">${s.role}</div>
-      <div style="text-align:right">
-        <div class="rep-sales">${fmt(s.totalSales)}</div>
-        <div style="font-size:11px;color:#888">${s.records.length} deals</div>
+  } else {
+    list.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:8px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
+        <span>Rep</span><span>Role</span><span>Sales</span><span>Commission</span><span></span>
+      </div>` +
+    data.summary.map(s => `
+      <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:12px 0;border-bottom:1px solid #f0e8e4;align-items:center">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#2A2B29">${s.user.name}</div>
+          <div style="font-size:11px;color:#888">${s.records.length} deals</div>
+        </div>
+        <div class="rep-role">${s.role}</div>
+        <div style="font-size:14px;font-weight:700;color:#2A2B29">${fmt(s.totalSales)}</div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.commission)}</div>
+          ${s.role === 'leader' && s.totalOverride > 0 ? '<div style="font-size:11px;color:#27AE60">+' + fmt(s.totalOverride) + ' override</div>' : ''}
+        </div>
+        <button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g, "\'")}')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button>
       </div>
-      <div class="rep-commission">${fmt(s.commission)}</div>
+    `).join('');
+  }
+
+  // Rep settings - role and leader assignment
+  const usersRes = await fetch('/api/admin/users');
+  const users = await usersRes.json();
+  const leaders = users.filter(u => u.role === 'leader');
+  document.getElementById('repSettings').innerHTML = users.map(u => `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center">
+      <div style="font-size:13px;font-weight:700;color:#2A2B29">${u.name}</div>
+      <select onchange="setRole(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+        <option value="standard" ${u.role === 'standard' ? 'selected' : ''}>Standard</option>
+        <option value="leader" ${u.role === 'leader' ? 'selected' : ''}>Leader</option>
+      </select>
+      <select onchange="setLeader(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+        <option value="">No Leader</option>
+        ${leaders.filter(l => l.id !== u.id).map(l => `<option value="${l.id}" ${u.leader_id === l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+      </select>
     </div>
   `).join('');
+}
+
+async function setRole(userId, role) {
+  await fetch('/api/admin/users/' + userId + '/role', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role })
+  });
+  loadAdminPanel();
+}
+
+async function setLeader(userId, leaderId) {
+  await fetch('/api/admin/users/' + userId + '/leader', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leader_id: leaderId || null })
+  });
+  loadAdminPanel();
 }
 
 loadSummary();
