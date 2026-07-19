@@ -442,8 +442,7 @@ async function uploadInvoice() {
 }
 
 loadSummary();
-}
-
+loadInvoiceSummary();
 async function deleteSale(id) {
   if (!confirm('Remove this sale record?')) return;
   await fetch('/api/commission/records/' + id, { method: 'DELETE' });
