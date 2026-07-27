@@ -1159,14 +1159,22 @@ app.post('/api/calendly-webhook', async (req, res) => {
 
       // Create item in Monday.com DISCOVERY CALLS group
       try {
+        // Parse start time properly
+        const bookingDate = startTime ? new Date(startTime) : new Date();
+        const dateStr = bookingDate.toISOString().split('T')[0];
+        const timeStr = bookingDate.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', timeZone: 'Australia/Brisbane' });
+        const dateTimeReadable = bookingDate.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Brisbane' }) + ' at ' + timeStr;
+
         const colVals = {
           [monday.COLS.email]: { email, text: email },
           [monday.COLS.status]: { label: 'DC - CALENDLY' },
-          [monday.COLS.source]: { label: 'CALENDLY' },
-          [monday.COLS.arrival]: { date: startTime ? startTime.split('T')[0] : new Date().toISOString().split('T')[0] }
+          [monday.COLS.source]: { label: 'WEBSITE ENQUIRIES' },
+          [monday.COLS.arrival]: { date: dateStr },
+          [monday.COLS.notes]: `Calendly booking: ${dateTimeReadable}\nClient email: ${email}${phone ? '\nPhone: ' + phone : ''}`,
         };
         if (phone) colVals[monday.COLS.phone] = { phone, countryShortName: 'AU' };
         if (salespersonItemId) colVals[monday.COLS.salesperson] = { item_ids: [salespersonItemId] };
+        if (repName) colVals['dropdown_mm5cb995'] = { labels: [repName] };
 
         const columnValues = JSON.stringify(colVals);
         const discGroupId = await monday.getGroupId(monday.BOARDS.negotiations, 'DISCOVERY CALLS');
@@ -1176,11 +1184,11 @@ app.post('/api/calendly-webhook', async (req, res) => {
               create_item(
                 board_id: ${monday.BOARDS.negotiations},
                 group_id: "${discGroupId}",
-                item_name: "${name.replace(/"/g, '\"')}",
+                item_name: "${name.replace(/"/g, '\\"')}",
                 column_values: ${JSON.stringify(columnValues)}
               ) { id }
             }`);
-          console.log('Calendly lead created:', name, '→ assigned to:', repName || 'unassigned');
+          console.log('Calendly lead created:', name, '→', repName || 'unassigned', '@ ', dateTimeReadable);
         }
       } catch(e) {
         console.error('Calendly Monday error:', e.message);

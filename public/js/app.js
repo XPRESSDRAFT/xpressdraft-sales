@@ -576,8 +576,17 @@ function renderLeads(leads) {
   let html = '';
   groupOrder.forEach(gTitle => {
     if (activeGroupFilter !== 'ALL' && gTitle !== activeGroupFilter) return;
-    const items = groups[gTitle];
+    let items = groups[gTitle];
     if (!items || items.length === 0) return;
+    // Sort newest first by arrival date, fallback to name
+    items = items.sort((a, b) => {
+      if (a.arrival && b.arrival) {
+        const da = a.arrival.split('/').reverse().join('-');
+        const db = b.arrival.split('/').reverse().join('-');
+        return db.localeCompare(da);
+      }
+      return 0;
+    });
     const stageInfo = STAGE_LABELS[gTitle] || { label: gTitle, color: '#888' };
     html += '<div class="lead-group">' +
       '<div class="lead-group-title" style="color:' + stageInfo.color + '">' + stageInfo.label + ' <span class="lead-count" style="background:' + stageInfo.color + '">' + items.length + '</span></div>' +
