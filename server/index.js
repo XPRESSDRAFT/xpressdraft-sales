@@ -592,37 +592,43 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
     const commission = calcCommission(totalSales, user.role || 'standard');
 
-    // Get sent proposals count — query both Follow Up and Sent Proposals groups
-    let sentProposals = 0;
-    const allClosedDeals = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
-    const totalClosed = allClosedDeals.reduce((sum, r) => sum + r.sale_amount, 0);
+    // Get all stats from Monday.com automatically
+    const repName = user.monday_name || user.name;
+    let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
     try {
-      const repName = user.monday_name || user.name;
-      const proposalData = await monday.query(`
-        query {
-          boards(ids: ["18389820785"]) {
-            groups(ids: ["group_mkxzcgkr", "group_mky78qcz"]) {
-              items_page(limit: 200) {
-                items {
-                  id
-                  column_values(ids: ["dropdown_mm5c51r2"]) { id text value }
-                }
-              }
-            }
-          }
-        }`);
-      const groups = proposalData?.boards?.[0]?.groups || [];
-      const allItems = groups.flatMap(g => g.items_page?.items || []);
-      sentProposals = allItems.filter(item => {
-        const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
-        const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
-        return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
-      }).length;
-      console.log('Sent proposals for', repName, ':', sentProposals);
-    } catch(e) { console.error('Sent proposals error:', e.message); }
+      mondayStats = await monday.getRepStatsFromMonday(repName);
+      console.log('Monday stats for', repName, ':', JSON.stringify(mondayStats));
+    } catch(e) { console.error('Monday stats error:', e.message); }
 
-    const conversionRate = sentProposals > 0 ? Math.round((allClosedDeals.length / sentProposals) * 100) : 0;
-    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard', sentProposals, closedDeals: allClosedDeals.length, totalClosed, conversionRate });
+    // If leader, get sub-rep dashboards
+    let subReps = [];
+    if (user.role === 'leader') {
+      const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+      for (const rep of assignedReps) {
+        const subRepName = rep.monday_name || rep.name;
+        let subStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+        try { subStats = await monday.getRepStatsFromMonday(subRepName); } catch(e) {}
+        const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
+        const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+        const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
+        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: subTotalSales * 0.02, ...subStats });
+      }
+    }
+
+    res.json({
+      records,
+      totalSales,
+      commission,
+      weekStart,
+      role: user.role || 'standard',
+      sentProposals: mondayStats.sentProposals,
+      sentValue: mondayStats.sentValue,
+      closedDeals: mondayStats.closedDeals,
+      closedValue: mondayStats.closedValue,
+      conversionRate: mondayStats.conversionRate,
+      totalClosed: mondayStats.closedValue,
+      subReps,
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -701,7 +707,13 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
           totalOverride += repSales * 0.02;
         }
       }
-      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard' });
+      // Get Monday.com stats
+      let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+      try {
+        const repName = user.monday_name || user.name;
+        mondayStats = await monday.getRepStatsFromMonday(repName);
+      } catch(e) {}
+      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard', ...mondayStats });
     }
     res.json({ summary, weekStart: isCustom ? `${fromDate} → ${toDate}` : weekStart });
   } catch(e) {

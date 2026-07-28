@@ -12,9 +12,10 @@ const BOARDS = {
 
 // Group IDs on 26_3 Proposal board
 const PROPOSAL_GROUPS = {
-  new_requests:   'group_mkxz6tw3',
-  sent_proposals: 'group_mkxzcgkr',
-  follow_up:      'group_mky78qcz',
+  new_requests:    'group_mkxz6tw3',
+  sent_proposals:  'group_mkxzcgkr',
+  follow_up:       'group_mky78qcz',
+  started_projects: 'group_mky4ey72',
 };
 
 // Column IDs on 26_2 Negotiations board
@@ -466,6 +467,7 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 module.exports = {
   getLeadsForRep,
+  getRepStatsFromMonday,
   getProposalFollowUpLeads,
   moveToSentProposals,
   PROPOSAL_GROUPS,

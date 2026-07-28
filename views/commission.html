@@ -181,6 +181,14 @@
     <div style="font-size:12px;color:#888;margin-top:4px">Own commission + team override</div>
   </div>
 
+  <!-- Sub-rep dashboards (leaders only) -->
+  <div id="subRepsPanel" style="display:none;margin-bottom:24px">
+    <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #EA672F">
+      👥 My Team Dashboards
+    </div>
+    <div id="subRepsList"></div>
+  </div>
+
   <!-- Invoice section -->
   <div class="records-card" id="invoiceSection">
     <div class="records-title">
@@ -326,7 +334,7 @@ async function loadSummary(userId = null) {
   } catch(e) { console.error('loadSummary error:', e.message); return; }
   if (!data || data.error) { console.error('loadSummary data error:', data?.error); return; }
 
-  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, closedDeals, totalClosed, conversionRate } = data;
+  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps } = data;
   const isAdmin = !!userId;
 
   // Week dates
@@ -352,7 +360,7 @@ async function loadSummary(userId = null) {
   const convRate = document.getElementById('conversionRate');
   const convSub = document.getElementById('conversionSub');
   if (convRate) convRate.textContent = (conversionRate || 0) + '%';
-  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' proposals sent · ' + fmt(totalClosed || 0) + ' total';
+  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' sent · ' + fmt(closedValue || totalClosed || 0) + ' closed · ' + fmt(sentValue || 0) + ' sent';
   document.getElementById('commissionRate').textContent = 'at ' + currentTier.rate + ' rate';
 
   // Tier bar
@@ -374,6 +382,45 @@ async function loadSummary(userId = null) {
         <button class="record-delete" onclick="${isAdmin ? 'adminDeleteSale(' + r.id + ')' : 'deleteSale(' + r.id + ')'}" title="Remove">✕</button>
       </div>
     `).join('');
+  }
+
+  // Show sub-rep dashboards for leaders
+  const subRepsPanel = document.getElementById('subRepsPanel');
+  const subRepsList = document.getElementById('subRepsList');
+  if (subReps && subReps.length > 0 && subRepsPanel && subRepsList) {
+    subRepsPanel.style.display = 'block';
+    subRepsList.innerHTML = subReps.map(rep => {
+      const { currentTier } = getTierInfo(rep.totalSales, rep.role || 'standard');
+      return `<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;border:1.5px solid #e0d9d5">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">${rep.user.name}</div>
+          <span style="font-size:11px;background:#f0e8e4;color:#888;padding:2px 8px;border-radius:10px;font-weight:700;text-transform:uppercase">${rep.role || 'standard'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          <div style="background:#faf7f5;border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Proposals Sent</div>
+            <div style="font-size:18px;font-weight:800;color:#2A2B29">${rep.sentProposals || 0}</div>
+            <div style="font-size:11px;color:#888">${fmt(rep.sentValue || 0)}</div>
+          </div>
+          <div style="background:#faf7f5;border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Closed</div>
+            <div style="font-size:18px;font-weight:800;color:#27AE60">${rep.closedDeals || 0}</div>
+            <div style="font-size:11px;color:#888">${fmt(rep.closedValue || 0)}</div>
+          </div>
+          <div style="background:#faf7f5;border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Conversion</div>
+            <div style="font-size:18px;font-weight:800;color:#EA672F">${rep.conversionRate || 0}%</div>
+          </div>
+          <div style="background:#2A2B29;border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Your Override</div>
+            <div style="font-size:18px;font-weight:800;color:#EA672F">+${fmt(rep.overrideCommission || 0)}</div>
+            <div style="font-size:11px;color:#888">2% on their sales</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } else if (subRepsPanel) {
+    subRepsPanel.style.display = 'none';
   }
 
   // Show leader override section
@@ -524,7 +571,7 @@ async function viewAs(userId, name) {
   const convRate = document.getElementById('conversionRate');
   const convSub = document.getElementById('conversionSub');
   if (convRate) convRate.textContent = (conversionRate || 0) + '%';
-  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' proposals sent · ' + fmt(totalClosed || 0) + ' total';
+  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' sent · ' + fmt(closedValue || totalClosed || 0) + ' closed · ' + fmt(sentValue || 0) + ' sent';
   let html = `
     <div class="stats" style="margin-bottom:16px">
       <div class="stat-card"><div class="stat-label">Sales</div><div class="stat-value orange">${fmt(totalSales)}</div><div class="stat-sub">${records.length} deals</div></div>
