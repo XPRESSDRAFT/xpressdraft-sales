@@ -465,6 +465,58 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
   return data?.create_item?.id || null;
 }
 
+// ── Get rep commission stats from Monday.com ─────────────────────────────────
+async function getRepStatsFromMonday(repName) {
+  const data = await query(`
+    query {
+      boards(ids: ["18389820785"]) {
+        groups(ids: ["group_mkxzcgkr", "group_mky78qcz", "group_mky4ey72"]) {
+          id
+          title
+          items_page(limit: 500) {
+            items {
+              id
+              name
+              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv"]) {
+                id text value
+              }
+            }
+          }
+        }
+      }
+    }`);
+
+  const groups = data?.boards?.[0]?.groups || [];
+  const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  function matchesRep(item) {
+    const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+    return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+  }
+
+  function getAmount(item) {
+    const val = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
+    return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+  }
+
+  let sentProposals = 0, sentValue = 0, closedDeals = 0, closedValue = 0;
+
+  for (const group of groups) {
+    const items = group.items_page?.items || [];
+    const repItems = items.filter(matchesRep);
+    if (group.id === 'group_mky4ey72') {
+      closedDeals = repItems.length;
+      closedValue = repItems.reduce((sum, i) => sum + getAmount(i), 0);
+    } else {
+      sentProposals += repItems.length;
+      sentValue += repItems.reduce((sum, i) => sum + getAmount(i), 0);
+    }
+  }
+
+  const conversionRate = sentProposals > 0 ? Math.round((closedDeals / sentProposals) * 100) : 0;
+  return { sentProposals, sentValue, closedDeals, closedValue, conversionRate };
+}
+
 module.exports = {
   getLeadsForRep,
   getRepStatsFromMonday,
