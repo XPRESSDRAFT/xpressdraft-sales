@@ -596,7 +596,7 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     const repName = user.monday_name || user.name;
     let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
     try {
-      mondayStats = await monday.getRepStatsFromMonday(repName);
+      mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       console.log('Monday stats for', repName, ':', JSON.stringify(mondayStats));
     } catch(e) { console.error('Monday stats error:', e.message); }
 
@@ -711,7 +711,7 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
       let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
       try {
         const repName = user.monday_name || user.name;
-        mondayStats = await monday.getRepStatsFromMonday(repName);
+        mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       } catch(e) {}
       summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard', ...mondayStats });
     }

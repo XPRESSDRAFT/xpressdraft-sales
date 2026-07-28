@@ -466,8 +466,8 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 }
 
 // ── Get rep commission stats from Monday.com ─────────────────────────────────
-async function getRepStatsFromMonday(repName) {
-  console.log('getRepStatsFromMonday called for:', repName);
+async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
+  console.log('getRepStatsFromMonday called for:', repName, fromDate ? `(${fromDate} to ${toDate})` : '(all time)');
   const data = await query(`
     query {
       boards(ids: ["18389820785"]) {
@@ -478,7 +478,7 @@ async function getRepStatsFromMonday(repName) {
             items {
               id
               name
-              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv"]) {
+              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv", "date_mm3gx943"]) {
                 id text value
               }
             }
@@ -488,18 +488,24 @@ async function getRepStatsFromMonday(repName) {
     }`);
 
   const groups = data?.boards?.[0]?.groups || [];
-  console.log('Proposal groups found:', groups.map(g => g.title + ':' + (g.items_page?.items?.length || 0)).join(', '));
   const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
 
   function matchesRep(item) {
     const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
-    const match = repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
-    return match;
+    return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
   }
 
-  // Log first 3 items to see dropdown values
-  const allItems = groups.flatMap(g => g.items_page?.items || []);
-  console.log('Total proposal items:', allItems.length, '| Sample dropdowns:', allItems.slice(0,3).map(i => i.name + ':' + (i.column_values?.find(c=>c.id==='dropdown_mm5c51r2')?.text||'empty')).join(', '));
+  function matchesDateRange(item) {
+    if (!fromDate || !toDate) return true;
+    const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || '';
+    if (!dateCol) return false;
+    let itemDate = dateCol;
+    if (dateCol.includes('/')) {
+      const parts = dateCol.split('/');
+      itemDate = parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+    return itemDate >= fromDate && itemDate <= toDate;
+  }
 
   function getAmount(item) {
     const val = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
@@ -512,8 +518,9 @@ async function getRepStatsFromMonday(repName) {
     const items = group.items_page?.items || [];
     const repItems = items.filter(matchesRep);
     if (group.id === 'group_mky4ey72') {
-      closedDeals = repItems.length;
-      closedValue = repItems.reduce((sum, i) => sum + getAmount(i), 0);
+      const filtered = fromDate ? repItems.filter(matchesDateRange) : repItems;
+      closedDeals = filtered.length;
+      closedValue = filtered.reduce((sum, i) => sum + getAmount(i), 0);
     } else {
       sentProposals += repItems.length;
       sentValue += repItems.reduce((sum, i) => sum + getAmount(i), 0);
