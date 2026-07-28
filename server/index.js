@@ -651,32 +651,59 @@ app.delete('/api/commission/records/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Admin: get all reps commission summary for current week
+// Admin: get all sales records with optional date range
+app.get('/api/admin/all-sales', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
+    let sales;
+    if (fromDate && toDate) {
+      sales = await dbAll(`
+        SELECT c.*, u.name as rep_name 
+        FROM commission_records c JOIN users u ON c.user_id = u.id 
+        WHERE DATE(c.created_at) >= ? AND DATE(c.created_at) <= ?
+        ORDER BY c.created_at DESC`, [fromDate, toDate]);
+    } else {
+      sales = await dbAll(`
+        SELECT c.*, u.name as rep_name 
+        FROM commission_records c JOIN users u ON c.user_id = u.id 
+        ORDER BY c.created_at DESC`);
+    }
+    res.json({ summary: [{ records: sales, user: { name: 'All' }, totalSales: sales.reduce((s,r) => s + r.sale_amount, 0) }], sales });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all reps commission summary — supports week or custom date range
 app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => {
   try {
     const weekStart = req.query.week || getWeekStart();
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
+    const isCustom = fromDate && toDate;
     const users = await dbAll('SELECT * FROM users');
     const summary = [];
     for (const user of users) {
-      const records = await dbAll(
-        'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
-        [user.id, weekStart]
-      );
+      const records = isCustom
+        ? await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?', [user.id, fromDate, toDate])
+        : await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [user.id, weekStart]);
       const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
       const commission = calcCommission(totalSales, user.role || 'standard');
-      // If leader, calculate override
       let totalOverride = 0;
       if (user.role === 'leader') {
         const reps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
         for (const rep of reps) {
-          const repRecs = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
+          const repRecs = isCustom
+            ? await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?', [rep.id, fromDate, toDate])
+            : await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
           const repSales = repRecs.reduce((sum, r) => sum + r.sale_amount, 0);
           totalOverride += repSales * 0.02;
         }
       }
       summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard' });
     }
-    res.json({ summary, weekStart });
+    res.json({ summary, weekStart: isCustom ? `${fromDate} → ${toDate}` : weekStart });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

@@ -135,11 +135,17 @@
   <!-- COMMISSION TAB -->
   <div id="tab-commission" class="tab-panel">
     <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div class="section-title" style="margin-bottom:0">Team Commission Overview</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <label style="font-size:12px;color:#888">Week:</label>
-          <input type="date" id="adminWeekPicker" onchange="loadCommissionTab()" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button onclick="setAdminDateMode('week')" id="adminBtnWeek" style="background:#EA672F;color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">This Week</button>
+          <button onclick="setAdminDateMode('custom')" id="adminBtnCustom" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Custom Range</button>
+          <div id="adminCustomRange" style="display:none;align-items:center;gap:6px">
+            <input type="date" id="adminDateFrom" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
+            <span style="font-size:12px;color:#888">to</span>
+            <input type="date" id="adminDateTo" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
+            <button onclick="applyAdminRange()" style="background:#2A2B29;color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Apply</button>
+          </div>
           <button onclick="loadCommissionTab()" class="btn btn-ghost btn-sm">↻ Refresh</button>
         </div>
       </div>
@@ -209,12 +215,14 @@
     </div>
 
     <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div class="section-title" style="margin-bottom:0">All Sales This Week</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <label style="font-size:12px;color:#888">Week:</label>
-          <input type="date" id="salesWeekPicker" onchange="loadAllSales()" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
-          <button onclick="loadAllSales()" class="btn btn-ghost btn-sm">↻ Refresh</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div class="section-title" style="margin-bottom:0">All Sales</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="salesDateFrom" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+          <span style="font-size:12px;color:#888">to</span>
+          <input type="date" id="salesDateTo" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
+          <button onclick="loadAllSales()" class="btn btn-orange btn-sm">Apply</button>
+          <button onclick="document.getElementById('salesDateFrom').value='';document.getElementById('salesDateTo').value='';loadAllSales()" class="btn btn-ghost btn-sm">All Time</button>
         </div>
       </div>
       <div id="allSalesList"><p style="color:#888;font-size:13px">Loading...</p></div>
@@ -325,9 +333,32 @@ function showTab(name) {
 
 const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+var _adminDateMode = 'week';
+var _adminDateFrom = null;
+var _adminDateTo = null;
+
+function setAdminDateMode(mode) {
+  _adminDateMode = mode;
+  document.getElementById('adminBtnWeek').style.background = mode === 'week' ? '#EA672F' : '#fff';
+  document.getElementById('adminBtnWeek').style.color = mode === 'week' ? '#fff' : '#2A2B29';
+  document.getElementById('adminBtnCustom').style.background = mode === 'custom' ? '#EA672F' : '#fff';
+  document.getElementById('adminBtnCustom').style.color = mode === 'custom' ? '#fff' : '#2A2B29';
+  document.getElementById('adminCustomRange').style.display = mode === 'custom' ? 'flex' : 'none';
+  if (mode === 'week') { _adminDateFrom = null; _adminDateTo = null; loadCommissionTab(); }
+}
+
+function applyAdminRange() {
+  _adminDateFrom = document.getElementById('adminDateFrom').value;
+  _adminDateTo = document.getElementById('adminDateTo').value;
+  if (!_adminDateFrom || !_adminDateTo) { alert('Please select both dates'); return; }
+  loadCommissionTab();
+}
+
 async function loadCommissionTab() {
-  const week = document.getElementById('adminWeekPicker')?.value || '';
-  const url = '/api/admin/commission' + (week ? '?week=' + week : '');
+  let url = '/api/admin/commission';
+  if (_adminDateMode === 'custom' && _adminDateFrom && _adminDateTo) {
+    url += '?from=' + _adminDateFrom + '&to=' + _adminDateTo;
+  }
   const res = await fetch(url);
   if (!res.ok) { document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Failed to load commission data.</p>'; return; }
   const data = await res.json();
@@ -612,42 +643,54 @@ async function addMgrSale() {
   const client = document.getElementById('saleMgrClient').value.trim();
   const type = document.getElementById('saleMgrType').value;
   const amount = document.getElementById('saleMgrAmount').value;
+  if (!repId) { alert('Please select a rep'); return; }
   if (!client || !amount) { alert('Enter client name and amount'); return; }
-  const res = await fetch('/api/admin/commission/' + repId + '/records', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_name: client, project_type: type, sale_amount: amount })
-  });
-  const data = await res.json();
-  if (data.ok) {
-    document.getElementById('saleMgrClient').value = '';
-    document.getElementById('saleMgrAmount').value = '';
-    const t = document.getElementById('toast'); t.textContent = 'Sale recorded'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
-    loadAllSales();
+  try {
+    const res = await fetch('/api/admin/commission/' + repId + '/records', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_name: client, project_type: type, sale_amount: amount })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('saleMgrClient').value = '';
+      document.getElementById('saleMgrAmount').value = '';
+      const t = document.getElementById('toast'); t.textContent = 'Sale recorded ✓'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+      loadAllSales();
+    } else {
+      alert('Error saving sale: ' + (data.error || 'unknown'));
+    }
+  } catch(e) {
+    alert('Failed: ' + e.message);
   }
 }
 
 async function loadAllSales() {
-  const week = document.getElementById('salesWeekPicker')?.value || '';
-  const url = '/api/admin/commission' + (week ? '?week=' + week : '');
+  const from = document.getElementById('salesDateFrom')?.value || '';
+  const to = document.getElementById('salesDateTo')?.value || '';
+  let url = '/api/admin/all-sales';
+  if (from && to) url += '?from=' + from + '&to=' + to;
   const res = await fetch(url);
   const data = await res.json();
   const container = document.getElementById('allSalesList');
-  if (!data.summary) { container.innerHTML = '<p style="color:#c00">Failed to load.</p>'; return; }
-  const allRecords = [];
-  data.summary.forEach(s => s.records.forEach(r => allRecords.push({ ...r, repName: s.user.name })));
-  if (!allRecords.length) { container.innerHTML = '<p style="color:#888;font-size:13px">No sales recorded this week.</p>'; return; }
-  allRecords.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  container.innerHTML = allRecords.map(r =>
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center;font-size:13px">' +
-    '<span style="font-weight:700">' + r.repName + '</span>' +
-    '<span>' + r.client_name + '</span>' +
-    '<span style="color:#888">' + (r.project_type || '-') + '</span>' +
-    '<span style="font-weight:700;color:#27AE60">' + fmt(r.sale_amount) + '</span>' +
-    '<button onclick="deleteMgrSale(' + r.id + ')" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">x</button>' +
-    '</div>'
-  ).join('');
+  if (!data.sales || !data.sales.length) {
+    container.innerHTML = '<p style="color:#888;font-size:13px">No sales recorded yet.</p>';
+    return;
+  }
+  const total = data.sales.reduce((s, r) => s + r.sale_amount, 0);
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:6px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
+      <span>Rep</span><span>Client</span><span>Type</span><span>Amount</span><span></span>
+    </div>` +
+    data.sales.map(r => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center;font-size:13px">
+      <span style="font-weight:700">${r.rep_name}</span>
+      <span>${r.client_name}</span>
+      <span style="color:#888">${r.project_type || '—'}</span>
+      <span style="font-weight:700;color:#27AE60">${fmt(r.sale_amount)}</span>
+      <button onclick="deleteMgrSale(${r.id})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">✕</button>
+    </div>`).join('') +
+    `<div style="padding:10px 0;font-size:13px;font-weight:700;text-align:right;color:#EA672F;border-top:2px solid #f0e8e4">Total: ${fmt(total)}</div>`;
 }
-
 async function deleteMgrSale(id) {
   if (!confirm('Remove this sale?')) return;
   await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });

@@ -591,12 +591,15 @@ function renderLeads(leads) {
     html += '<div class="lead-group">' +
       '<div class="lead-group-title" style="color:' + stageInfo.color + '">' + stageInfo.label + ' <span class="lead-count" style="background:' + stageInfo.color + '">' + items.length + '</span></div>' +
       items.map(l => 
-        '<div class="lead-card" data-id="' + l.monday_id + '" onclick="openLead(&quot;' + l.monday_id + '&quot;)">' +
+        '<div class="lead-card" data-id="' + l.monday_id + '">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
-        '<div class="lead-name">' + esc(l.name) + '</div>' +
+        '<div class="lead-name" onclick="openLead(&quot;' + l.monday_id + '&quot;)" style="cursor:pointer;flex:1">' + esc(l.name) + '</div>' +
         '<span style="font-size:10px;font-weight:700;color:' + stageInfo.color + ';background:' + stageInfo.color + '18;padding:2px 8px;border-radius:10px">' + stageInfo.label + '</span>' +
         '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">' +
         '<div class="lead-meta">' + esc(l.address || '') + (l.phone ? ' · ' + esc(l.phone) : '') + '</div>' +
+        '<button onclick="callNow(&quot;' + l.monday_id + '&quot;)" style="background:#EA672F;color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:8px">📞 Call Now</button>' +
+        '</div>' +
         (l.source ? '<div class="lead-source">' + esc(l.source) + '</div>' : '') +
         '</div>'
       ).join('') +
@@ -605,6 +608,37 @@ function renderLeads(leads) {
 
   if (!html) html = '<p style="color:#888;padding:20px">No leads assigned to you yet.</p>';
   container.innerHTML = html;
+}
+
+function callNow(mondayId) {
+  // Pre-fill call form and close My Leads panel
+  const lead = leadsData ? leadsData.find(l => l.monday_id === mondayId) : null;
+  if (!lead) { openLead(mondayId); return; }
+
+  // Set state
+  state.mondayId = mondayId;
+
+  // Pre-fill call form fields
+  if ($('#cName')) $('#cName').value = lead.name;
+  if ($('#cPhone')) $('#cPhone').value = lead.phone || '';
+  if ($('#cEmail')) $('#cEmail').value = lead.email || '';
+  if ($('#cAddr')) $('#cAddr').value = lead.address || '';
+  if ($('#cDate')) $('#cDate').value = new Date().toISOString().slice(0, 10);
+
+  // Pre-fill call notes from rep notes
+  const callNotesField = document.querySelector('[data-f="notes"]');
+  if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
+
+  // Update editing label
+  if ($('#editingName')) $('#editingName').textContent = lead.name;
+
+  // Close My Leads panel
+  document.getElementById('leadsPanel').style.display = 'none';
+
+  // Scroll to top of call form
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  toast('Calling ' + lead.name + ' — form pre-filled');
 }
 
 function openLead(mondayId) {
