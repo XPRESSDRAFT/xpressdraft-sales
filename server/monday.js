@@ -467,6 +467,7 @@ async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
 
 // ── Get rep commission stats from Monday.com ─────────────────────────────────
 async function getRepStatsFromMonday(repName) {
+  console.log('getRepStatsFromMonday called for:', repName);
   const data = await query(`
     query {
       boards(ids: ["18389820785"]) {
@@ -487,12 +488,18 @@ async function getRepStatsFromMonday(repName) {
     }`);
 
   const groups = data?.boards?.[0]?.groups || [];
+  console.log('Proposal groups found:', groups.map(g => g.title + ':' + (g.items_page?.items?.length || 0)).join(', '));
   const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
 
   function matchesRep(item) {
     const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
-    return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+    const match = repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+    return match;
   }
+
+  // Log first 3 items to see dropdown values
+  const allItems = groups.flatMap(g => g.items_page?.items || []);
+  console.log('Total proposal items:', allItems.length, '| Sample dropdowns:', allItems.slice(0,3).map(i => i.name + ':' + (i.column_values?.find(c=>c.id==='dropdown_mm5c51r2')?.text||'empty')).join(', '));
 
   function getAmount(item) {
     const val = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
