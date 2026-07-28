@@ -329,10 +329,20 @@ async function loadSummary(userId = null) {
   let data;
   try {
     const res = await fetch(url);
-    if (!res.ok) { console.error('loadSummary HTTP error:', res.status); return; }
+    if (!res.ok) {
+      const errText = await res.text();
+      document.getElementById('weekDates').textContent = 'Error ' + res.status + ': ' + errText.slice(0, 100);
+      return;
+    }
     data = await res.json();
-  } catch(e) { console.error('loadSummary error:', e.message); return; }
-  if (!data || data.error) { console.error('loadSummary data error:', data?.error); return; }
+  } catch(e) {
+    document.getElementById('weekDates').textContent = 'Fetch error: ' + e.message;
+    return;
+  }
+  if (!data || data.error) {
+    document.getElementById('weekDates').textContent = 'Data error: ' + (data?.error || 'unknown');
+    return;
+  }
 
   const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps } = data;
   const isAdmin = !!userId;
