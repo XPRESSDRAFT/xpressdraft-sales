@@ -381,7 +381,7 @@ async function loadCommissionTab() {
           <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.commission)}</div>
           ${s.role === 'leader' && s.totalOverride > 0 ? '<div style="font-size:11px;color:#27AE60">+' + fmt(s.totalOverride) + ' override</div>' : ''}
         </div>
-        <button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', '${week}')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button>
+        <button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button>
       </div>`).join('');
 
   // Load rep settings
@@ -406,13 +406,17 @@ async function loadCommissionTab() {
   }
 }
 
-async function viewAs(userId, name, week) {
+async function viewAs(userId, name, dateRange) {
   window._viewingUserId = userId;
   window._viewingName = name;
   const section = document.getElementById('viewAsSection');
   section.style.display = 'block';
   document.getElementById('viewAsName').textContent = name;
-  const url = '/api/admin/commission/' + userId + (week ? '?week=' + week : '');
+  let url = '/api/admin/commission/' + userId;
+  if (dateRange && dateRange.includes(',')) {
+    const [from, to] = dateRange.split(',');
+    url += '?from=' + from + '&to=' + to;
+  }
   const res = await fetch(url);
   const data = await res.json();
   const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings } = data;
@@ -489,7 +493,8 @@ function closeViewAs() {
 async function adminDeleteSale(id) {
   if (!confirm('Remove this sale record?')) return;
   await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
-  viewAs(window._viewingUserId, window._viewingName, document.getElementById('adminWeekPicker')?.value || '');
+  const dateRange = _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '';
+  viewAs(window._viewingUserId, window._viewingName, dateRange);
 }
 
 async function adminAddSale(userId) {
@@ -500,7 +505,8 @@ async function adminAddSale(userId) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_name: client, sale_amount: amount })
   });
-  viewAs(userId, window._viewingName, document.getElementById('adminWeekPicker')?.value || '');
+  const dateRange = _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '';
+  viewAs(userId, window._viewingName, dateRange);
 }
 
 async function setRole(userId, role) {
