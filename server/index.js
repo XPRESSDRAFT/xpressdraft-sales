@@ -500,12 +500,23 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
 
-    // Move lead from Negotiations to FOLLOW UP group on Proposal board
+    // Move lead from Negotiations to SENT PROPOSALS on Proposal board
     const mondayLeadId = rec.monday_id || parsedData.monday_id;
     if (mondayLeadId) {
       try {
-        await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.follow_up);
-        console.log('Lead moved to Proposal FOLLOW UP:', mondayLeadId);
+        await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
+        console.log('Lead moved to SENT PROPOSALS:', mondayLeadId);
+        // Set rep dropdown on Proposal board so stats filter correctly
+        const repName = user.monday_name || user.name;
+        await monday.query(`
+          mutation {
+            change_simple_column_value(
+              board_id: ${monday.BOARDS.proposal},
+              item_id: ${mondayLeadId},
+              column_id: "dropdown_mm5c51r2",
+              value: "${repName}"
+            ) { id }
+          }`).catch(e => console.error('Set rep dropdown error:', e.message));
         await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
       } catch(e) {
         console.error('Monday proposal move error:', e.message);

@@ -192,13 +192,16 @@ async function moveToGroup(boardId, itemId, groupId) {
 
 // ── Move item to a different board ───────────────────────────────────────────
 async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) {
+  console.log('moveToBoard:', itemId, '->', targetBoardId, '/', targetGroupId);
   const data = await query(`
     mutation($itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
       move_item_to_board(item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
         id
       }
-    }`, { itemId, targetBoardId, groupId: targetGroupId });
-  return data?.move_item_to_board?.id;
+    }`, { itemId: String(itemId), targetBoardId: String(targetBoardId), groupId: targetGroupId });
+  const newId = data?.move_item_to_board?.id;
+  console.log('moveToBoard result:', newId || 'FAILED - no id returned', data?.errors || '');
+  return newId;
 }
 
 // ── Get Follow Up leads from Proposal board ──────────────────────────────────
