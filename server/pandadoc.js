@@ -356,6 +356,9 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
+    sender: {
+      email: repEmail || 'info@xpressdraft.com.au'
+    },
     recipients: [
       {
         email: clientEmail || '',

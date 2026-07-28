@@ -504,17 +504,20 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     const mondayLeadId = rec.monday_id || parsedData.monday_id;
     if (mondayLeadId) {
       try {
-        await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
-        console.log('Lead moved to SENT PROPOSALS:', mondayLeadId);
-        // Set rep dropdown on Proposal board so stats filter correctly
+        const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
+        console.log('Lead moved to SENT PROPOSALS, new item ID:', newItemId);
+        // Set rep dropdown on Proposal board using the new item ID
         const repName = user.monday_name || user.name;
+        const targetId = newItemId || mondayLeadId;
+        // Dropdown columns require JSON value format
+        const dropdownValue = JSON.stringify({ labels: [repName] });
         await monday.query(`
           mutation {
-            change_simple_column_value(
+            change_column_value(
               board_id: ${monday.BOARDS.proposal},
-              item_id: ${mondayLeadId},
+              item_id: ${targetId},
               column_id: "dropdown_mm5c51r2",
-              value: "${repName}"
+              value: ${JSON.stringify(dropdownValue)}
             ) { id }
           }`).catch(e => console.error('Set rep dropdown error:', e.message));
         await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);

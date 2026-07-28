@@ -338,7 +338,18 @@ function applyCustomRange() {
 
 async function loadSummary(userId = null) {
   let url = userId ? '/api/admin/commission/' + userId : '/api/commission/summary';
-  if (_dateFrom && _dateTo && !userId) url += '?from=' + _dateFrom + '&to=' + _dateTo;
+  if (_dateFrom && _dateTo && !userId) {
+    url += '?from=' + _dateFrom + '&to=' + _dateTo;
+  } else if (_dateMode === 'week' && !userId) {
+    // Pass current week dates so Monday.com also filters by this week
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day >= 3 ? day - 3 : day + 4;
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - diff);
+    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
+    const fmt = d => d.toISOString().split('T')[0];
+    url += '?from=' + fmt(weekStart) + '&to=' + fmt(weekEnd);
+  }
   let data;
   try {
     const res = await fetch(url);

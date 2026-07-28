@@ -360,6 +360,15 @@ async function loadCommissionTab() {
   let url = '/api/admin/commission';
   if (_adminDateMode === 'custom' && _adminDateFrom && _adminDateTo) {
     url += '?from=' + _adminDateFrom + '&to=' + _adminDateTo;
+  } else {
+    // Pass current week dates
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day >= 3 ? day - 3 : day + 4;
+    const ws = new Date(now); ws.setDate(now.getDate() - diff);
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const fmtD = d => d.toISOString().split('T')[0];
+    url += '?from=' + fmtD(ws) + '&to=' + fmtD(we);
   }
   const res = await fetch(url);
   if (!res.ok) { document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Failed to load commission data.</p>'; return; }

@@ -492,6 +492,14 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
 
   const groups = data?.boards?.[0]?.groups || [];
   const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+  const allItemsFlat = groups.flatMap(g => g.items_page?.items || []);
+  console.log('getRepStatsFromMonday: repNameNorm=', repNameNorm, '| total items:', allItemsFlat.length);
+  // Log all unique dropdown values to diagnose matching
+  const dropdownVals = [...new Set(allItemsFlat.map(i => {
+    const col = i.column_values?.find(c => c.id === 'dropdown_mm5c51r2');
+    return (col?.text || 'EMPTY') + '|' + (col?.value || '');
+  }))];
+  console.log('All dropdown values:', dropdownVals.slice(0, 20).join(', '));
 
   function matchesRep(item) {
     const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
