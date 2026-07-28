@@ -500,18 +500,15 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
 
-    // Move lead to SENT PROPOSALS on 26_3 Proposal board
+    // Move lead from Negotiations to FOLLOW UP group on Proposal board
     const mondayLeadId = rec.monday_id || parsedData.monday_id;
     if (mondayLeadId) {
       try {
-        await monday.moveToSentProposals(mondayLeadId);
-        console.log('Lead moved to SENT PROPOSALS:', mondayLeadId);
-        // Update any pending request to sent
+        await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.follow_up);
+        console.log('Lead moved to Proposal FOLLOW UP:', mondayLeadId);
         await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
       } catch(e) {
-        console.error('Monday sent proposals error:', e.message);
-        // Fallback to follow up
-        try { await monday.moveToFollowUp(mondayLeadId); } catch(e2) {}
+        console.error('Monday proposal move error:', e.message);
       }
     }
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
@@ -574,17 +571,17 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
     const commission = calcCommission(totalSales, user.role || 'standard');
 
-    // Get sent proposals count from Monday.com
+    // Get sent proposals count — query both Follow Up and Sent Proposals groups
     let sentProposals = 0;
-    let closedDeals = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
-    let totalClosed = closedDeals.reduce((sum, r) => sum + r.sale_amount, 0);
+    const allClosedDeals = await dbAll('SELECT * FROM commission_records WHERE user_id = ?', [user.id]);
+    const totalClosed = allClosedDeals.reduce((sum, r) => sum + r.sale_amount, 0);
     try {
       const repName = user.monday_name || user.name;
       const proposalData = await monday.query(`
         query {
           boards(ids: ["18389820785"]) {
-            groups(ids: ["group_mkxzcgkr"]) {
-              items_page(limit: 100) {
+            groups(ids: ["group_mkxzcgkr", "group_mky78qcz"]) {
+              items_page(limit: 200) {
                 items {
                   id
                   column_values(ids: ["dropdown_mm5c51r2"]) { id text value }
@@ -593,16 +590,18 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
             }
           }
         }`);
-      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
-      sentProposals = sentItems.filter(item => {
+      const groups = proposalData?.boards?.[0]?.groups || [];
+      const allItems = groups.flatMap(g => g.items_page?.items || []);
+      sentProposals = allItems.filter(item => {
         const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
         const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
         return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
       }).length;
+      console.log('Sent proposals for', repName, ':', sentProposals);
     } catch(e) { console.error('Sent proposals error:', e.message); }
 
-    const conversionRate = sentProposals > 0 ? Math.round((closedDeals.length / sentProposals) * 100) : 0;
-    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard', sentProposals, closedDeals: closedDeals.length, totalClosed, conversionRate });
+    const conversionRate = sentProposals > 0 ? Math.round((allClosedDeals.length / sentProposals) * 100) : 0;
+    res.json({ records, totalSales, commission, weekStart, role: user.role || 'standard', sentProposals, closedDeals: allClosedDeals.length, totalClosed, conversionRate });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -681,12 +680,12 @@ app.get('/api/admin/pipeline', requireAuth, requireAdmin, async (req, res) => {
         stageCounts[g] = (stageCounts[g] || 0) + 1;
       });
 
-      // Get proposals sent from 26_3 Proposal board SENT PROPOSALS group
+      // Get proposals sent from 26_3 Proposal board - both Follow Up and Sent Proposals groups
       const proposalData = await monday.query(`
         query {
           boards(ids: ["18389820785"]) {
-            groups(ids: ["group_mkxzcgkr"]) {
-              items_page(limit: 100) {
+            groups(ids: ["group_mkxzcgkr", "group_mky78qcz"]) {
+              items_page(limit: 200) {
                 items {
                   id
                   name
@@ -699,7 +698,8 @@ app.get('/api/admin/pipeline', requireAuth, requireAdmin, async (req, res) => {
           }
         }`).catch(() => null);
 
-      const sentItems = proposalData?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+      const allProposalGroups = proposalData?.boards?.[0]?.groups || [];
+      const sentItems = allProposalGroups.flatMap(g => g.items_page?.items || []);
       const repSentProposals = sentItems.filter(item => {
         const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
         const repNameNorm = repName.toLowerCase().replace(/[^a-z]/g, '');
