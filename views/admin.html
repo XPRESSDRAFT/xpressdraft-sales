@@ -355,6 +355,8 @@ function applyAdminRange() {
 }
 
 async function loadCommissionTab() {
+  document.getElementById('commissionOverview').innerHTML = '<p style="color:#888;font-size:13px">Loading...</p>';
+  try {
   let url = '/api/admin/commission';
   if (_adminDateMode === 'custom' && _adminDateFrom && _adminDateTo) {
     url += '?from=' + _adminDateFrom + '&to=' + _adminDateTo;
@@ -398,6 +400,10 @@ async function loadCommissionTab() {
         ${leaders.filter(l => l.id !== u.id).map(l => `<option value="${l.id}" ${u.leader_id == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
       </select>
     </div>`).join('');
+  } catch(e) {
+    document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
+    console.error('loadCommissionTab error:', e);
+  }
 }
 
 async function viewAs(userId, name, week) {
