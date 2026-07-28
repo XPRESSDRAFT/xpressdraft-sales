@@ -83,6 +83,19 @@
 
 <div class="wrap">
 
+  <!-- Date range controls -->
+  <div style="background:#fff;border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px solid #e0d9d5">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">View Period:</div>
+    <button onclick="setDateMode('week')" id="btnWeek" style="background:#EA672F;color:#fff;border:none;padding:7px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">This Week</button>
+    <button onclick="setDateMode('custom')" id="btnCustom" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:7px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Custom Range</button>
+    <div id="customDateRange" style="display:none;align-items:center;gap:8px">
+      <input type="date" id="dateFrom" style="font-family:inherit;font-size:12px;border:1.5px solid #e0d9d5;border-radius:7px;padding:6px 10px;outline:none">
+      <span style="font-size:12px;color:#888">to</span>
+      <input type="date" id="dateTo" style="font-family:inherit;font-size:12px;border:1.5px solid #e0d9d5;border-radius:7px;padding:6px 10px;outline:none">
+      <button onclick="applyCustomRange()" style="background:#2A2B29;color:#fff;border:none;padding:7px 16px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Apply</button>
+    </div>
+  </div>
+
   <!-- Week banner -->
   <div class="week-banner">
     <div>
@@ -280,8 +293,30 @@ function updateTierBar(total, role) {
   }
 }
 
+var _dateMode = 'week';
+var _dateFrom = null;
+var _dateTo = null;
+
+function setDateMode(mode) {
+  _dateMode = mode;
+  document.getElementById('btnWeek').style.background = mode === 'week' ? '#EA672F' : '#fff';
+  document.getElementById('btnWeek').style.color = mode === 'week' ? '#fff' : '#2A2B29';
+  document.getElementById('btnCustom').style.background = mode === 'custom' ? '#EA672F' : '#fff';
+  document.getElementById('btnCustom').style.color = mode === 'custom' ? '#fff' : '#2A2B29';
+  document.getElementById('customDateRange').style.display = mode === 'custom' ? 'flex' : 'none';
+  if (mode === 'week') { _dateFrom = null; _dateTo = null; loadSummary(); loadInvoiceSummary(); }
+}
+
+function applyCustomRange() {
+  _dateFrom = document.getElementById('dateFrom').value;
+  _dateTo = document.getElementById('dateTo').value;
+  if (!_dateFrom || !_dateTo) { toast('Please select both dates'); return; }
+  loadSummary();
+}
+
 async function loadSummary(userId = null) {
-  const url = userId ? '/api/admin/commission/' + userId : '/api/commission/summary';
+  let url = userId ? '/api/admin/commission/' + userId : '/api/commission/summary';
+  if (_dateFrom && _dateTo && !userId) url += '?from=' + _dateFrom + '&to=' + _dateTo;
   let data;
   try {
     const res = await fetch(url);

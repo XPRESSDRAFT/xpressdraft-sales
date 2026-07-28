@@ -536,14 +536,21 @@ if (process.env.NODE_ENV === 'production') {
 
 // ── Commission routes ────────────────────────────────────────────────────────
 
-// Get current week start (Wednesday 12am)
+// Get current week start (Wednesday 12am AEST)
 function getWeekStart(date = new Date()) {
-  const d = new Date(date);
+  // Use Australia/Brisbane time (UTC+10, no DST)
+  const aestOffset = 10 * 60; // minutes
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  const aestMs = utcMs + aestOffset * 60000;
+  const d = new Date(aestMs);
   const day = d.getDay(); // 0=Sun, 3=Wed
   const diff = (day >= 3) ? day - 3 : day + 4;
   d.setDate(d.getDate() - diff);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  // Return as YYYY-MM-DD in AEST
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 // Calculate commission for a given sales total and role
@@ -564,10 +571,24 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
   try {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
     const weekStart = getWeekStart();
-    const records = await dbAll(
-      'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
-      [req.session.userId, weekStart]
-    );
+    console.log('Commission summary - weekStart:', weekStart, '| userId:', req.session.userId);
+
+    // Support custom date range
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
+    let records;
+    if (fromDate && toDate) {
+      records = await dbAll(
+        'SELECT * FROM commission_records WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ? ORDER BY created_at DESC',
+        [req.session.userId, fromDate, toDate]
+      );
+    } else {
+      records = await dbAll(
+        'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
+        [req.session.userId, weekStart]
+      );
+    }
+    console.log('Records found:', records.length, '| All records:', (await dbAll('SELECT week_start, COUNT(*) as cnt FROM commission_records WHERE user_id = ? GROUP BY week_start', [req.session.userId])).map(r => r.week_start + ':' + r.cnt).join(', '));
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
     const commission = calcCommission(totalSales, user.role || 'standard');
 
