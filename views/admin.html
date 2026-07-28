@@ -367,22 +367,34 @@ async function loadCommissionTab() {
 
   document.getElementById('commissionOverview').innerHTML = !data.summary.length
     ? '<p style="color:#888;font-size:13px">No reps found.</p>'
-    : `<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:8px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
-        <span>Rep</span><span>Role</span><span>Sales</span><span>Commission</span><span></span>
-      </div>` + data.summary.map(s => `
-      <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:8px;padding:12px 0;border-bottom:1px solid #f0e8e4;align-items:center">
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#2A2B29">${s.user.name}</div>
-          <div style="font-size:11px;color:#888">${s.records.length} deals</div>
-        </div>
-        <span class="badge ${s.role === 'leader' ? 'badge-admin' : 'badge-user'}">${s.role}</span>
-        <div style="font-size:14px;font-weight:700;color:#2A2B29">${fmt(s.totalSales)}</div>
-        <div style="text-align:right">
-          <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.commission)}</div>
+    : `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:2px solid #f0e8e4">
+        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Rep</th>
+        <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Role</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Proposals Sent</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Closed</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Closed Value</th>
+        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Conversion</th>
+        <th style="padding:8px 12px"></th>
+      </tr></thead><tbody>` +
+    data.summary.map(s => `
+      <tr style="border-bottom:1px solid #f0e8e4">
+        <td style="padding:12px"><div style="font-size:14px;font-weight:700;color:#2A2B29">${s.user.name}</div></td>
+        <td style="padding:12px;text-align:center"><span class="badge ${s.role === 'leader' ? 'badge-admin' : 'badge-user'}">${s.role}</span></td>
+        <td style="padding:12px;text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#2A2B29">${s.sentProposals || 0}</div>
+          <div style="font-size:11px;color:#888">${fmt(s.sentValue || 0)}</div>
+        </td>
+        <td style="padding:12px;text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#27AE60">${s.closedDeals || 0}</div>
+        </td>
+        <td style="padding:12px;text-align:right">
+          <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.closedValue || 0)}</div>
           ${s.role === 'leader' && s.totalOverride > 0 ? '<div style="font-size:11px;color:#27AE60">+' + fmt(s.totalOverride) + ' override</div>' : ''}
-        </div>
-        <button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button>
-      </div>`).join('');
+        </td>
+        <td style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#3498DB">${s.conversionRate || 0}%</td>
+        <td style="padding:12px;text-align:right"><button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button></td>
+      </tr>`).join('') + '</tbody></table>';
 
   // Load rep settings
   const usersRes = await fetch('/api/admin/users');
@@ -412,6 +424,8 @@ async function viewAs(userId, name, dateRange) {
   const section = document.getElementById('viewAsSection');
   section.style.display = 'block';
   document.getElementById('viewAsName').textContent = name;
+  document.getElementById('viewAsContent').innerHTML = '<p style="color:#888;font-size:13px">Loading...</p>';
+
   let url = '/api/admin/commission/' + userId;
   if (dateRange && dateRange.includes(',')) {
     const [from, to] = dateRange.split(',');
@@ -419,45 +433,78 @@ async function viewAs(userId, name, dateRange) {
   }
   const res = await fetch(url);
   const data = await res.json();
-  const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings } = data;
+  const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings,
+          sentProposals, sentValue, closedDeals, closedValue, conversionRate, subReps } = data;
 
-  const calcTier = (total, r) => {
+  function calcCommissionLocal(total, r) {
     if (r === 'leader') {
-      if (total <= 8000) return '3%';
-      if (total <= 15000) return '4%';
-      if (total <= 25000) return '5%';
-      return '6%';
+      if (total <= 8000) return total * 0.03;
+      if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
+      if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
+      return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
     } else {
-      if (total <= 15000) return '2%';
-      if (total <= 25000) return '3%';
-      return '4%';
+      if (total <= 15000) return total * 0.02;
+      if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
+      return 15000 * 0.02 + 10000 * 0.03 + (total - 25000) * 0.04;
     }
-  };
+  }
 
-  let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-    <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Sales</div>
-      <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(totalSales)}</div>
-      <div style="font-size:11px;color:#888">${records.length} deals · ${calcTier(totalSales, role)} rate</div>
-    </div>
-    <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission</div>
-      <div style="font-size:22px;font-weight:800;color:#27AE60">${fmt(commission)}</div>
-    </div>
-    ${role === 'leader' ? `<div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Total Earnings</div>
-      <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(totalEarnings)}</div>
-      <div style="font-size:11px;color:#888">incl. override</div>
-    </div>` : '<div></div>'}
-  </div>`;
+  const displaySales = closedValue || totalSales || 0;
+  const displayCommission = calcCommissionLocal(displaySales, role);
 
-  html += records.length
-    ? records.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4">
-        <div style="flex:1"><div style="font-size:13px;font-weight:700">${r.client_name}</div><div style="font-size:11px;color:#888">${r.project_type || '—'}</div></div>
-        <div style="font-size:14px;font-weight:700;color:#27AE60">${fmt(r.sale_amount)}</div>
-        <button onclick="adminDeleteSale(${r.id})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">✕</button>
-      </div>`).join('')
-    : '<p style="color:#888;font-size:13px;padding:12px 0">No sales this week.</p>';
+  function tierRate(total, r) {
+    if (r === 'leader') {
+      if (total <= 8000) return '3%'; if (total <= 15000) return '4%';
+      if (total <= 25000) return '5%'; return '6%';
+    } else {
+      if (total <= 15000) return '2%'; if (total <= 25000) return '3%'; return '4%';
+    }
+  }
+
+  let html = `
+    <!-- Stats grid mirroring rep dashboard -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Sales</div>
+        <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(displaySales)}</div>
+        <div style="font-size:11px;color:#888">${closedDeals || 0} deals · ${tierRate(displaySales, role)} rate</div>
+      </div>
+      <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission Earned</div>
+        <div style="font-size:22px;font-weight:800;color:#27AE60">${fmt(displayCommission)}</div>
+        <div style="font-size:11px;color:#888">${tierRate(displaySales, role)} rate</div>
+      </div>
+      <div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Conversion Rate</div>
+        <div style="font-size:22px;font-weight:800;color:#EA672F">${conversionRate || 0}%</div>
+        <div style="font-size:11px;color:#888">${closedDeals || 0} closed of ${sentProposals || 0} sent</div>
+      </div>
+    </div>
+
+    <!-- Proposals & Closed stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:#faf7f5;border-radius:10px;padding:14px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">Proposals Sent</div>
+        <div style="font-size:22px;font-weight:800;color:#3498DB">${sentProposals || 0}</div>
+        <div style="font-size:13px;color:#888">${fmt(sentValue || 0)} total value</div>
+      </div>
+      <div style="background:#faf7f5;border-radius:10px;padding:14px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">Closed Deals</div>
+        <div style="font-size:22px;font-weight:800;color:#27AE60">${closedDeals || 0}</div>
+        <div style="font-size:13px;color:#888">${fmt(closedValue || 0)} total value</div>
+      </div>
+    </div>`;
+
+  // Sub-reps for leaders
+  if (role === 'leader' && subReps && subReps.length > 0) {
+    html += `<div style="margin-bottom:16px;padding:14px;background:#faf7f5;border-radius:10px">
+      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Team Override (+2%)</div>` +
+      subReps.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #e0d9d5">
+        <div style="flex:1;font-size:13px;font-weight:700">${r.user.name}</div>
+        <div style="font-size:13px;color:#888">${fmt(r.closedValue || 0)} closed</div>
+        <div style="font-size:13px;font-weight:700;color:#27AE60">+${fmt((r.closedValue || 0) * 0.02)}</div>
+      </div>`).join('') + '</div>';
+  }
 
   // Add sale form
   html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
@@ -470,16 +517,6 @@ async function viewAs(userId, name, dateRange) {
       <button onclick="adminAddSale(${userId})" style="background:#EA672F;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer">+ Add</button>
     </div>
   </div>`;
-
-  if (role === 'leader' && repOverrides && repOverrides.length > 0) {
-    html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
-      <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Override Commission (+2% on team)</div>` +
-      repOverrides.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0e8e4">
-        <div style="flex:1;font-size:13px;font-weight:700">${r.rep.name}</div>
-        <div style="font-size:13px;color:#888">${fmt(r.repSales)}</div>
-        <div style="font-size:13px;font-weight:700;color:#27AE60">+${fmt(r.overrideCommission)}</div>
-      </div>`).join('') + '</div>';
-  }
 
   document.getElementById('viewAsContent').innerHTML = html;
   section.scrollIntoView({ behavior: 'smooth' });
