@@ -62,7 +62,9 @@
       <h2 style="margin:0;font-size:22px;color:#2A2B29">My Leads</h2>
       <div style="display:flex;gap:10px">
         <button onclick="loadLeads()" class="btn btn-ghost btn-sm">↻ Refresh</button>
-        <button onclick="document.getElementById(&quot;leadsPanel&quot;).style.display=&quot;none&quot;" class="btn btn-ghost btn-sm">✕ Close</button>
+        <button onclick="document.getElementById(&quot;leadsPanel&quot;).style.display=&quot;none&quot;" style="background:none;border:none;color:#fff;cursor:pointer;font-size:22px;line-height:1;padding:4px 8px">←</button>
+        <span style="font-size:15px;font-weight:700;color:#fff">My Leads</span>
+        <a href="/" style="margin-left:auto;color:#EA672F;font-size:12px;font-weight:700;text-decoration:none;padding:6px 12px;background:rgba(234,103,47,0.15);border-radius:6px">🏠 Home</a>
       </div>
     </div>
 
@@ -102,7 +104,9 @@
 
     <!-- Detail view -->
     <div id="leadDetailPanel" style="display:none">
-      <button onclick="closeLeadDetail()" style="margin-bottom:16px;background:none;border:none;color:#EA672F;cursor:pointer;font-weight:700">← Back to leads</button>
+      <button onclick="closeLeadDetail()" style="display:flex;align-items:center;gap:6px;margin-bottom:16px;background:none;border:none;color:#EA672F;cursor:pointer;font-weight:700;font-size:15px;padding:0">
+        <span style="font-size:20px">←</span> Back to leads
+      </button>
       <div style="background:#fff;border-radius:12px;padding:24px;margin-bottom:16px">
         <h3 id="leadDetailName" style="margin:0 0 16px;font-size:20px;color:#2A2B29"></h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
