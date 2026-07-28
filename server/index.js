@@ -502,6 +502,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
     const mondayLeadId = rec.monday_id || parsedData.monday_id;
+    console.log('mondayLeadId:', mondayLeadId, '| rec.monday_id:', rec.monday_id, '| parsedData.monday_id:', parsedData.monday_id);
     if (mondayLeadId) {
       try {
         const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);

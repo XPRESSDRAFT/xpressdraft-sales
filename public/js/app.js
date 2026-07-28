@@ -457,6 +457,10 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     if (!email) { status.textContent = 'Please enter the client email address.'; return; }
     if (!state.editingId) { status.textContent = 'No client record selected.'; return; }
 
+    // Auto-save current form state to ensure monday_id is stored before sending
+    saveCurrent();
+    await new Promise(r => setTimeout(r, 300)); // Brief wait for save to complete
+
     var btn = this;
     btn.disabled = true;
     btn.textContent = 'Sending…';
