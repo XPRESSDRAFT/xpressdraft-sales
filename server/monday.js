@@ -194,11 +194,11 @@ async function moveToGroup(boardId, itemId, groupId) {
 async function moveToBoard(sourceBoardId, itemId, targetBoardId, targetGroupId) {
   console.log('moveToBoard:', itemId, '->', targetBoardId, '/', targetGroupId);
   const data = await query(`
-    mutation($itemId: ID!, $targetBoardId: ID!, $groupId: String!) {
-      move_item_to_board(item_id: $itemId, target_board_id: $targetBoardId, group_id: $groupId) {
+    mutation($itemId: ID!, $boardId: ID!, $targetBoardId: ID!, $groupId: String!) {
+      move_item_to_board(item_id: $itemId, board_id: $boardId, target_board_id: $targetBoardId, group_id: $groupId) {
         id
       }
-    }`, { itemId: String(itemId), targetBoardId: String(targetBoardId), groupId: targetGroupId });
+    }`, { itemId: String(itemId), boardId: String(sourceBoardId), targetBoardId: String(targetBoardId), groupId: targetGroupId });
   const newId = data?.move_item_to_board?.id;
   console.log('moveToBoard result:', newId || 'FAILED - no id returned', data?.errors || '');
   return newId;

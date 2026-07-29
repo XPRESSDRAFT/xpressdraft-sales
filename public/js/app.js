@@ -646,6 +646,7 @@ function callNow(mondayId) {
 }
 
 function openLead(mondayId) {
+  if (!leadsData || !leadsData.length) { loadLeads(); return; }
   const lead = leadsData.find(l => l.monday_id === mondayId);
   if (!lead) return;
   activeLead = lead;
@@ -753,13 +754,14 @@ async function saveLeadNotes() {
 }
 
 async function leadAction(action) {
-  if (!activeLead) return;
+  if (!activeLead) { toast('No lead selected'); return; }
   const notes = document.getElementById('leadNotes').value;
   const labels = {
     free_consultation: 'Move to Free Consultations',
     proposal_requested: 'Request Proposal — this lead will disappear from your list until the proposal is sent',
     help_required: 'Move to Help Required',
   };
+  await new Promise(r => setTimeout(r, 50));
   if (!confirm('Are you sure? ' + (labels[action] || action))) return;
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/action', 'POST', {
