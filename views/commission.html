@@ -341,14 +341,15 @@ async function loadSummary(userId = null) {
   if (_dateFrom && _dateTo && !userId) {
     url += '?from=' + _dateFrom + '&to=' + _dateTo;
   } else if (_dateMode === 'week' && !userId) {
-    // Pass current week dates so Monday.com also filters by this week
-    const now = new Date();
-    const day = now.getDay();
+    // Pass current week dates in AEST (UTC+10)
+    const aestOffset = 10 * 60 * 60000;
+    const now = new Date(Date.now() + aestOffset);
+    const day = now.getUTCDay();
     const diff = day >= 3 ? day - 3 : day + 4;
-    const weekStart = new Date(now); weekStart.setDate(now.getDate() - diff);
-    const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6);
-    const fmt = d => d.toISOString().split('T')[0];
-    url += '?from=' + fmt(weekStart) + '&to=' + fmt(weekEnd);
+    const weekStart = new Date(now.getTime() - diff * 86400000);
+    const weekEnd = new Date(weekStart.getTime() + 6 * 86400000);
+    const fmtD = d => d.toISOString().split('T')[0];
+    url += '?from=' + fmtD(weekStart) + '&to=' + fmtD(weekEnd);
   }
   let data;
   try {

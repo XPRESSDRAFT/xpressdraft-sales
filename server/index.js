@@ -501,8 +501,28 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
-    const mondayLeadId = rec.monday_id || parsedData.monday_id;
+    let mondayLeadId = rec.monday_id || parsedData.monday_id;
     console.log('mondayLeadId:', mondayLeadId, '| rec.monday_id:', rec.monday_id, '| parsedData.monday_id:', parsedData.monday_id);
+
+    // If no monday_id, try to find by client name on Negotiations board
+    if (!mondayLeadId && rec.name) {
+      try {
+        const searchResult = await monday.query(`
+          query {
+            boards(ids: ["${monday.BOARDS.negotiations}"]) {
+              items_page(limit: 50, query_params: { rules: [{ column_id: "name", compare_value: ["${rec.name.replace(/"/g, '\\"')}"] }] }) {
+                items { id name }
+              }
+            }
+          }`);
+        const found = searchResult?.boards?.[0]?.items_page?.items?.[0];
+        if (found) {
+          mondayLeadId = found.id;
+          console.log('Found Monday item by name:', rec.name, '-> ID:', mondayLeadId);
+        }
+      } catch(e) { console.error('Monday name search error:', e.message); }
+    }
+
     if (mondayLeadId) {
       try {
         const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);

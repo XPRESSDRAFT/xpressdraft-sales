@@ -361,12 +361,13 @@ async function loadCommissionTab() {
   if (_adminDateMode === 'custom' && _adminDateFrom && _adminDateTo) {
     url += '?from=' + _adminDateFrom + '&to=' + _adminDateTo;
   } else {
-    // Pass current week dates
-    const now = new Date();
-    const day = now.getDay();
+    // Pass current week dates in AEST (UTC+10)
+    const aestOffset = 10 * 60 * 60000;
+    const now = new Date(Date.now() + aestOffset);
+    const day = now.getUTCDay();
     const diff = day >= 3 ? day - 3 : day + 4;
-    const ws = new Date(now); ws.setDate(now.getDate() - diff);
-    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const ws = new Date(now.getTime() - diff * 86400000);
+    const we = new Date(ws.getTime() + 6 * 86400000);
     const fmtD = d => d.toISOString().split('T')[0];
     url += '?from=' + fmtD(ws) + '&to=' + fmtD(we);
   }
