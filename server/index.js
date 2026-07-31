@@ -984,7 +984,10 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
   try {
     const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.userId]);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const weekStart = req.query.week || getWeekStart();
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
+    const weekStart = getWeekStart();
+
     const records = await dbAll(
       'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ? ORDER BY created_at DESC',
       [user.id, weekStart]
@@ -992,23 +995,35 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
     const commission = calcCommission(totalSales, user.role || 'standard');
 
-    // If leader, get assigned reps' sales
-    let repOverrides = [];
+    // Get Monday.com stats
+    const repName = user.monday_name || user.name;
+    let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+    try {
+      mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
+    } catch(e) { console.error('Monday stats error for', repName, ':', e.message); }
+
+    // If leader, get sub-reps data
+    let subReps = [];
     if (user.role === 'leader') {
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
-        const repRecords = await dbAll(
-          'SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?',
-          [rep.id, weekStart]
-        );
-        const repSales = repRecords.reduce((sum, r) => sum + r.sale_amount, 0);
-        const overrideCommission = repSales * 0.02;
-        repOverrides.push({ rep, repSales, overrideCommission, records: repRecords });
+        const subRepName = rep.monday_name || rep.name;
+        let subStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+        try { subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null); } catch(e) {}
+        const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
+        const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
+        const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
+        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: (subStats.closedValue || 0) * 0.02, ...subStats });
       }
     }
 
-    const totalOverride = repOverrides.reduce((sum, r) => sum + r.overrideCommission, 0);
-    res.json({ user, records, totalSales, commission, weekStart, role: user.role || 'standard', repOverrides, totalOverride, totalEarnings: commission + totalOverride });
+    const totalOverride = subReps.reduce((sum, r) => sum + (r.overrideCommission || 0), 0);
+    res.json({
+      user, records, totalSales, commission, weekStart,
+      role: user.role || 'standard',
+      subReps, totalOverride, totalEarnings: commission + totalOverride,
+      ...mondayStats
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
