@@ -525,26 +525,43 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
 
     if (mondayLeadId) {
       try {
+        const repName = user.monday_name || user.name;
+
+        // First update rep columns on Negotiations board so history is preserved
+        const negColVals = JSON.stringify({ labels: [repName] });
+        await monday.query(`
+          mutation {
+            change_column_value(
+              board_id: ${monday.BOARDS.negotiations},
+              item_id: ${mondayLeadId},
+              column_id: "dropdown_mm5cb995",
+              value: ${JSON.stringify(negColVals)}
+            ) { id }
+          }`).catch(e => console.error('Set negotiations dropdown error:', e.message));
+
+        // Then move to SENT PROPOSALS on Proposal board
         const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
         console.log('Lead moved to SENT PROPOSALS, new item ID:', newItemId);
+
         // Set rep dropdown on Proposal board using the new item ID
-        const repName = user.monday_name || user.name;
         const targetId = newItemId || mondayLeadId;
-        // Dropdown columns require JSON value format
-        const dropdownValue = JSON.stringify({ labels: [repName] });
+        const propColVals = JSON.stringify({ labels: [repName] });
         await monday.query(`
           mutation {
             change_column_value(
               board_id: ${monday.BOARDS.proposal},
               item_id: ${targetId},
               column_id: "dropdown_mm5c51r2",
-              value: ${JSON.stringify(dropdownValue)}
+              value: ${JSON.stringify(propColVals)}
             ) { id }
-          }`).catch(e => console.error('Set rep dropdown error:', e.message));
+          }`).catch(e => console.error('Set proposal dropdown error:', e.message));
+
         await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
       } catch(e) {
         console.error('Monday proposal move error:', e.message);
       }
+    } else {
+      console.error('No mondayLeadId found for client:', rec.name);
     }
     await dbRun("INSERT OR IGNORE INTO proposals (client_id, document_id, template_type, created_at) VALUES (?, ?, ?, strftime('%s','now'))", [clientId, result.documentId, result.templateType]);
     res.json({ ok: true, ...result });
@@ -1415,19 +1432,49 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
     else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
     else if (action === 'move_stage') {
       const { stage } = req.body;
-      const stageMap = {
+
+      // First check which board the item is currently on
+      let currentBoard = monday.BOARDS.negotiations; // default
+      try {
+        const itemCheck = await monday.query(`
+          query { items(ids: ["${mondayId}"]) { board { id } } }`);
+        const boardId = itemCheck?.items?.[0]?.board?.id;
+        if (boardId) currentBoard = boardId;
+        console.log('Item', mondayId, 'is on board:', currentBoard);
+      } catch(e) { console.error('Board check error:', e.message); }
+
+      const isOnProposalBoard = String(currentBoard) === String(monday.BOARDS.proposal);
+
+      // Negotiations board stages
+      const negotiationsMap = {
         discovery: 'DISCOVERY CALLS',
         followup: 'FOLLOW UP EMAILS / CALLS',
+        sequence: 'SEQUENCE CALL',
         waiting: 'WAITING FOR CLIENTS',
         qualified: 'QUALIFIED LEADS',
         closed: 'CLOSED DEALS',
         lost: 'LOST',
-        help: 'HELP REQUIRED'
+        help: 'HELP REQUIRED',
       };
-      const groupName = stageMap[stage];
-      if (groupName) {
-        const groupId = await monday.getGroupId(monday.BOARDS.negotiations, groupName);
+
+      // Proposals board stages
+      const proposalsMap = {
+        proposal_followup: monday.PROPOSAL_GROUPS.follow_up,
+        sent_proposals: monday.PROPOSAL_GROUPS.sent_proposals,
+        started: monday.PROPOSAL_GROUPS.started_projects,
+        new_requests: monday.PROPOSAL_GROUPS.new_requests,
+        // If on proposal board and rep clicks followup — go to proposal follow up
+        followup: monday.PROPOSAL_GROUPS.follow_up,
+      };
+
+      if (isOnProposalBoard && proposalsMap[stage]) {
+        await monday.moveToGroup(monday.BOARDS.proposal, mondayId, proposalsMap[stage]);
+      } else if (!isOnProposalBoard && negotiationsMap[stage]) {
+        const groupId = await monday.getGroupId(monday.BOARDS.negotiations, negotiationsMap[stage]);
         if (groupId) await monday.moveToGroup(monday.BOARDS.negotiations, mondayId, groupId);
+      } else if (proposalsMap[stage] && stage !== 'followup') {
+        // Explicit proposal board stages always go to proposal board
+        await monday.moveToGroup(monday.BOARDS.proposal, mondayId, proposalsMap[stage]);
       }
     }
     if (notes) await monday.updateNotes(mondayId, notes);
