@@ -354,6 +354,7 @@ function applyCustomRange() {
   _dateTo = document.getElementById('dateTo').value;
   if (!_dateFrom || !_dateTo) { toast('Please select both dates'); return; }
   loadSummary();
+  loadInvoiceSummary();
 }
 
 async function loadSummary(userId = null) {

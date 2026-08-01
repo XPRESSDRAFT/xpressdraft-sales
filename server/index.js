@@ -675,18 +675,27 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     const leadConversionRate = totalLeads > 0 ? Math.round((mondayStats.closedDeals / totalLeads) * 100) : 0;
     const overallLeadConversionRate = totalLeads > 0 ? Math.round((overallStats.closedDeals / totalLeads) * 100) : 0;
 
-    // If leader, get sub-rep dashboards
+    // If leader, get sub-rep dashboards using leader's start date for override
     let subReps = [];
     if (user.role === 'leader') {
+      const overrideFrom = user.start_date || fromDate || null;
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
         const subRepName = rep.monday_name || rep.name;
         let subStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
-        try { subStats = await monday.getRepStatsFromMonday(subRepName); } catch(e) {}
+        let subOverrideStats = { closedValue: 0 };
+        let subTotalLeads = 0;
+        try {
+          subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null);
+          subOverrideStats = await monday.getRepStatsFromMonday(subRepName, overrideFrom, toDate || null);
+          const subLeads = await monday.getLeadsForRep(subRepName);
+          subTotalLeads = subLeads.length;
+        } catch(e) {}
         const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
         const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
         const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
-        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: subTotalSales * 0.02, ...subStats });
+        const overrideCommission = (subOverrideStats.closedValue || 0) * 0.02;
+        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission, totalLeads: subTotalLeads, ...subStats });
       }
     }
 
@@ -1119,23 +1128,30 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
     } catch(e) { console.error('Monday stats error for', repName, ':', e.message); }
 
-    // If leader, get sub-reps data
+    // If leader, get sub-reps data using leader's start date as from date for override
     let subReps = [];
     if (user.role === 'leader') {
+      // Override only counts from when the leader started
+      const overrideFrom = user.start_date || fromDate || null;
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
         const subRepName = rep.monday_name || rep.name;
         let subStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+        let subOverrideStats = { closedValue: 0 };
         let subTotalLeads = 0;
         try {
+          // Stats for display use the selected period
           subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null);
+          // Override calculated from leader's start date only
+          subOverrideStats = await monday.getRepStatsFromMonday(subRepName, overrideFrom, toDate || null);
           const subLeads = await monday.getLeadsForRep(subRepName);
           subTotalLeads = subLeads.length;
         } catch(e) {}
         const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
         const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
         const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
-        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: (subStats.closedValue || 0) * 0.02, totalLeads: subTotalLeads, ...subStats });
+        const overrideCommission = (subOverrideStats.closedValue || 0) * 0.02;
+        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission, totalLeads: subTotalLeads, ...subStats });
       }
     }
 
