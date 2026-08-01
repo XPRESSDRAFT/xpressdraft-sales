@@ -688,13 +688,15 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
         try {
           subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null);
           subOverrideStats = await monday.getRepStatsFromMonday(subRepName, overrideFrom, toDate || null);
+          console.log('Override calc for', subRepName, '| overrideFrom:', overrideFrom, '| toDate:', toDate || 'null', '| closedValue:', subOverrideStats.closedValue, '| closedDeals:', subOverrideStats.closedDeals);
           const subLeads = await monday.getLeadsForRep(subRepName);
           subTotalLeads = subLeads.length;
-        } catch(e) {}
+        } catch(e) { console.error('Sub-rep stats error:', e.message); }
         const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
         const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
         const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
         const overrideCommission = (subOverrideStats.closedValue || 0) * 0.02;
+        console.log('Override commission for', subRepName, ':', overrideCommission);
         subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission, totalLeads: subTotalLeads, ...subStats });
       }
     }

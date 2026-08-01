@@ -507,15 +507,21 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
   }
 
   function matchesDateRange(item) {
-    if (!fromDate || !toDate) return true;
+    if (!fromDate) return true;
     const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || '';
-    if (!dateCol) return false;
+    if (!dateCol) {
+      // No closed date set — include if no upper date limit (all-time from start)
+      return !toDate;
+    }
     let itemDate = dateCol;
     if (dateCol.includes('/')) {
       const parts = dateCol.split('/');
       itemDate = parts[2] + '-' + parts[1] + '-' + parts[0];
     }
-    return itemDate >= fromDate && itemDate <= toDate;
+    const afterFrom = itemDate >= fromDate;
+    const beforeTo = !toDate || itemDate <= toDate;
+    console.log('Date check:', item.name, '| date:', itemDate, '| from:', fromDate, '| to:', toDate || 'null', '| match:', afterFrom && beforeTo);
+    return afterFrom && beforeTo;
   }
 
   function getAmount(item) {
