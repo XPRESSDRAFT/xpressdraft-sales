@@ -544,8 +544,20 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
         const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
         console.log('Lead moved to SENT PROPOSALS, new item ID:', newItemId);
 
-        // Set rep dropdown on Proposal board using the new item ID
+        // Use new item ID on Proposals board
         const targetId = newItemId || mondayLeadId;
+        const today = new Date().toISOString().split('T')[0];
+
+        // Set SENT ON date
+        await monday.query(`
+          mutation {
+            change_column_value(
+              board_id: ${monday.BOARDS.proposal},
+              item_id: ${targetId},
+              column_id: "date_mky1pazj",
+              value: ${JSON.stringify(JSON.stringify({ date: today }))}
+            ) { id }
+          }`).catch(e => console.error('Set sent on date error:', e.message));
         const propColVals = JSON.stringify({ labels: [repName] });
         await monday.query(`
           mutation {
@@ -1098,11 +1110,16 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
       for (const rep of assignedReps) {
         const subRepName = rep.monday_name || rep.name;
         let subStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
-        try { subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null); } catch(e) {}
+        let subTotalLeads = 0;
+        try {
+          subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null);
+          const subLeads = await monday.getLeadsForRep(subRepName);
+          subTotalLeads = subLeads.length;
+        } catch(e) {}
         const subRecords = await dbAll('SELECT * FROM commission_records WHERE user_id = ? AND week_start = ?', [rep.id, weekStart]);
         const subTotalSales = subRecords.reduce((sum, r) => sum + r.sale_amount, 0);
         const subCommission = calcCommission(subTotalSales, rep.role || 'standard');
-        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: (subStats.closedValue || 0) * 0.02, ...subStats });
+        subReps.push({ user: rep, records: subRecords, totalSales: subTotalSales, commission: subCommission, overrideCommission: (subStats.closedValue || 0) * 0.02, totalLeads: subTotalLeads, ...subStats });
       }
     }
 
@@ -1525,7 +1542,19 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
     console.log('Lead action:', action, 'for Monday ID:', mondayId);
     if (action === 'free_consultation') await monday.clickFreeConsultation(mondayId);
     else if (action === 'proposal_requested') {
-      await monday.clickProposalRequested(mondayId);
+      const newItemId = await monday.clickProposalRequested(mondayId);
+      // Set PROPOSAL REQUEST DATE on the new item on Proposals board
+      const targetId = newItemId || mondayId;
+      const today = new Date().toISOString().split('T')[0];
+      await monday.query(`
+        mutation {
+          change_column_value(
+            board_id: ${monday.BOARDS.proposal},
+            item_id: ${targetId},
+            column_id: "date_mky1dh5s",
+            value: ${JSON.stringify(JSON.stringify({ date: today }))}
+          ) { id }
+        }`).catch(e => console.error('Set proposal request date error:', e.message));
       // Store pending request locally
       const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
       const { client_name, address } = req.body;

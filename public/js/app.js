@@ -758,7 +758,7 @@ async function leadAction(action) {
   const notes = document.getElementById('leadNotes').value;
   const labels = {
     free_consultation: 'Move to Free Consultations',
-    proposal_requested: 'Request Proposal — this lead will disappear from your list until the proposal is sent',
+    proposal_requested: 'This will notify Xpress Draft to prepare and send the proposal on your behalf. The lead will disappear from your list until the proposal is sent.',
     help_required: 'Move to Help Required',
   };
   await new Promise(r => setTimeout(r, 50));
