@@ -543,10 +543,16 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
     const items = group.items_page?.items || [];
     const repItems = items.filter(matchesRep);
     if (group.id === 'group_mky4ey72') {
+      // STARTED PROJECTS = closed deals — filter by closed date
       const filtered = fromDate ? repItems.filter(matchesDateRange) : repItems;
       closedDeals = filtered.length;
       closedValue = filtered.reduce((sum, i) => sum + getAmount(i), 0);
+      // Also count as sent proposals (they were sent before being closed)
+      const sentFiltered = fromDate ? repItems.filter(matchesSentDateRange) : repItems;
+      sentProposals += sentFiltered.length;
+      sentValue += sentFiltered.reduce((sum, i) => sum + getAmount(i), 0);
     } else {
+      // Follow Up + Sent Proposals — filter by sent date when range provided
       const filtered = fromDate ? repItems.filter(matchesSentDateRange) : repItems;
       sentProposals += filtered.length;
       sentValue += filtered.reduce((sum, i) => sum + getAmount(i), 0);
