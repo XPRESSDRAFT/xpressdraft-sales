@@ -798,7 +798,23 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
         repTotalLeads = leadsData.length;
       } catch(e) {}
       const leadConversionRate = repTotalLeads > 0 ? Math.round((mondayStats.closedDeals / repTotalLeads) * 100) : 0;
-      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard', totalLeads: repTotalLeads, leadConversionRate, ...mondayStats });
+
+      // Recalculate override using leader's start date as from date
+      let adjustedOverride = 0;
+      if (user.role === 'leader') {
+        const leaderFrom = fromDate || user.start_date || null;
+        const reps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
+        for (const rep of reps) {
+          let repStats = { closedValue: 0 };
+          try {
+            const rn = rep.monday_name || rep.name;
+            repStats = await monday.getRepStatsFromMonday(rn, leaderFrom, toDate || null);
+          } catch(e) {}
+          adjustedOverride += (repStats.closedValue || 0) * 0.02;
+        }
+      }
+      const finalOverride = user.role === 'leader' ? adjustedOverride : totalOverride;
+      summary.push({ user, records, totalSales, commission, totalOverride: finalOverride, totalEarnings: commission + finalOverride, role: user.role || 'standard', totalLeads: repTotalLeads, leadConversionRate, ...mondayStats });
     }
     res.json({ summary, weekStart: isCustom ? `${fromDate} → ${toDate}` : weekStart });
   } catch(e) {

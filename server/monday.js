@@ -481,7 +481,7 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
             items {
               id
               name
-              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv", "date_mm3gx943"]) {
+              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv", "date_mm3gx943", "date_mky1pazj", "date_mky1dh5s"]) {
                 id text value
               }
             }
@@ -523,6 +523,20 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
     return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
   }
 
+  function matchesSentDateRange(item) {
+    if (!fromDate || !toDate) return true;
+    const sentCol = item.column_values?.find(c => c.id === 'date_mky1pazj')?.text || '';
+    const reqCol = item.column_values?.find(c => c.id === 'date_mky1dh5s')?.text || '';
+    const dateStr = sentCol || reqCol;
+    if (!dateStr) return true; // legacy items without date — include
+    let itemDate = dateStr;
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      itemDate = parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+    return itemDate >= fromDate && itemDate <= toDate;
+  }
+
   let sentProposals = 0, sentValue = 0, closedDeals = 0, closedValue = 0;
 
   for (const group of groups) {
@@ -533,8 +547,9 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
       closedDeals = filtered.length;
       closedValue = filtered.reduce((sum, i) => sum + getAmount(i), 0);
     } else {
-      sentProposals += repItems.length;
-      sentValue += repItems.reduce((sum, i) => sum + getAmount(i), 0);
+      const filtered = fromDate ? repItems.filter(matchesSentDateRange) : repItems;
+      sentProposals += filtered.length;
+      sentValue += filtered.reduce((sum, i) => sum + getAmount(i), 0);
     }
   }
 
