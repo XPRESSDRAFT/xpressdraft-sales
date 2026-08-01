@@ -84,6 +84,9 @@
 
 <div class="wrap">
 
+  <!-- Week number banner -->
+  <div id="weekNumber" style="display:none;background:#EA672F;color:#fff;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:13px;font-weight:700;text-align:center"></div>
+
   <!-- Date range controls -->
   <div style="background:#fff;border-radius:12px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px solid #e0d9d5">
     <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">View Period:</div>
@@ -158,11 +161,28 @@
     <div id="recordsList"><div class="records-empty">No sales recorded this week.</div></div>
   </div>
 
-  <!-- Conversion rate card -->
-  <div class="stat-card" id="conversionCard" style="margin-bottom:24px;background:#2A2B29">
-    <div class="stat-label" style="color:#888">Proposal Conversion Rate</div>
-    <div class="stat-value" id="conversionRate" style="color:#EA672F;font-size:32px">—</div>
-    <div class="stat-sub" id="conversionSub" style="color:#888">Loading...</div>
+  <!-- Conversion rate cards -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+    <div class="stat-card" style="background:#2A2B29;margin-bottom:0">
+      <div class="stat-label" style="color:#888">Proposal Conversion</div>
+      <div class="stat-value" id="conversionRate" style="color:#EA672F;font-size:28px">—</div>
+      <div class="stat-sub" id="conversionSub" style="color:#888">Closed ÷ Proposals Sent</div>
+      <div style="font-size:10px;color:#555;margin-top:4px;font-style:italic">Quality of proposals</div>
+    </div>
+    <div class="stat-card" style="background:#2A2B29;margin-bottom:0">
+      <div class="stat-label" style="color:#888">Lead Conversion</div>
+      <div class="stat-value" id="leadConversionRate" style="color:#3498DB;font-size:28px">—</div>
+      <div class="stat-sub" id="leadConversionSub" style="color:#888">Closed ÷ Total Leads</div>
+      <div style="font-size:10px;color:#555;margin-top:4px;font-style:italic">Overall effectiveness</div>
+    </div>
+  </div>
+
+  <!-- Overall stats since start date -->
+  <div class="records-card" id="overallStatsCard" style="display:none;margin-bottom:24px">
+    <div class="records-title">
+      <span>Overall Performance (All Time)</span>
+    </div>
+    <div id="overallStatsContent"></div>
   </div>
 
   <!-- Leader override section (shown only for leaders) -->
@@ -369,7 +389,7 @@ async function loadSummary(userId = null) {
     return;
   }
 
-  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps } = data;
+  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps, overallStats, weekNum, startDate, totalLeads, leadConversionRate, overallLeadConversionRate } = data;
   const isAdmin = !!userId;
 
   // Week dates
@@ -382,6 +402,13 @@ async function loadSummary(userId = null) {
 
   const days = daysUntilReset();
   document.getElementById('daysLeft').textContent = days + ' day' + (days !== 1 ? 's' : '') + ' until reset';
+
+  // Show week number
+  const weekNumEl = document.getElementById('weekNumber');
+  if (weekNumEl && weekNum) {
+    weekNumEl.textContent = 'Week ' + weekNum + ' since joining' + (startDate ? ' (' + new Date(startDate).toLocaleDateString('en-AU') + ')' : '');
+    weekNumEl.style.display = 'block';
+  }
 
   // Stats — use Monday.com closed value as primary sales figure
   const displaySales = totalSales > 0 ? totalSales : (closedValue || 0);
@@ -400,7 +427,11 @@ async function loadSummary(userId = null) {
   const convRate = document.getElementById('conversionRate');
   const convSub = document.getElementById('conversionSub');
   if (convRate) convRate.textContent = (conversionRate || 0) + '%';
-  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' sent · ' + fmt(closedValue || 0) + ' closed · ' + fmt(sentValue || 0) + ' sent';
+  if (convSub) convSub.textContent = (closedDeals || 0) + ' closed of ' + (sentProposals || 0) + ' sent';
+  const leadConvEl = document.getElementById('leadConversionRate');
+  const leadConvSub = document.getElementById('leadConversionSub');
+  if (leadConvEl) leadConvEl.textContent = (leadConversionRate || 0) + '%';
+  if (leadConvSub) leadConvSub.textContent = (closedDeals || 0) + ' closed of ' + (totalLeads || 0) + ' leads';
 
   // Records list
   document.getElementById('weekTotal').textContent = fmt(totalSales);
@@ -457,6 +488,43 @@ async function loadSummary(userId = null) {
     }).join('');
   } else if (subRepsPanel) {
     subRepsPanel.style.display = 'none';
+  }
+
+  // Show overall stats since start date
+  const overallCard = document.getElementById('overallStatsCard');
+  const overallContent = document.getElementById('overallStatsContent');
+  if (overallCard && overallStats && startDate) {
+    overallCard.style.display = 'block';
+    overallContent.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:8px 0">
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Proposals Sent</div>
+          <div style="font-size:20px;font-weight:800;color:#3498DB">${overallStats.sentProposals || 0}</div>
+          <div style="font-size:11px;color:#888">${fmt(overallStats.sentValue || 0)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Closed Deals</div>
+          <div style="font-size:20px;font-weight:800;color:#27AE60">${overallStats.closedDeals || 0}</div>
+          <div style="font-size:11px;color:#888">${fmt(overallStats.closedValue || 0)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Proposal Conv.</div>
+          <div style="font-size:20px;font-weight:800;color:#EA672F">${overallStats.conversionRate || 0}%</div>
+          <div style="font-size:11px;color:#888">closed ÷ sent</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Lead Conv.</div>
+          <div style="font-size:20px;font-weight:800;color:#3498DB">${overallLeadConversionRate || 0}%</div>
+          <div style="font-size:11px;color:#888">closed ÷ leads</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Week</div>
+          <div style="font-size:20px;font-weight:800;color:#2A2B29">${weekNum || '—'}</div>
+          <div style="font-size:11px;color:#888">since joining</div>
+        </div>
+      </div>`;
+  } else if (overallCard) {
+    overallCard.style.display = 'none';
   }
 
   // Show leader override section

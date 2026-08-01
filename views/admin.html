@@ -161,9 +161,16 @@
     <div class="section" id="viewAsSection" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div class="section-title" style="margin-bottom:0">Viewing: <span id="viewAsName" style="color:#EA672F"></span></div>
-        <button onclick="closeViewAs()" class="btn btn-ghost btn-sm">✕ Close</button>
+        <div style="display:flex;gap:8px">
+          <button onclick="loadWeeklyHistory(window._viewingUserId, window._viewingName)" class="btn btn-ghost btn-sm">📊 Weekly History</button>
+          <button onclick="closeViewAs()" class="btn btn-ghost btn-sm">✕ Close</button>
+        </div>
       </div>
       <div id="viewAsContent"></div>
+      <div id="weeklyHistorySection" style="display:none;margin-top:20px;padding-top:16px;border-top:1.5px solid #f0e8e4">
+        <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">📊 Week-by-Week History</div>
+        <div id="weeklyHistoryContent"></div>
+      </div>
     </div>
   </div>
 
@@ -421,6 +428,10 @@ async function loadCommissionTab() {
         <option value="">No Leader</option>
         ${leaders.filter(l => l.id !== u.id).map(l => `<option value="${l.id}" ${u.leader_id == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
       </select>
+      <div style="display:flex;align-items:center;gap:4px">
+        <label style="font-size:11px;color:#888;white-space:nowrap">Start:</label>
+        <input type="date" value="${u.start_date || ''}" onchange="setStartDate(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
+      </div>
     </div>`).join('');
   } catch(e) {
     document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
@@ -554,6 +565,47 @@ async function adminAddSale(userId) {
   });
   const dateRange = _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '';
   viewAs(userId, window._viewingName, dateRange);
+}
+
+async function setStartDate(userId, date) {
+  await fetch('/api/admin/users/' + userId + '/start-date', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start_date: date })
+  });
+  const t = document.getElementById('toast'); t.textContent = 'Start date saved'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function loadWeeklyHistory(userId, name) {
+  const histSection = document.getElementById('weeklyHistorySection');
+  const histContent = document.getElementById('weeklyHistoryContent');
+  if (!histSection) return;
+  histSection.style.display = 'block';
+  histContent.innerHTML = '<p style="color:#888;font-size:13px">Loading history...</p>';
+  const res = await fetch('/api/admin/commission/' + userId + '/history');
+  const data = await res.json();
+  if (!data.history || !data.history.length) {
+    histContent.innerHTML = '<p style="color:#888;font-size:13px">No history yet — set a start date first.</p>';
+    return;
+  }
+  histContent.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:2px solid #f0e8e4">
+        <th style="padding:6px 10px;text-align:left;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Week</th>
+        <th style="padding:6px 10px;text-align:left;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Period</th>
+        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Sent</th>
+        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Closed</th>
+        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Value</th>
+        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Conv%</th>
+      </tr></thead><tbody>` +
+    [...data.history].reverse().map(w => `
+      <tr style="border-bottom:1px solid #f0e8e4${w.weekNum === data.currentWeekNum ? ';background:#FFF8F5' : ''}">
+        <td style="padding:8px 10px;font-weight:700;color:#EA672F">W${w.weekNum}${w.weekNum === data.currentWeekNum ? ' ◀' : ''}</td>
+        <td style="padding:8px 10px;color:#888;font-size:11px">${w.weekStart} to ${w.weekEnd}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700">${w.sentProposals || 0}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#27AE60">${w.closedDeals || 0}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#EA672F">${fmt(w.closedValue || 0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:700">${w.conversionRate || 0}%</td>
+      </tr>`).join('') + '</tbody></table>';
 }
 
 async function setRole(userId, role) {

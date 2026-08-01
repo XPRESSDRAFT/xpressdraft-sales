@@ -116,6 +116,7 @@ await dbRun("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''").catch
 await dbRun("ALTER TABLE users ADD COLUMN monday_name TEXT NOT NULL DEFAULT ''").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'standard'").catch(() => {});
 await dbRun("ALTER TABLE users ADD COLUMN leader_id INTEGER DEFAULT NULL").catch(() => {});
+await dbRun("ALTER TABLE users ADD COLUMN start_date TEXT DEFAULT NULL").catch(() => {});
 // Salary settings table
 await dbRun(`CREATE TABLE IF NOT EXISTS salary_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -647,10 +648,20 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     // Get all stats from Monday.com automatically
     const repName = user.monday_name || user.name;
     let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+    let overallStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+    let totalLeads = 0;
     try {
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       console.log('Monday stats for', repName, ':', JSON.stringify(mondayStats));
+      // Overall stats since start date
+      overallStats = await monday.getRepStatsFromMonday(repName, user.start_date || null, null);
+      // Total leads on Negotiations board
+      const leadsData = await monday.getLeadsForRep(repName);
+      totalLeads = leadsData.length;
     } catch(e) { console.error('Monday stats error:', e.message); }
+    const weekNum = user.start_date ? Math.floor((Date.now() - new Date(user.start_date)) / (7 * 24 * 60 * 60 * 1000)) + 1 : null;
+    const leadConversionRate = totalLeads > 0 ? Math.round((mondayStats.closedDeals / totalLeads) * 100) : 0;
+    const overallLeadConversionRate = totalLeads > 0 ? Math.round((overallStats.closedDeals / totalLeads) * 100) : 0;
 
     // If leader, get sub-rep dashboards
     let subReps = [];
@@ -679,7 +690,13 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       closedValue: mondayStats.closedValue,
       conversionRate: mondayStats.conversionRate,
       totalClosed: mondayStats.closedValue,
+      overallStats,
+      weekNum,
+      startDate: user.start_date,
       subReps,
+      totalLeads,
+      leadConversionRate,
+      overallLeadConversionRate,
     });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -761,11 +778,15 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
       }
       // Get Monday.com stats
       let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+      let repTotalLeads = 0;
       try {
         const repName = user.monday_name || user.name;
         mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
+        const leadsData = await monday.getLeadsForRep(repName);
+        repTotalLeads = leadsData.length;
       } catch(e) {}
-      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard', ...mondayStats });
+      const leadConversionRate = repTotalLeads > 0 ? Math.round((mondayStats.closedDeals / repTotalLeads) * 100) : 0;
+      summary.push({ user, records, totalSales, commission, totalOverride, totalEarnings: commission + totalOverride, role: user.role || 'standard', totalLeads: repTotalLeads, leadConversionRate, ...mondayStats });
     }
     res.json({ summary, weekStart: isCustom ? `${fromDate} → ${toDate}` : weekStart });
   } catch(e) {
@@ -954,6 +975,74 @@ app.get('/api/admin/invoices/:id/download', requireAuth, requireAdmin, async (re
     const inv = await dbGet('SELECT * FROM invoices WHERE id = ?', [req.params.id]);
     if (!inv || !fs.existsSync(inv.filepath)) return res.status(404).json({ error: 'File not found' });
     res.download(inv.filepath, inv.filename);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin: set rep start date
+app.patch('/api/admin/users/:id/start-date', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { start_date } = req.body;
+    await dbRun('UPDATE users SET start_date = ? WHERE id = ?', [start_date, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get week number since start date
+function getWeekNumber(startDate) {
+  if (!startDate) return null;
+  const start = new Date(startDate);
+  const now = new Date();
+  const diffMs = now - start;
+  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+  return diffWeeks + 1;
+}
+
+// Get all weeks since start date
+function getWeeksSinceStart(startDate) {
+  if (!startDate) return [];
+  const weeks = [];
+  const start = new Date(startDate);
+  // Find first Wednesday on or after start date
+  const day = start.getDay();
+  const daysToWed = day <= 3 ? 3 - day : 10 - day;
+  const firstWed = new Date(start);
+  firstWed.setDate(start.getDate() + (daysToWed === 7 ? 0 : daysToWed));
+  // Go back to find week start
+  const firstWeekStart = new Date(firstWed);
+  if (day > 3) firstWeekStart.setDate(firstWed.getDate() - (day - 3));
+  else firstWeekStart.setDate(firstWed.getDate() - (day + 4));
+
+  const now = new Date();
+  let current = new Date(firstWeekStart);
+  let weekNum = 1;
+  while (current <= now) {
+    const weekEnd = new Date(current);
+    weekEnd.setDate(current.getDate() + 6);
+    const fmt = d => d.toISOString().split('T')[0];
+    weeks.push({ weekNum, weekStart: fmt(current), weekEnd: fmt(weekEnd) });
+    current.setDate(current.getDate() + 7);
+    weekNum++;
+  }
+  return weeks;
+}
+
+// Admin: get weekly history for a rep
+app.get('/api/admin/commission/:userId/history', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.params.userId]);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const repName = user.monday_name || user.name;
+    const weeks = getWeeksSinceStart(user.start_date);
+    const history = [];
+    for (const week of weeks) {
+      let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+      try {
+        mondayStats = await monday.getRepStatsFromMonday(repName, week.weekStart, week.weekEnd);
+      } catch(e) {}
+      history.push({ ...week, ...mondayStats });
+    }
+    const currentWeekNum = getWeekNumber(user.start_date);
+    res.json({ history, currentWeekNum, startDate: user.start_date });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
