@@ -133,7 +133,6 @@
       <div class="stat-sub" id="nextTierRate"></div>
     </div>
   </div>
-  </div>
 
   <!-- Tier progress bar -->
   <div class="tier-card">
@@ -150,6 +149,7 @@
       </div>
     </div>
     <div class="tier-info" id="tierInfo"></div>
+  </div>
   </div>
 
   <!-- Add sale - admin only, shown in admin panel -->
@@ -425,10 +425,8 @@ async function loadSummary(userId = null) {
   // Stats — use Monday.com closed value as primary sales figure
   const displaySales = closedValue || totalSales || 0;
   const displayCommission = commission > 0 ? commission : calcCommissionFE(closedValue || 0, role);
-  // Only show weekly sales/commission card in week mode
-  const weekModeOnly = document.getElementById('weekModeStats');
-  if (weekModeOnly) weekModeOnly.style.display = _dateMode === 'week' ? 'block' : 'none';
-  // Only show weekly sales/commission card in week mode
+
+  // Only show weekly sales/commission/tier in week mode
   const weekModeOnly = document.getElementById('weekModeStats');
   if (weekModeOnly) weekModeOnly.style.display = _dateMode === 'week' ? 'block' : 'none';
 
