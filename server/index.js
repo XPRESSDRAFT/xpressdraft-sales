@@ -674,6 +674,7 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       totalLeads = leadsData.length;
       // Calculate commission week by week
       const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, fromDate || user.start_date || null, toDate || null);
+      console.log('Weekly deals keys:', Object.keys(weeklyDeals), '| noDateItems:', noDateItems.length);
       for (const [wStart, deals] of Object.entries(weeklyDeals)) {
         const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
         const weekComm = calcCommission(weekTotal, user.role || 'standard');

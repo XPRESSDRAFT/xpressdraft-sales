@@ -622,6 +622,12 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
   }
 
   // Group deals by week
+  console.log('getWeeklyCommission: repItems found:', repItems.length);
+  repItems.forEach(item => {
+    const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || 'NO DATE';
+    const amt = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
+    console.log('  Deal:', item.name, '| date:', dateCol, '| amount:', amt);
+  });
   const weeklyDeals = {};
   for (const item of repItems) {
     const weekStart = getItemWeekStart(item);
