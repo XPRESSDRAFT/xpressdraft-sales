@@ -649,8 +649,15 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
   }
 
   function getAmount(item) {
-    const val = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
-    return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+    const col = item.column_values?.find(c => c.id === 'numeric_mky1cmcv');
+    const text = col?.text || '';
+    const rawVal = col?.value || '';
+    let amount = parseFloat(String(text).replace(/[^0-9.]/g, '')) || 0;
+    if (!amount && rawVal) {
+      try { amount = parseFloat(JSON.parse(rawVal)) || 0; } catch(e) {}
+    }
+    console.log('  getAmount:', item.name, '| text:', text, '| raw:', rawVal, '| result:', amount);
+    return amount;
   }
 
   // Group deals by week
