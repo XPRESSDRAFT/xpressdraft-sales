@@ -114,7 +114,8 @@
     </div>
   </div>
 
-  <!-- Stats -->
+  <!-- Stats — shown in week mode only -->
+  <div id="weekModeStats">
   <div class="stats">
     <div class="stat-card">
       <div class="stat-label">Sales</div>
@@ -131,6 +132,7 @@
       <div class="stat-value" id="nextTierAmount">—</div>
       <div class="stat-sub" id="nextTierRate"></div>
     </div>
+  </div>
   </div>
 
   <!-- Tier progress bar -->
@@ -423,6 +425,13 @@ async function loadSummary(userId = null) {
   // Stats — use Monday.com closed value as primary sales figure
   const displaySales = closedValue || totalSales || 0;
   const displayCommission = commission > 0 ? commission : calcCommissionFE(closedValue || 0, role);
+  // Only show weekly sales/commission card in week mode
+  const weekModeOnly = document.getElementById('weekModeStats');
+  if (weekModeOnly) weekModeOnly.style.display = _dateMode === 'week' ? 'block' : 'none';
+  // Only show weekly sales/commission card in week mode
+  const weekModeOnly = document.getElementById('weekModeStats');
+  if (weekModeOnly) weekModeOnly.style.display = _dateMode === 'week' ? 'block' : 'none';
+
   document.getElementById('totalSales').textContent = fmt(displaySales);
   document.getElementById('dealCount').textContent = (closedDeals || records.length) + ' deal' + ((closedDeals || records.length) !== 1 ? 's' : '');
   document.getElementById('commissionEarned').textContent = fmt(displayCommission);
@@ -511,19 +520,33 @@ async function loadSummary(userId = null) {
   const breakdownContent = document.getElementById('weeklyBreakdownContent');
   if (breakdownCard && weeklyCommissionBreakdown && weeklyCommissionBreakdown.length > 0) {
     breakdownCard.style.display = 'block';
-    breakdownContent.innerHTML = weeklyCommissionBreakdown.sort((a,b) => b.weekStart.localeCompare(a.weekStart)).map(w => `
-      <div style="padding:10px 0;border-bottom:1px solid #f0e8e4">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:700;color:#888">Week of ${w.weekStart}</div>
-          <div style="display:flex;gap:12px;align-items:center">
-            <div style="font-size:13px;color:#2A2B29;font-weight:700">${fmt(w.weekTotal)} closed</div>
-            <div style="font-size:13px;font-weight:800;color:#27AE60">+${fmt(w.weekComm)} commission</div>
+    const tierRate = (total, r) => {
+      if (r === 'leader') {
+        if (total <= 8000) return '3%'; if (total <= 15000) return '4%';
+        if (total <= 25000) return '5%'; return '6%';
+      } else {
+        if (total <= 15000) return '2%'; if (total <= 25000) return '3%'; return '4%';
+      }
+    };
+    breakdownContent.innerHTML = weeklyCommissionBreakdown.sort((a,b) => b.weekStart.localeCompare(a.weekStart)).map(w => {
+      const rate = tierRate(w.weekTotal, role);
+      const ws = w.weekStart.split('-').reverse().join('/');
+      return `<div style="background:#faf7f5;border-radius:10px;padding:12px 16px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:#888">Week of ${ws}</div>
+          <div style="display:flex;gap:16px;align-items:center">
+            <div style="font-size:12px;color:#888">Total: <strong style="color:#2A2B29">${fmt(w.weekTotal)}</strong></div>
+            <div style="background:#EA672F;color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:10px">${rate}</div>
+            <div style="font-size:14px;font-weight:800;color:#27AE60">= ${fmt(w.weekComm)}</div>
           </div>
         </div>
-        ${w.deals.map(d => `<div style="display:flex;justify-content:space-between;padding:3px 12px;font-size:12px;color:#555">
-          <span>${d.name}</span><span>${fmt(d.value)}</span>
-        </div>`).join('')}
-      </div>`).join('');
+        <div style="border-top:1px solid #e0d9d5;padding-top:8px">
+          ${w.deals.map(d => `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:#555">
+            <span>${d.name}</span><span style="font-weight:700">${fmt(d.value)}</span>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
   } else if (breakdownCard) {
     breakdownCard.style.display = 'none';
   }
