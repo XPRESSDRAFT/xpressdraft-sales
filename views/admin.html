@@ -838,7 +838,32 @@ async function loadStorage() {
           <div style="font-size:11px;color:#888">${d.lead_files.count} files</div>
         </div>
       </div>
-      ${pct > 70 ? '<div style="margin-top:12px;background:#fff3cd;border:1.5px solid #F39C12;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404">⚠️ Disk usage above 70% — consider upgrading the Render disk.</div>' : ''}`;
+      ${pct > 70 ? '<div style="margin-top:12px;background:#fff3cd;border:1.5px solid #F39C12;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404">⚠️ Disk usage above 70% — consider upgrading the Render disk.</div>' : ''}
+      <div style="margin-top:20px;border-top:1.5px solid #f0e8e4;padding-top:16px">
+        <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">⚠️ Known Limitations & Future Recommendations</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="background:#FFF8F5;border-left:3px solid #EA672F;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
+            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📊 Dashboard Performance at Scale</div>
+            <div style="color:#555">Currently queries Monday.com live on every page load. With 5+ reps or 12+ months of data, loading may take 10–30 seconds. <strong>Recommended fix:</strong> Implement a data caching layer in SQLite that refreshes every few minutes.</div>
+          </div>
+          <div style="background:#FFF8F5;border-left:3px solid #F39C12;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
+            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">💾 Database Persistence</div>
+            <div style="color:#555">Rep start dates and other settings may reset on redeploy if the Render persistent disk is not correctly mounted. <strong>Recommended fix:</strong> Verify disk is mounted at /data in Render dashboard, or migrate settings to Monday.com columns.</div>
+          </div>
+          <div style="background:#FFF8F5;border-left:3px solid #3498DB;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
+            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">🔗 Monday.com Webhooks</div>
+            <div style="color:#555">Webhooks need re-registering if the service URL changes. Currently registered for proposal status changes. <strong>Recommended:</strong> Re-register via Admin → Integrations after any URL change.</div>
+          </div>
+          <div style="background:#FFF8F5;border-left:3px solid #27AE60;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
+            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📋 Proposal Tracking</div>
+            <div style="color:#555">Proposals only appear in commission stats if the rep dropdown (dropdown_mm5c51r2) is filled in on the Proposals board. Proposals generated via our system set this automatically — manually created proposals in Monday.com need the dropdown filled manually.</div>
+          </div>
+          <div style="background:#FFF8F5;border-left:3px solid #9B59B6;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
+            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📅 Commission Date Accuracy</div>
+            <div style="color:#555">Closed deals must have the date_mm3gx943 (closed date) column filled in Monday.com to appear in date-filtered reports. Deals without a closed date are included in all-time totals only.</div>
+          </div>
+        </div>
+      </div>`;
   } catch(e) {
     document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Could not load storage info.</p>';
   }
