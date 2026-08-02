@@ -36,6 +36,16 @@ const db = new sqlite3.Database(path.join(dataDir_early, 'app.db'));
 console.log('Database path:', path.join(dataDir_early, 'app.db'));
 console.log('NODE_ENV:', process.env.NODE_ENV);
 
+// Hardcoded start dates as fallback when database doesn't persist
+const REP_START_DATES = {
+  'evan.dowman@xpressdraft.com.au': '2026-06-24',
+  'here2help@xpressdraft.com.au': '2026-01-01', // Update if needed
+};
+
+function getRepStartDate(user) {
+  return user.start_date || REP_START_DATES[user.email] || null;
+}
+
 // Helper: run a query that modifies data
 function dbRun(sql, params) {
   return new Promise((resolve, reject) => {
@@ -670,12 +680,12 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       console.log('Monday stats for', repName, ':', JSON.stringify(mondayStats));
       // Overall stats since start date
-      overallStats = await monday.getRepStatsFromMonday(repName, user.start_date || null, null);
+      overallStats = await monday.getRepStatsFromMonday(repName, getRepStartDate(user) || null, null);
       // Total leads on Negotiations board
       const leadsData = await monday.getLeadsForRep(repName);
       totalLeads = leadsData.length;
       // Calculate commission week by week — always use full history regardless of selected period
-      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, user.start_date || null, null);
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, getRepStartDate(user) || null, null);
       console.log('Weekly deals keys:', Object.keys(weeklyDeals), '| noDateItems:', noDateItems.length);
       for (const [wStart, deals] of Object.entries(weeklyDeals)) {
         const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
@@ -693,14 +703,14 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       }
       console.log('Weekly commission for', repName, ':', weeklyCommission, '| weeks:', weeklyCommissionBreakdown.length);
     } catch(e) { console.error('Monday stats error:', e.message); }
-    const weekNum = user.start_date ? Math.floor((Date.now() - new Date(user.start_date)) / (7 * 24 * 60 * 60 * 1000)) + 1 : null;
+    const weekNum = getRepStartDate(user) ? Math.floor((Date.now() - new Date(getRepStartDate(user))) / (7 * 24 * 60 * 60 * 1000)) + 1 : null;
     const leadConversionRate = totalLeads > 0 ? Math.round((mondayStats.closedDeals / totalLeads) * 100) : 0;
     const overallLeadConversionRate = totalLeads > 0 ? Math.round((overallStats.closedDeals / totalLeads) * 100) : 0;
 
     // If leader, get sub-rep dashboards using leader's start date for override
     let subReps = [];
     if (user.role === 'leader') {
-      const overrideFrom = user.start_date || fromDate || null;
+      const overrideFrom = getRepStartDate(user) || fromDate || null;
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
         const subRepName = rep.monday_name || rep.name;
@@ -737,7 +747,7 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       totalClosed: mondayStats.closedValue,
       overallStats,
       weekNum,
-      startDate: user.start_date,
+      startDate: getRepStartDate(user),
       subReps,
       totalLeads,
       leadConversionRate,
@@ -836,7 +846,7 @@ app.get('/api/admin/commission', requireAuth, requireAdmin, async (req, res) => 
       // Recalculate override using leader's start date as from date
       let adjustedOverride = 0;
       if (user.role === 'leader') {
-        const leaderFrom = fromDate || user.start_date || null;
+        const leaderFrom = fromDate || getRepStartDate(user) || null;
         const reps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
         for (const rep of reps) {
           let repStats = { closedValue: 0 };
@@ -1104,7 +1114,7 @@ app.get('/api/admin/commission/:userId/history', requireAuth, requireAdmin, asyn
       history.push({ ...week, ...mondayStats });
     }
     const currentWeekNum = getWeekNumber(user.start_date);
-    res.json({ history, currentWeekNum, startDate: user.start_date });
+    res.json({ history, currentWeekNum, startDate: getRepStartDate(user) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1157,7 +1167,7 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
     let subReps = [];
     if (user.role === 'leader') {
       // Override only counts from when the leader started
-      const overrideFrom = user.start_date || fromDate || null;
+      const overrideFrom = getRepStartDate(user) || fromDate || null;
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
         const subRepName = rep.monday_name || rep.name;
