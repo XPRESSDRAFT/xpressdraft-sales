@@ -422,7 +422,7 @@ async function loadSummary(userId = null) {
 
   // Stats — use Monday.com closed value as primary sales figure
   const displaySales = closedValue || totalSales || 0;
-  const displayCommission = commission > 0 ? commission : calcCommissionFE(closedValue || 0, role);
+const displayCommission = commission > 0 ? commission : calcCommissionFE(closedValue || 0, role);
   document.getElementById('totalSales').textContent = fmt(displaySales);
   document.getElementById('dealCount').textContent = (closedDeals || records.length) + ' deal' + ((closedDeals || records.length) !== 1 ? 's' : '');
   document.getElementById('commissionEarned').textContent = fmt(displayCommission);
