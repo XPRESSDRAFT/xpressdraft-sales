@@ -33,6 +33,8 @@ const dataDir_early = process.env.NODE_ENV === 'production' ? '/data' : path.joi
 const fs_early = require('fs');
 if (!fs_early.existsSync(dataDir_early)) fs_early.mkdirSync(dataDir_early, { recursive: true });
 const db = new sqlite3.Database(path.join(dataDir_early, 'app.db'));
+console.log('Database path:', path.join(dataDir_early, 'app.db'));
+console.log('NODE_ENV:', process.env.NODE_ENV);
 
 // Helper: run a query that modifies data
 function dbRun(sql, params) {
@@ -672,8 +674,8 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       // Total leads on Negotiations board
       const leadsData = await monday.getLeadsForRep(repName);
       totalLeads = leadsData.length;
-      // Calculate commission week by week
-      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, fromDate || user.start_date || null, toDate || null);
+      // Calculate commission week by week — always use full history regardless of selected period
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, user.start_date || null, null);
       console.log('Weekly deals keys:', Object.keys(weeklyDeals), '| noDateItems:', noDateItems.length);
       for (const [wStart, deals] of Object.entries(weeklyDeals)) {
         const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
