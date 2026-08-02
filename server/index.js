@@ -1180,9 +1180,11 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
       }
       const leadsData = await monday.getLeadsForRep(repName);
       totalLeads = leadsData.length;
+      console.log('Admin weekly commission for', repName, ':', weeklyCommission, '| weeks:', weeklyCommissionBreakdown.length);
     } catch(e) { console.error('Monday stats error for', repName, ':', e.message); }
 
     const commission = weeklyCommission || calcCommission(totalSales, user.role || 'standard');
+    console.log('Admin commission final for', repName, ':', commission);
 
     // If leader, get sub-reps data using leader's start date for override
     let subReps = [];
@@ -1250,8 +1252,13 @@ app.delete('/api/admin/commission/records/:id', requireAuth, requireAdmin, async
 // Admin: get all users with roles and leaders
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const users = await dbAll('SELECT id, name, email, role, leader_id, active FROM users ORDER BY name');
-    res.json(users);
+    const users = await dbAll('SELECT id, name, email, role, leader_id, active, start_date FROM users ORDER BY name');
+    // Include hardcoded start date fallback
+    const usersWithStartDate = users.map(u => ({
+      ...u,
+      start_date: u.start_date || REP_START_DATES[u.email] || null
+    }));
+    res.json(usersWithStartDate);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
