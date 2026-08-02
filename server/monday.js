@@ -673,7 +673,9 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
     if (startDate && weekStart < startDate) continue;
     if (endDate && weekStart > endDate) continue;
     if (!weeklyDeals[weekStart]) weeklyDeals[weekStart] = [];
-    weeklyDeals[weekStart].push({ name: item.name, value: getAmount(item), weekStart });
+    const amount = getAmount(item);
+    console.log('  Weekly deal:', item.name, '| week:', weekStart, '| value:', amount);
+    weeklyDeals[weekStart].push({ name: item.name, value: amount, weekStart });
   }
 
   const noDateItems = repItems.filter(item => !itemWeekStarts.get(item.id));
