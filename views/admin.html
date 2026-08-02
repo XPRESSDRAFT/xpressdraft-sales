@@ -471,7 +471,7 @@ async function viewAs(userId, name, dateRange) {
   }
 
   const displaySales = closedValue || totalSales || 0;
-  const displayCommission = calcCommissionLocal(displaySales, role);
+  const displayCommission = commission || 0;
 
   function tierRate(total, r) {
     if (r === 'leader') {
