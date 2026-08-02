@@ -569,9 +569,80 @@ async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
   return { sentProposals, sentValue, closedDeals, closedValue, conversionRate };
 }
 
+// ── Calculate commission week by week ────────────────────────────────────────
+async function getWeeklyCommission(repName, startDate, endDate = null) {
+  // Get all closed deals for rep
+  const data = await query(`
+    query {
+      boards(ids: ["18389820785"]) {
+        groups(ids: ["group_mky4ey72"]) {
+          items_page(limit: 500) {
+            items {
+              id
+              name
+              column_values(ids: ["dropdown_mm5c51r2", "numeric_mky1cmcv", "date_mm3gx943"]) {
+                id text value
+              }
+            }
+          }
+        }
+      }
+    }`);
+
+  const items = data?.boards?.[0]?.groups?.[0]?.items_page?.items || [];
+  const repNameNorm = (repName || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  // Filter by rep
+  const repItems = items.filter(item => {
+    const repCol = (item.column_values?.find(c => c.id === 'dropdown_mm5c51r2')?.text || '').toLowerCase().replace(/[^a-z]/g, '');
+    return repCol && (repCol.includes(repNameNorm) || repNameNorm.includes(repCol));
+  });
+
+  // Group by commission week (Wed-Tue)
+  function getItemWeekStart(item) {
+    const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || '';
+    if (!dateCol) return null;
+    let dateStr = dateCol;
+    if (dateCol.includes('/')) {
+      const parts = dateCol.split('/');
+      dateStr = parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d)) return null;
+    // Find Wednesday of that week
+    const day = d.getDay(); // 0=Sun, 3=Wed
+    const diff = day >= 3 ? day - 3 : day + 4;
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().split('T')[0];
+  }
+
+  function getAmount(item) {
+    const val = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
+    return parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0;
+  }
+
+  // Group deals by week
+  const weeklyDeals = {};
+  for (const item of repItems) {
+    const weekStart = getItemWeekStart(item);
+    if (!weekStart) continue;
+    // Filter by date range if provided
+    if (startDate && weekStart < startDate) continue;
+    if (endDate && weekStart > endDate) continue;
+    if (!weeklyDeals[weekStart]) weeklyDeals[weekStart] = [];
+    weeklyDeals[weekStart].push({ name: item.name, value: getAmount(item), weekStart });
+  }
+
+  // Also include items with no date — assign to current week
+  const noDateItems = repItems.filter(item => !getItemWeekStart(item));
+
+  return { weeklyDeals, noDateItems };
+}
+
 module.exports = {
   getLeadsForRep,
   getRepStatsFromMonday,
+  getWeeklyCommission,
   getProposalFollowUpLeads,
   moveToSentProposals,
   PROPOSAL_GROUPS,

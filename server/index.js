@@ -662,6 +662,8 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
     let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
     let overallStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
     let totalLeads = 0;
+    let weeklyCommission = 0;
+    let weeklyCommissionBreakdown = [];
     try {
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       console.log('Monday stats for', repName, ':', JSON.stringify(mondayStats));
@@ -670,6 +672,23 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       // Total leads on Negotiations board
       const leadsData = await monday.getLeadsForRep(repName);
       totalLeads = leadsData.length;
+      // Calculate commission week by week
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, fromDate || user.start_date || null, toDate || null);
+      for (const [wStart, deals] of Object.entries(weeklyDeals)) {
+        const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
+        const weekComm = calcCommission(weekTotal, user.role || 'standard');
+        weeklyCommission += weekComm;
+        weeklyCommissionBreakdown.push({ weekStart: wStart, deals, weekTotal, weekComm });
+      }
+      // Add commission for items without dates
+      if (noDateItems.length > 0) {
+        const noDateTotal = noDateItems.reduce((sum, i) => {
+          const val = i.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
+          return sum + (parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0);
+        }, 0);
+        weeklyCommission += calcCommission(noDateTotal, user.role || 'standard');
+      }
+      console.log('Weekly commission for', repName, ':', weeklyCommission, '| weeks:', weeklyCommissionBreakdown.length);
     } catch(e) { console.error('Monday stats error:', e.message); }
     const weekNum = user.start_date ? Math.floor((Date.now() - new Date(user.start_date)) / (7 * 24 * 60 * 60 * 1000)) + 1 : null;
     const leadConversionRate = totalLeads > 0 ? Math.round((mondayStats.closedDeals / totalLeads) * 100) : 0;
@@ -703,8 +722,8 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
 
     res.json({
       records,
-      totalSales,
-      commission,
+      totalSales: mondayStats.closedValue || totalSales,
+      commission: weeklyCommission || commission,
       weekStart,
       role: user.role || 'standard',
       sentProposals: mondayStats.sentProposals,
@@ -720,6 +739,7 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       totalLeads,
       leadConversionRate,
       overallLeadConversionRate,
+      weeklyCommissionBreakdown,
     });
   } catch(e) {
     res.status(500).json({ error: e.message });

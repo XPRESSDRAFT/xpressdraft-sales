@@ -209,6 +209,14 @@
     <div id="subRepsList"></div>
   </div>
 
+  <!-- Weekly commission breakdown -->
+  <div class="records-card" id="weeklyBreakdownCard" style="display:none;margin-bottom:24px">
+    <div class="records-title">
+      <span>Commission Breakdown by Week</span>
+    </div>
+    <div id="weeklyBreakdownContent"></div>
+  </div>
+
   <!-- Invoice section -->
   <div class="records-card" id="invoiceSection">
     <div class="records-title">
@@ -390,7 +398,7 @@ async function loadSummary(userId = null) {
     return;
   }
 
-  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps, overallStats, weekNum, startDate, totalLeads, leadConversionRate, overallLeadConversionRate } = data;
+  const { records, totalSales, commission, weekStart, role, repOverrides, totalOverride, totalEarnings, sentProposals, sentValue, closedDeals, closedValue, totalClosed, conversionRate, subReps, overallStats, weekNum, startDate, totalLeads, leadConversionRate, overallLeadConversionRate, weeklyCommissionBreakdown } = data;
   const isAdmin = !!userId;
 
   // Week dates
@@ -497,6 +505,28 @@ async function loadSummary(userId = null) {
     subRepsPanel.style.display = 'none';
   }
 
+  // Show weekly commission breakdown
+  const breakdownCard = document.getElementById('weeklyBreakdownCard');
+  const breakdownContent = document.getElementById('weeklyBreakdownContent');
+  if (breakdownCard && weeklyCommissionBreakdown && weeklyCommissionBreakdown.length > 0) {
+    breakdownCard.style.display = 'block';
+    breakdownContent.innerHTML = weeklyCommissionBreakdown.sort((a,b) => b.weekStart.localeCompare(a.weekStart)).map(w => `
+      <div style="padding:10px 0;border-bottom:1px solid #f0e8e4">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:12px;font-weight:700;color:#888">Week of ${w.weekStart}</div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="font-size:13px;color:#2A2B29;font-weight:700">${fmt(w.weekTotal)} closed</div>
+            <div style="font-size:13px;font-weight:800;color:#27AE60">+${fmt(w.weekComm)} commission</div>
+          </div>
+        </div>
+        ${w.deals.map(d => `<div style="display:flex;justify-content:space-between;padding:3px 12px;font-size:12px;color:#555">
+          <span>${d.name}</span><span>${fmt(d.value)}</span>
+        </div>`).join('')}
+      </div>`).join('');
+  } else if (breakdownCard) {
+    breakdownCard.style.display = 'none';
+  }
+
   // Show overall stats since start date
   const overallCard = document.getElementById('overallStatsCard');
   const overallContent = document.getElementById('overallStatsContent');
@@ -535,19 +565,21 @@ async function loadSummary(userId = null) {
   }
 
   // Show leader override section
-  if (role === 'leader' && repOverrides && repOverrides.length > 0) {
+  if (role === 'leader' && subReps && subReps.length > 0) {
+    const totalOverrideCalc = subReps.reduce((sum, r) => sum + (r.overrideCommission || 0), 0);
+    const totalEarningsCalc = (displayCommission || commission) + totalOverrideCalc;
     document.getElementById('overridePanel').style.display = 'block';
     document.getElementById('totalEarningsCard').style.display = 'block';
-    document.getElementById('overrideTotal').textContent = fmt(totalOverride || 0);
-    document.getElementById('totalEarnings').textContent = fmt(totalEarnings || 0);
-    document.getElementById('overrideList').innerHTML = repOverrides.map(r => `
+    document.getElementById('overrideTotal').textContent = fmt(totalOverrideCalc);
+    document.getElementById('totalEarnings').textContent = fmt(totalEarningsCalc);
+    document.getElementById('overrideList').innerHTML = subReps.map(r => `
       <div class="rep-row">
-        <div class="rep-name">${r.rep.name}</div>
+        <div class="rep-name">${r.user.name}</div>
         <div style="text-align:right">
-          <div class="rep-sales">${fmt(r.repSales)}</div>
-          <div style="font-size:11px;color:#888">${r.records.length} deals</div>
+          <div class="rep-sales">${fmt(r.closedValue || 0)}</div>
+          <div style="font-size:11px;color:#888">${r.closedDeals || 0} deals</div>
         </div>
-        <div class="rep-commission">+${fmt(r.overrideCommission)}</div>
+        <div class="rep-commission">+${fmt(r.overrideCommission || 0)}</div>
       </div>
     `).join('');
   } else {
