@@ -660,19 +660,23 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
     const col = item.column_values?.find(c => c.id === 'date_mm3gx943');
     console.log('  Item:', item.name, '| date text:', col?.text, '| date value:', col?.value, '| weekStart:', ws);
   });
+  // Group deals by week using pre-computed weekStarts
+  const itemWeekStarts = new Map();
+  repItems.forEach(item => {
+    itemWeekStarts.set(item.id, getItemWeekStart(item));
+  });
+
   const weeklyDeals = {};
   for (const item of repItems) {
-    const weekStart = getItemWeekStart(item);
+    const weekStart = itemWeekStarts.get(item.id);
     if (!weekStart) continue;
-    // Filter by date range if provided
     if (startDate && weekStart < startDate) continue;
     if (endDate && weekStart > endDate) continue;
     if (!weeklyDeals[weekStart]) weeklyDeals[weekStart] = [];
     weeklyDeals[weekStart].push({ name: item.name, value: getAmount(item), weekStart });
   }
 
-  // Also include items with no date — assign to current week
-  const noDateItems = repItems.filter(item => !getItemWeekStart(item));
+  const noDateItems = repItems.filter(item => !itemWeekStarts.get(item.id));
 
   return { weeklyDeals, noDateItems };
 }

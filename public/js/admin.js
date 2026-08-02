@@ -1,873 +1,274 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Xpress Draft — Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --orange: #EA672F; --orange-d: #d45a26; --dark: #2A2B29;
-    --page: #F3EAE5; --card: #fff; --grey: #888; --border: #e0d9d5;
-  }
-  body { font-family: 'Manrope', sans-serif; background: var(--page); color: var(--dark); }
-  .topbar { background: var(--dark); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-  .logo { display: flex; align-items: center; gap: 8px; }
-  .logo-text { font-size: 16px; font-weight: 800; color: #fff; }
-  .logo-text span { color: var(--orange); }
-  .top-right { display: flex; align-items: center; gap: 12px; }
-  .top-right a { color: rgba(255,255,255,.6); font-size: 12px; text-decoration: none; }
-  .top-right a:hover { color: #fff; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
-  h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
-  .page-sub { color: var(--grey); font-size: 13px; margin-bottom: 24px; }
 
-  /* Tab nav */
-  .tab-nav { display: flex; gap: 4px; margin-bottom: 24px; background: #e8dfd9; border-radius: 12px; padding: 4px; }
-  .tab-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 9px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; color: #888; transition: .15s; text-align: center; }
-  .tab-btn.active { background: #fff; color: var(--dark); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
-  .tab-btn:hover:not(.active) { color: var(--dark); }
-
-  /* Tab panels */
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-
-  .section { background: var(--card); border-radius: 14px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
-  .section-title { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 18px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--grey); padding: 0 12px 10px; }
-  td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
-  tr:hover td { background: #faf7f5; }
-  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
-  .badge-admin { background: rgba(234,103,47,.15); color: var(--orange); }
-  .badge-user { background: rgba(0,0,0,.06); color: #666; }
-  .badge-active { background: #e8f5e9; color: #2e7d32; }
-  .badge-inactive { background: #fde8e8; color: #c0392b; }
-  .btn { font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 7px; padding: 6px 12px; cursor: pointer; border: none; transition: .15s; }
-  .btn-orange { background: var(--orange); color: #fff; }
-  .btn-orange:hover { background: var(--orange-d); }
-  .btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--dark); }
-  .btn-ghost:hover { border-color: #aaa; }
-  .btn-danger { background: transparent; border: 1.5px solid #f5c6c6; color: #c0392b; }
-  .btn-danger:hover { background: #fde8e8; }
-  .btn-sm { padding: 4px 10px; font-size: 11px; }
-  .add-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: 10px; align-items: end; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
-  .add-form .field label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--grey); margin-bottom: 5px; }
-  .add-form .field input, .add-form .field select { font-family: inherit; font-size: 13px; color: var(--dark); background: #faf7f5; border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 11px; outline: none; width: 100%; }
-  .add-form .field input:focus, .add-form .field select:focus { border-color: var(--orange); }
-  .pricing-row td:first-child { font-size: 12px; color: var(--grey); font-family: monospace; }
-  .price-input { font-family: inherit; font-size: 13px; color: var(--dark); background: transparent; border: none; outline: none; width: 80px; text-align: right; padding: 2px 4px; border-bottom: 1.5px solid transparent; }
-  .price-input:focus { border-bottom-color: var(--orange); }
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
-  .toast.show { opacity: 1; }
-  @media (max-width: 600px) { .tab-btn { font-size: 11px; padding: 8px 8px; } }
-</style>
-</head>
-<body>
-
-<div class="topbar">
-  <div class="logo">
-    <svg width="22" height="22" viewBox="0 0 191 189" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#F3EAE5" d="M46.6 6.5v29.6c0 1.9 1.1 3.7 2.8 4.5l42.8 23.9c1.9.9 4.1.9 6 0l42.8-23.9c1.7-.8 2.8-2.6 2.8-4.5V6.5c0-4.8-5-7.9-9.3-5.9L98.3 18c-1.9.9-4.1.9-6 0L55.9.6c-4.3-2-9.3 1.1-9.3 5.9"/>
-      <path fill="#F3EAE5" d="M46.6 181.2v-29.6c0-1.9 1.1-3.7 2.8-4.5l42.8-23.9c1.9-.9 4.1-.9 6 0l42.8 23.9c1.7.8 2.8 2.6 2.8 4.5v29.6c0 4.8-5 7.9-9.3 5.9L98.3 169.8c-1.9-.9-4.1-.9-6 0l-36.4 17.3c-4.3 2-9.3-1.1-9.3-5.9"/>
-      <path fill="#F3EAE5" d="M182.6 45.2h-29.6c-1.9 0-3.7 1.1-4.5 2.8l-23.9 42.8c-.9 1.9-.9 4.1 0 6l23.9 42.8c.8 1.7 2.6 2.8 4.5 2.8h29.6c4.8 0 7.9-5 5.9-9.3l-17.4-36.3c-.9-1.9-.9-4.1 0-6l17.4-36.3c2-4.3-1.1-9.3-5.9-9.3"/>
-      <path fill="#EA672F" d="M7.9 45.2h29.6c1.9 0 3.7 1.1 4.5 2.8l23.9 42.8c.9 1.9.9 4.1 0 6l-23.9 42.8c-.8 1.7-2.6 2.8-4.5 2.8H7.9c-4.8 0-7.9-5-5.9-9.3l17.4-36.3c.9-1.9.9-4.1 0-6L2 54.5c-2-4.3 1.1-9.3 5.9-9.3"/>
-    </svg>
-    <div class="logo-text"><span>Xpress</span> Draft — Admin</div>
-  </div>
-  <div class="top-right">
-    <a href="/" style="font-weight:700">🏠 Home</a>
-    <a href="/commission">💰 Commission</a>
-    <a href="#" id="logoutBtn">Sign out</a>
-  </div>
-</div>
-
-<div class="wrap">
-  <h1>Admin Panel</h1>
-  <div class="page-sub">Manage your team, pricing, integrations and system settings.</div>
-
-  <!-- Tab Navigation -->
-  <div class="tab-nav">
-    <button class="tab-btn active" onclick="showTab('team')">👥 Team</button>
-    <button class="tab-btn" onclick="showTab('commission')">💰 Commission</button>
-    <button class="tab-btn" onclick="showTab('pipeline')">📊 Pipeline</button>
-    <button class="tab-btn" onclick="showTab('sales')">📋 Sales</button>
-    <button class="tab-btn" onclick="showTab('pricing')">💲 Pricing</button>
-    <button class="tab-btn" onclick="showTab('invoices')">🧾 Invoices</button>
-    <button class="tab-btn" onclick="showTab('integrations')">🔗 Integrations</button>
-    <button class="tab-btn" onclick="showTab('system')">⚙️ System</button>
-  </div>
-
-  <!-- TEAM TAB -->
-  <div id="tab-team" class="tab-panel active">
-    <div class="section">
-      <div class="section-title">Team Members</div>
-      <table id="usersTable">
-        <thead>
-          <tr>
-            <th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="usersTbody"></tbody>
-      </table>
-      <div class="add-form">
-        <div class="field"><label>Name</label><input type="text" id="newName" placeholder="Alex"></div>
-        <div class="field"><label>Email</label><input type="email" id="newEmail" placeholder="alex@xpressdraft.com.au"></div>
-        <p style="font-size:12px;color:#888;margin:4px 0 8px">A secure password will be auto-generated and emailed to the user.</p>
-        <div class="field"><label>Role</label>
-          <select id="newRole">
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-        <div style="padding-bottom:1px"><button class="btn btn-orange" id="addUserBtn">Add user</button></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Pending Portal Logins <span id="portalBadge" style="background:#EA672F;color:#fff;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px;display:none"></span></div>
-      <p style="font-size:13px;color:#888;margin:0 0 16px">Clients who paid deposit on a job $5,000+. Generate their Monday.com portal login, then send the welcome email.</p>
-      <div id="portalList"><div style="color:#888;font-size:13px;font-style:italic">No pending portal logins.</div></div>
-    </div>
-  </div>
-
-  <!-- COMMISSION TAB -->
-  <div id="tab-commission" class="tab-panel">
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div class="section-title" style="margin-bottom:0">Team Commission Overview</div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button onclick="setAdminDateMode('week')" id="adminBtnWeek" style="background:#EA672F;color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">This Week</button>
-          <button onclick="setAdminDateMode('custom')" id="adminBtnCustom" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Custom Range</button>
-          <div id="adminCustomRange" style="display:none;align-items:center;gap:6px">
-            <input type="date" id="adminDateFrom" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
-            <span style="font-size:12px;color:#888">to</span>
-            <input type="date" id="adminDateTo" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
-            <button onclick="applyAdminRange()" style="background:#2A2B29;color:#fff;border:none;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">Apply</button>
-          </div>
-          <button onclick="loadCommissionTab()" style="background:#fff;color:#2A2B29;border:1.5px solid #e0d9d5;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px">↻ Refresh</button>
-        </div>
-      </div>
-      <div id="commissionOverview"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-
-    <div class="section" id="repSettingsSection">
-      <div class="section-title">Rep Settings</div>
-      <p style="font-size:13px;color:#888;margin-bottom:16px">Set each rep's role and assign them to a leader for override commission.</p>
-      <div id="repSettings"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-
-    <div class="section" id="viewAsSection" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div class="section-title" style="margin-bottom:0">Viewing: <span id="viewAsName" style="color:#EA672F"></span></div>
-        <div style="display:flex;gap:8px">
-          <button onclick="loadWeeklyHistory(window._viewingUserId, window._viewingName)" class="btn btn-ghost btn-sm">📊 Weekly History</button>
-          <button onclick="closeViewAs()" class="btn btn-ghost btn-sm">✕ Close</button>
-        </div>
-      </div>
-      <div id="viewAsContent"></div>
-      <div id="weeklyHistorySection" style="display:none;margin-top:20px;padding-top:16px;border-top:1.5px solid #f0e8e4">
-        <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">📊 Week-by-Week History</div>
-        <div id="weeklyHistoryContent"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PIPELINE TAB -->
-  <div id="tab-pipeline" class="tab-panel">
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <div class="section-title" style="margin-bottom:0">Pipeline Overview</div>
-        <button onclick="loadPipeline()" class="btn btn-ghost btn-sm">↻ Refresh</button>
-      </div>
-      <div id="pipelineContent"><p style="color:#888;font-size:13px">Loading pipeline data...</p></div>
-    </div>
-  </div>
-
-  <!-- SALES MANAGEMENT TAB -->
-  <div id="tab-sales" class="tab-panel">
-    <div class="section">
-      <div class="section-title">Record a Sale</div>
-      <p style="font-size:13px;color:#888;margin-bottom:16px">Add a sale for any rep. This updates their commission automatically.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end">
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Rep</label>
-          <select id="saleRepId" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none"></select>
-        </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client Name</label>
-          <input type="text" id="saleMgrClient" placeholder="e.g. John Smith" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
-        </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Project Type</label>
-          <select id="saleMgrType" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
-            <option value="">Select...</option>
-            <option>Standard</option>
-            <option>As Built</option>
-            <option>DA Only</option>
-            <option>DA+BA</option>
-            <option>Granny Flat</option>
-            <option>Working Drawings Only</option>
-            <option>Shed</option>
-            <option>Storey Addition</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Amount ($)</label>
-          <input type="number" id="saleMgrAmount" placeholder="0.00" step="0.01" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:9px 11px;outline:none">
-        </div>
-        <button onclick="addMgrSale()" class="btn btn-orange" style="padding:10px 20px;white-space:nowrap">+ Record Sale</button>
-      </div>
-    </div>
-
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-        <div class="section-title" style="margin-bottom:0">All Sales</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <input type="date" id="salesDateFrom" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
-          <span style="font-size:12px;color:#888">to</span>
-          <input type="date" id="salesDateTo" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:4px 8px;outline:none">
-          <button onclick="loadAllSales()" class="btn btn-orange btn-sm">Apply</button>
-          <button onclick="document.getElementById('salesDateFrom').value='';document.getElementById('salesDateTo').value='';loadAllSales()" class="btn btn-ghost btn-sm">All Time</button>
-        </div>
-      </div>
-      <div id="allSalesList"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-  </div>
-
-  <!-- PRICING TAB -->
-  <div id="tab-pricing" class="tab-panel">
-    <div class="section">
-      <div class="section-title">Pricing Structure</div>
-      <table>
-        <thead><tr><th>Key</th><th>Description</th><th style="text-align:right">Price (ex GST)</th><th></th></tr></thead>
-        <tbody id="pricingTbody"></tbody>
-      </table>
-      <div style="margin-top:20px;padding:16px;background:#faf7f5;border:1px solid #e0d9d5;border-radius:10px">
-        <div style="font-size:13px;font-weight:700;color:#2A2B29;margin-bottom:12px">Add New Pricing Item</div>
-        <div style="display:grid;grid-template-columns:1fr 2fr 1fr auto;gap:10px;align-items:end">
-          <div>
-            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Key</label>
-            <input id="newPriceKey" type="text" placeholder="e.g. base_deck" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Description</label>
-            <input id="newPriceLabel" type="text" placeholder="e.g. Deck — base fee" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
-          </div>
-          <div>
-            <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Price (ex GST)</label>
-            <input id="newPriceValue" type="number" placeholder="0" min="0" step="50" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box">
-          </div>
-          <button id="addPriceBtn" class="btn btn-orange" style="white-space:nowrap">Add Item</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- INVOICES TAB -->
-  <div id="tab-invoices" class="tab-panel">
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <div class="section-title" style="margin-bottom:0">Salary Settings</div>
-      </div>
-      <p style="font-size:13px;color:#888;margin-bottom:16px">Set each rep's weekly salary. This appears on their commission dashboard as the base amount to invoice.</p>
-      <div id="salarySettings"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <div class="section-title" style="margin-bottom:0">Invoice Archive</div>
-        <button onclick="loadInvoicesTab()" class="btn btn-ghost btn-sm">↻ Refresh</button>
-      </div>
-      <div id="invoiceArchive"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-  </div>
-
-  <!-- INTEGRATIONS TAB -->
-  <div id="tab-integrations" class="tab-panel">
-    <div class="section">
-      <div class="section-title">Integrations</div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1.5px solid #f0e8e4">
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#2A2B29">Calendly</div>
-          <div style="font-size:13px;color:#888;margin-top:2px">Auto-create leads in Monday.com when a booking is made</div>
-        </div>
-        <button onclick="registerCalendly()" class="btn btn-orange">Connect Calendly</button>
-      </div>
-      <div id="calendlyStatus" style="font-size:13px;color:#888;padding:10px 0 16px">Add <code>CALENDLY_TOKEN</code> to Render environment variables first, then click Connect.</div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1.5px solid #f0e8e4">
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#2A2B29">Monday.com Webhook</div>
-          <div style="font-size:13px;color:#888;margin-top:2px">When proposal status set to SENT → lead reappears in rep's Follow Up</div>
-        </div>
-        <button onclick="registerMondayWebhook()" class="btn btn-orange">Register Webhook</button>
-      </div>
-      <div id="mondayWebhookStatus" style="font-size:13px;color:#888;padding:10px 0">Click to register the Monday.com webhook on the 26_3 Proposal board.</div>
-    </div>
-  </div>
-
-  <!-- SYSTEM TAB -->
-  <div id="tab-system" class="tab-panel">
-    <div class="section">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div class="section-title" style="margin-bottom:0">System Storage</div>
-        <button onclick="loadStorage()" class="btn btn-ghost btn-sm">↻ Refresh</button>
-      </div>
-      <div id="storagePanel"><p style="color:#888;font-size:13px">Loading...</p></div>
-    </div>
-  </div>
-
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script src="/js/admin.js"></script>
-<script>
-function showTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
-  if (name === 'commission') loadCommissionTab();
-  if (name === 'system') loadStorage();
-  if (name === 'sales') { loadRepDropdown(); loadAllSales(); }
-  if (name === 'pipeline') loadPipeline();
-  if (name === 'invoices') loadInvoicesTab();
-}
-
-const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-var _adminDateMode = 'week';
-var _adminDateFrom = null;
-var _adminDateTo = null;
-
-function setAdminDateMode(mode) {
-  _adminDateMode = mode;
-  document.getElementById('adminBtnWeek').style.background = mode === 'week' ? '#EA672F' : '#fff';
-  document.getElementById('adminBtnWeek').style.color = mode === 'week' ? '#fff' : '#2A2B29';
-  document.getElementById('adminBtnCustom').style.background = mode === 'custom' ? '#EA672F' : '#fff';
-  document.getElementById('adminBtnCustom').style.color = mode === 'custom' ? '#fff' : '#2A2B29';
-  document.getElementById('adminCustomRange').style.display = mode === 'custom' ? 'flex' : 'none';
-  if (mode === 'week') { _adminDateFrom = null; _adminDateTo = null; loadCommissionTab(); }
-}
-
-function applyAdminRange() {
-  _adminDateFrom = document.getElementById('adminDateFrom').value;
-  _adminDateTo = document.getElementById('adminDateTo').value;
-  if (!_adminDateFrom || !_adminDateTo) { alert('Please select both dates'); return; }
-  loadCommissionTab();
-}
-
-async function loadCommissionTab() {
-  document.getElementById('commissionOverview').innerHTML = '<p style="color:#888;font-size:13px">Loading...</p>';
-  try {
-  let url = '/api/admin/commission';
-  if (_adminDateMode === 'custom' && _adminDateFrom && _adminDateTo) {
-    url += '?from=' + _adminDateFrom + '&to=' + _adminDateTo;
-  } else {
-    // Pass current week dates in AEST (UTC+10)
-    const aestOffset = 10 * 60 * 60000;
-    const now = new Date(Date.now() + aestOffset);
-    const day = now.getUTCDay();
-    const diff = day >= 3 ? day - 3 : day + 4;
-    const ws = new Date(now.getTime() - diff * 86400000);
-    const we = new Date(ws.getTime() + 6 * 86400000);
-    const fmtD = d => d.toISOString().split('T')[0];
-    url += '?from=' + fmtD(ws) + '&to=' + fmtD(we);
-  }
-  const res = await fetch(url);
-  if (!res.ok) { document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Failed to load commission data.</p>'; return; }
-  const data = await res.json();
-
-  document.getElementById('commissionOverview').innerHTML = !data.summary.length
-    ? '<p style="color:#888;font-size:13px">No reps found.</p>'
-    : `<table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr style="border-bottom:2px solid #f0e8e4">
-        <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Rep</th>
-        <th style="text-align:center;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Role</th>
-        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Proposals Sent</th>
-        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Closed</th>
-        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Closed Value</th>
-        <th style="text-align:right;padding:8px 12px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Conversion</th>
-        <th style="padding:8px 12px"></th>
-      </tr></thead><tbody>` +
-    data.summary.map(s => `
-      <tr style="border-bottom:1px solid #f0e8e4">
-        <td style="padding:12px"><div style="font-size:14px;font-weight:700;color:#2A2B29">${s.user.name}</div></td>
-        <td style="padding:12px;text-align:center"><span class="badge ${s.role === 'leader' ? 'badge-admin' : 'badge-user'}">${s.role}</span></td>
-        <td style="padding:12px;text-align:right">
-          <div style="font-size:14px;font-weight:700;color:#2A2B29">${s.sentProposals || 0}</div>
-          <div style="font-size:11px;color:#888">${fmt(s.sentValue || 0)}</div>
-        </td>
-        <td style="padding:12px;text-align:right">
-          <div style="font-size:14px;font-weight:700;color:#27AE60">${s.closedDeals || 0}</div>
-        </td>
-        <td style="padding:12px;text-align:right">
-          <div style="font-size:14px;font-weight:700;color:#EA672F">${fmt(s.closedValue || 0)}</div>
-          ${s.role === 'leader' && s.totalOverride > 0 ? '<div style="font-size:11px;color:#27AE60">+' + fmt(s.totalOverride) + ' override</div>' : ''}
-        </td>
-        <td style="padding:12px;text-align:right;font-size:14px;font-weight:700;color:#3498DB">${s.conversionRate || 0}%</td>
-        <td style="padding:12px;text-align:right"><button onclick="viewAs(${s.user.id}, '${s.user.name.replace(/'/g,"\\'")}', _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '')" style="background:#2A2B29;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">View →</button></td>
-      </tr>`).join('') + '</tbody></table>';
-
-  // Load rep settings
-  const usersRes = await fetch('/api/admin/users');
-  const users = await usersRes.json();
-  const leaders = users.filter(u => u.role === 'leader');
-  document.getElementById('repSettings').innerHTML = users.map(u => `
-    <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center">
-      <div style="font-size:13px;font-weight:700;color:#2A2B29">${u.name}</div>
-      <select onchange="setRole(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
-        <option value="standard" ${u.role === 'standard' || u.role === 'user' ? 'selected' : ''}>Standard</option>
-        <option value="leader" ${u.role === 'leader' ? 'selected' : ''}>Leader</option>
-      </select>
-      <select onchange="setLeader(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
-        <option value="">No Leader</option>
-        ${leaders.filter(l => l.id !== u.id).map(l => `<option value="${l.id}" ${u.leader_id == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
-      </select>
-      <div style="display:flex;align-items:center;gap:4px">
-        <label style="font-size:11px;color:#888;white-space:nowrap">Start:</label>
-        <input type="date" value="${u.start_date || ''}" onchange="setStartDate(${u.id}, this.value)" style="font-size:12px;border:1.5px solid #e0d9d5;border-radius:6px;padding:5px 8px;outline:none">
-      </div>
-    </div>`).join('');
-  } catch(e) {
-    document.getElementById('commissionOverview').innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
-    console.error('loadCommissionTab error:', e);
-  }
-}
-
-async function viewAs(userId, name, dateRange) {
-  window._viewingUserId = userId;
-  window._viewingName = name;
-  const section = document.getElementById('viewAsSection');
-  section.style.display = 'block';
-  document.getElementById('viewAsName').textContent = name;
-  document.getElementById('viewAsContent').innerHTML = '<p style="color:#888;font-size:13px">Loading...</p>';
-
-  let url = '/api/admin/commission/' + userId;
-  if (dateRange && dateRange.includes(',')) {
-    const [from, to] = dateRange.split(',');
-    url += '?from=' + from + '&to=' + to;
-  }
-  const res = await fetch(url);
-  const data = await res.json();
-  const { records, totalSales, commission, role, repOverrides, totalOverride, totalEarnings,
-          sentProposals, sentValue, closedDeals, closedValue, conversionRate, subReps } = data;
-
-  function calcCommissionLocal(total, r) {
-    if (r === 'leader') {
-      if (total <= 8000) return total * 0.03;
-      if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
-      if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
-      return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
-    } else {
-      if (total <= 15000) return total * 0.02;
-      if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
-      return 15000 * 0.02 + 10000 * 0.03 + (total - 25000) * 0.04;
-    }
-  }
-
-  const displaySales = closedValue || totalSales || 0;
-  const displayCommission = commission > 0 ? commission : calcCommissionLocal(displaySales, role);
-
-  function tierRate(total, r) {
-    if (r === 'leader') {
-      if (total <= 8000) return '3%'; if (total <= 15000) return '4%';
-      if (total <= 25000) return '5%'; return '6%';
-    } else {
-      if (total <= 15000) return '2%'; if (total <= 25000) return '3%'; return '4%';
-    }
-  }
-
-  let html = `
-    <!-- Stats grid mirroring rep dashboard -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
-      <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Sales</div>
-        <div style="font-size:22px;font-weight:800;color:#EA672F">${fmt(displaySales)}</div>
-        <div style="font-size:11px;color:#888">${closedDeals || 0} deals · ${tierRate(displaySales, role)} rate</div>
-      </div>
-      <div style="background:#faf7f5;border-radius:10px;padding:14px;text-align:center">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Commission Earned</div>
-        <div style="font-size:22px;font-weight:800;color:#27AE60">${fmt(displayCommission)}</div>
-        <div style="font-size:11px;color:#888">${tierRate(displaySales, role)} rate</div>
-      </div>
-      <div style="background:#2A2B29;border-radius:10px;padding:14px;text-align:center">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">Conversion Rate</div>
-        <div style="font-size:22px;font-weight:800;color:#EA672F">${conversionRate || 0}%</div>
-        <div style="font-size:11px;color:#888">${closedDeals || 0} closed of ${sentProposals || 0} sent</div>
-      </div>
-    </div>
-
-    <!-- Proposals & Closed stats -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-      <div style="background:#faf7f5;border-radius:10px;padding:14px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">Proposals Sent</div>
-        <div style="font-size:22px;font-weight:800;color:#3498DB">${sentProposals || 0}</div>
-        <div style="font-size:13px;color:#888">${fmt(sentValue || 0)} total value</div>
-      </div>
-      <div style="background:#faf7f5;border-radius:10px;padding:14px">
-        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">Closed Deals</div>
-        <div style="font-size:22px;font-weight:800;color:#27AE60">${closedDeals || 0}</div>
-        <div style="font-size:13px;color:#888">${fmt(closedValue || 0)} total value</div>
-      </div>
-    </div>`;
-
-  // Sub-reps for leaders
-  if (role === 'leader' && subReps && subReps.length > 0) {
-    html += `<div style="margin-bottom:16px;padding:14px;background:#faf7f5;border-radius:10px">
-      <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Team Override (+2%)</div>` +
-      subReps.map(r => `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #e0d9d5">
-        <div style="flex:1;font-size:13px;font-weight:700">${r.user.name}</div>
-        <div style="font-size:13px;color:#888">${fmt(r.closedValue || 0)} closed</div>
-        <div style="font-size:13px;font-weight:700;color:#27AE60">+${fmt((r.closedValue || 0) * 0.02)}</div>
-      </div>`).join('') + '</div>';
-  }
-
-  // Add sale form
-  html += `<div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #f0e8e4">
-    <div style="font-size:12px;font-weight:700;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Add Sale for ${name}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
-      <div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:4px">Client</label>
-        <input type="text" id="adminSaleClient" placeholder="Client name" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none"></div>
-      <div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:4px">Amount ($)</label>
-        <input type="number" id="adminSaleAmount" placeholder="0.00" step="0.01" style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none"></div>
-      <button onclick="adminAddSale(${userId})" style="background:#EA672F;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer">+ Add</button>
-    </div>
-  </div>`;
-
-  document.getElementById('viewAsContent').innerHTML = html;
-  section.scrollIntoView({ behavior: 'smooth' });
-}
-
-function closeViewAs() {
-  document.getElementById('viewAsSection').style.display = 'none';
-  window._viewingUserId = null;
-}
-
-async function adminDeleteSale(id) {
-  if (!confirm('Remove this sale record?')) return;
-  await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
-  const dateRange = _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '';
-  viewAs(window._viewingUserId, window._viewingName, dateRange);
-}
-
-async function adminAddSale(userId) {
-  const client = document.getElementById('adminSaleClient').value.trim();
-  const amount = document.getElementById('adminSaleAmount').value;
-  if (!client || !amount) { alert('Enter client and amount'); return; }
-  await fetch('/api/admin/commission/' + userId + '/records', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_name: client, sale_amount: amount })
-  });
-  const dateRange = _adminDateFrom && _adminDateTo ? _adminDateFrom + ',' + _adminDateTo : '';
-  viewAs(userId, window._viewingName, dateRange);
-}
-
-async function setStartDate(userId, date) {
-  await fetch('/api/admin/users/' + userId + '/start-date', {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ start_date: date })
-  });
-  const t = document.getElementById('toast'); t.textContent = 'Start date saved'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
-}
-
-async function loadWeeklyHistory(userId, name) {
-  const histSection = document.getElementById('weeklyHistorySection');
-  const histContent = document.getElementById('weeklyHistoryContent');
-  if (!histSection) return;
-  histSection.style.display = 'block';
-  histContent.innerHTML = '<p style="color:#888;font-size:13px">Loading history...</p>';
-  const res = await fetch('/api/admin/commission/' + userId + '/history');
-  const data = await res.json();
-  if (!data.history || !data.history.length) {
-    histContent.innerHTML = '<p style="color:#888;font-size:13px">No history yet — set a start date first.</p>';
+// ── Pending Portal Logins ──────────────────────────────────────────────────────
+async function loadPendingPortals() {
+  const rows = await api('GET', '/api/pending-portals');
+  const list = document.getElementById('portalList');
+  const badge = document.getElementById('portalBadge');
+  if (!rows.length) {
+    list.innerHTML = '<div style="color:#888;font-size:13px;font-style:italic">No pending portal logins.</div>';
+    badge.style.display = 'none';
     return;
   }
-  histContent.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="border-bottom:2px solid #f0e8e4">
-        <th style="padding:6px 10px;text-align:left;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Week</th>
-        <th style="padding:6px 10px;text-align:left;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Period</th>
-        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Sent</th>
-        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Closed</th>
-        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Value</th>
-        <th style="padding:6px 10px;text-align:right;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:10px">Conv%</th>
-      </tr></thead><tbody>` +
-    [...data.history].reverse().map(w => `
-      <tr style="border-bottom:1px solid #f0e8e4${w.weekNum === data.currentWeekNum ? ';background:#FFF8F5' : ''}">
-        <td style="padding:8px 10px;font-weight:700;color:#EA672F">W${w.weekNum}${w.weekNum === data.currentWeekNum ? ' ◀' : ''}</td>
-        <td style="padding:8px 10px;color:#888;font-size:11px">${w.weekStart} to ${w.weekEnd}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700">${w.sentProposals || 0}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#27AE60">${w.closedDeals || 0}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700;color:#EA672F">${fmt(w.closedValue || 0)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:700">${w.conversionRate || 0}%</td>
-      </tr>`).join('') + '</tbody></table>';
-}
-
-async function setRole(userId, role) {
-  await fetch('/api/admin/users/' + userId + '/role', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role }) });
-  loadCommissionTab();
-}
-
-async function setLeader(userId, leaderId) {
-  await fetch('/api/admin/users/' + userId + '/leader', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leader_id: leaderId || null }) });
-  loadCommissionTab();
-}
-
-async function loadPipeline() {
-  const container = document.getElementById('pipelineContent');
-  container.innerHTML = '<p style="color:#888;font-size:13px">Loading... this may take a moment.</p>';
-  try {
-    const res = await fetch('/api/admin/pipeline');
-    const data = await res.json();
-    if (data.error) { container.innerHTML = '<p style="color:#c00">' + data.error + '</p>'; return; }
-
-    const stageColors = {
-      'QUALIFIED LEADS': '#1ABC9C', 'DISCOVERY CALLS': '#3498DB',
-      'SEQUENCE CALL': '#7F8C8D', 'FOLLOW UP EMAILS / CALLS': '#9B59B6',
-      'PROPOSAL FOLLOW UP': '#E67E22', 'WAITING FOR CLIENTS': '#F39C12',
-      'CLOSED DEALS': '#27AE60', 'HELP REQUIRED': '#E74C3C'
-    };
-
-    container.innerHTML = data.map(rep => {
-      const stageHtml = Object.entries(rep.stageCounts)
-        .filter(([g]) => g !== 'LOST')
-        .map(([g, count]) => {
-          const color = stageColors[g] || '#888';
-          const label = g.replace(' EMAILS / CALLS', '').replace(' CALLS', '');
-          return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0e8e4">' +
-            '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>' +
-            '<div style="flex:1;font-size:12px;color:#555">' + label + '</div>' +
-            '<div style="font-size:13px;font-weight:700;color:#2A2B29">' + count + '</div>' +
-            '</div>';
-        }).join('');
-
-      return '<div style="background:#faf7f5;border-radius:12px;padding:20px;margin-bottom:16px">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
-          '<div style="font-size:16px;font-weight:800;color:#2A2B29">' + rep.user.name + '</div>' +
-          '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.totalLeads + ' leads</div>' +
-        '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
-          '<div>' +
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Pipeline Stages</div>' +
-            (stageHtml || '<p style="color:#888;font-size:12px">No leads</p>') +
-          '</div>' +
-          '<div>' +
-            '<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:8px">Proposals</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">' +
-              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
-                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Sent</div>' +
-                '<div style="font-size:22px;font-weight:800;color:#3498DB">' + rep.sentProposals + '</div>' +
-              '</div>' +
-              '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">' +
-                '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Closed</div>' +
-                '<div style="font-size:22px;font-weight:800;color:#27AE60">' + rep.closedDeals + '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div style="background:#fff;border-radius:8px;padding:10px;margin-bottom:8px">' +
-              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Closed Value</div>' +
-              '<div style="font-size:18px;font-weight:800;color:#EA672F">' + fmt(rep.totalClosed) + '</div>' +
-            '</div>' +
-            '<div style="background:#2A2B29;border-radius:8px;padding:10px;text-align:center">' +
-              '<div style="font-size:10px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Conversion Rate</div>' +
-              '<div style="font-size:22px;font-weight:800;color:#EA672F">' + rep.conversionRate + '%</div>' +
-              '<div style="font-size:11px;color:#888">' + rep.closedDeals + ' of ' + rep.sentProposals + ' proposals</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-  } catch(e) {
-    container.innerHTML = '<p style="color:#c00">Error: ' + e.message + '</p>';
-  }
-}
-
-async function loadInvoicesTab() {
-  // Load salary settings
-  const salRes = await fetch('/api/admin/salary');
-  const salData = await salRes.json();
-  document.getElementById('salarySettings').innerHTML = salData.map(s => `
-    <div style="display:grid;grid-template-columns:1fr 160px 120px auto;gap:12px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center">
-      <div style="font-size:13px;font-weight:700;color:#2A2B29">${s.user.name}</div>
-      <div>
-        <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:4px">Weekly Salary ($)</label>
-        <input type="number" id="salary_${s.user.id}" value="${s.salary.weekly_amount || 0}" step="0.01"
-          style="width:100%;font-family:inherit;font-size:13px;border:1.5px solid #e0d9d5;border-radius:8px;padding:7px 10px;outline:none">
+  badge.textContent = rows.length;
+  badge.style.display = 'inline';
+  list.innerHTML = '';
+  rows.forEach(r => {
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#faf7f5;border:1px solid #e0d9d5;border-radius:10px;padding:16px;margin-bottom:12px';
+    div.innerHTML = `
+      <div style="font-weight:700;font-size:14px;color:#2A2B29;margin-bottom:4px">${esc(r.client_name)}</div>
+      <div style="font-size:12px;color:#888;margin-bottom:14px">${esc(r.client_email)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end">
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Portal Email</label>
+          <input type="email" id="pe_${r.id}" style="width:100%;font-family:inherit;font-size:13px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box" placeholder="client@portal.com">
+        </div>
+        <div>
+          <label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Portal Password</label>
+          <input type="text" id="pp_${r.id}" style="width:100%;font-family:inherit;font-size:13px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:8px 10px;outline:none;box-sizing:border-box" placeholder="temporary password">
+        </div>
+        <button class="btn btn-orange" data-portal-send="${r.id}">Send welcome email</button>
       </div>
-      <div style="padding-top:18px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2A2B29">
-          <input type="checkbox" id="gst_${s.user.id}" ${s.salary.gst !== 0 ? 'checked' : ''} style="width:16px;height:16px;accent-color:#EA672F">
-          + GST
-        </label>
-      </div>
-      <div style="padding-top:18px">
-        <button onclick="saveSalary(${s.user.id})" class="btn btn-orange btn-sm">Save</button>
-      </div>
-    </div>`).join('');
-
-  // Load invoice archive
-  const invRes = await fetch('/api/admin/invoices');
-  const invoices = await invRes.json();
-  const archive = document.getElementById('invoiceArchive');
-  if (!invoices.length) {
-    archive.innerHTML = '<p style="color:#888;font-size:13px">No invoices submitted yet.</p>';
-    return;
-  }
-  archive.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:6px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
-      <span>Rep</span><span>Week</span><span>Amount</span><span>Submitted</span><span></span>
-    </div>` +
-    invoices.map(inv => `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center;font-size:13px">
-      <span style="font-weight:700">${inv.rep_name}</span>
-      <span style="color:#888">${inv.week_start}</span>
-      <span style="font-weight:700;color:#EA672F">${fmt(inv.total_amount)}</span>
-      <span style="color:#888;font-size:12px">${new Date(inv.submitted_at).toLocaleDateString('en-AU', {day:'2-digit',month:'2-digit',year:'numeric'})}</span>
-      <a href="/api/admin/invoices/${inv.id}/download" style="background:#2A2B29;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap">⬇ Download</a>
-    </div>`).join('');
-}
-
-async function saveSalary(userId) {
-  const amount = document.getElementById('salary_' + userId).value;
-  const gst = document.getElementById('gst_' + userId).checked;
-  await fetch('/api/admin/salary/' + userId, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ weekly_amount: amount, gst })
+      <div id="ps_${r.id}" style="font-size:12px;color:#888;margin-top:8px;min-height:16px"></div>
+    `;
+    list.appendChild(div);
   });
-  const t = document.getElementById('toast'); t.textContent = 'Salary saved'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
-}
 
-async function loadRepDropdown() {
-  const res = await fetch('/api/admin/users');
-  const users = await res.json();
-  const sel = document.getElementById('saleRepId');
-  if (!sel) return;
-  sel.innerHTML = users.map(u => '<option value="' + u.id + '">' + u.name + '</option>').join('');
-}
-
-async function addMgrSale() {
-  const repId = document.getElementById('saleRepId').value;
-  const client = document.getElementById('saleMgrClient').value.trim();
-  const type = document.getElementById('saleMgrType').value;
-  const amount = document.getElementById('saleMgrAmount').value;
-  if (!repId) { alert('Please select a rep'); return; }
-  if (!client || !amount) { alert('Enter client name and amount'); return; }
-  try {
-    const res = await fetch('/api/admin/commission/' + repId + '/records', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_name: client, project_type: type, sale_amount: amount })
+  list.querySelectorAll('[data-portal-send]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.portalSend;
+      const portalEmail = document.getElementById('pe_' + id).value.trim();
+      const portalPassword = document.getElementById('pp_' + id).value.trim();
+      const status = document.getElementById('ps_' + id);
+      if (!portalEmail || !portalPassword) { status.textContent = 'Enter both portal email and password first.'; return; }
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      const r = await api('POST', '/api/pending-portals/' + id + '/send', { portalEmail, portalPassword });
+      if (r.error) {
+        status.textContent = r.error;
+        btn.disabled = false;
+        btn.textContent = 'Send welcome email';
+      } else {
+        status.style.color = '#2e7d32';
+        status.textContent = '✓ Welcome email sent successfully.';
+        setTimeout(() => loadPendingPortals(), 1500);
+      }
     });
-    const data = await res.json();
-    if (data.ok) {
-      document.getElementById('saleMgrClient').value = '';
-      document.getElementById('saleMgrAmount').value = '';
-      const t = document.getElementById('toast'); t.textContent = 'Sale recorded ✓'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
-      loadAllSales();
+  });
+}
+
+// admin.js
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function api(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const users = await api('GET', '/api/users');
+  if (!Array.isArray(users)) { console.error('loadUsers error:', users); return; }
+  const tbody = document.getElementById('usersTbody');
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${esc(u.name)}</strong></td>
+      <td>${esc(u.email)}</td>
+      <td>${esc(u.phone || '—')}</td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td><span class="badge ${u.active ? 'badge-active' : 'badge-inactive'}">${u.active ? 'Active' : 'Inactive'}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" data-rename="${u.id}" data-name="${esc(u.name)}">Rename</button>
+        <button class="btn btn-ghost btn-sm" data-phone="${u.id}" data-phoneval="${esc(u.phone||'')}">Phone</button>
+        <button class="btn btn-ghost btn-sm" data-monday="${u.id}" data-mondayval="${esc(u.monday_name||'')}">Monday Name</button>
+        <button class="btn btn-ghost btn-sm" data-toggle="${u.id}" data-active="${u.active}">
+          ${u.active ? 'Deactivate' : 'Activate'}
+        </button>
+        <button class="btn btn-danger btn-sm" data-delete="${u.id}">Remove</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-monday]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.monday;
+      const current = btn.dataset.mondayval;
+      const newName = prompt('Enter Monday.com name (exactly as shown in Monday.com):', current);
+      if (newName === null) return;
+      await api('PATCH', '/api/users/' + id, { monday_name: newName.trim() });
+      toast('Monday.com name updated');
+      loadUsers();
+    });
+  });
+
+  tbody.querySelectorAll('[data-phone]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.phone;
+      const current = btn.dataset.phoneval;
+      const newPhone = prompt('Enter phone number:', current);
+      if (newPhone === null) return;
+      await api('PATCH', '/api/users/' + id, { phone: newPhone.trim() });
+      toast('Phone updated');
+      loadUsers();
+    });
+  });
+
+  tbody.querySelectorAll('[data-rename]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.rename;
+      const current = btn.dataset.name;
+      const newName = prompt('Enter new name:', current);
+      if (!newName || newName.trim() === current) return;
+      await api('PATCH', '/api/users/' + id, { name: newName.trim() });
+      toast('Name updated');
+      loadUsers();
+    });
+  });
+
+  tbody.querySelectorAll('[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.toggle;
+      const active = btn.dataset.active === '1' ? 0 : 1;
+      await api('PATCH', '/api/users/' + id, { active });
+      toast(active ? 'User activated' : 'User deactivated');
+      loadUsers();
+    });
+  });
+
+  tbody.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Remove this user? They will lose access immediately.')) return;
+      const r = await api('DELETE', '/api/users/' + btn.dataset.delete);
+      if (r.error) { toast(r.error); return; }
+      toast('User removed');
+      loadUsers();
+    });
+  });
+}
+
+document.getElementById('addUserBtn').addEventListener('click', async () => {
+  const name = document.getElementById('newName').value.trim();
+  const email = document.getElementById('newEmail').value.trim();
+  const role = document.getElementById('newRole').value;
+  if (!name || !email) { toast('Fill in all fields'); return; }
+  const r = await api('POST', '/api/users', { name, email, role });
+  if (r.error) { toast(r.error); return; }
+  toast('User added — login details sent by email');
+  document.getElementById('newName').value = '';
+  document.getElementById('newEmail').value = '';
+  setTimeout(() => loadUsers(), 500);
+});
+
+// ── Pricing ───────────────────────────────────────────────────────────────────
+async function loadPricing() {
+  const rows = await api('GET', '/api/pricing');
+  const tbody = document.getElementById('pricingTbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = 'pricing-row';
+    tr.innerHTML = `
+      <td>${esc(r.key)}</td>
+      <td>${esc(r.label)}</td>
+      <td style="text-align:right">$<input class="price-input" type="number" value="${r.value}" data-key="${esc(r.key)}" data-label="${esc(r.label)}" min="0" step="50"></td>
+      <td><button class="btn btn-ghost btn-sm" data-save="${esc(r.key)}">Save</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('[data-save]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.save;
+      const input = tbody.querySelector(`input[data-key="${key}"]`);
+      const label = input.dataset.label;
+      const value = parseFloat(input.value);
+      if (isNaN(value)) { toast('Invalid price'); return; }
+      await api('POST', '/api/pricing', { key, label, value });
+      toast('Price updated');
+    });
+  });
+}
+
+// ── Add new pricing item ─────────────────────────────────────────────────────
+async function addPricingItem() {
+  const keyEl = document.getElementById('newPriceKey');
+  const labelEl = document.getElementById('newPriceLabel');
+  const valueEl = document.getElementById('newPriceValue');
+  const key = keyEl.value.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  const label = labelEl.value.trim();
+  const value = parseFloat(valueEl.value);
+  if (!key || !label || isNaN(value)) { toast('Please fill in all fields'); return; }
+  await api('POST', '/api/pricing', { key, label, value });
+  keyEl.value = ''; labelEl.value = ''; valueEl.value = '';
+  toast('Item added');
+  loadPricing();
+}
+
+document.getElementById('addPriceBtn')?.addEventListener('click', addPricingItem);
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+document.getElementById('logoutBtn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  await fetch('/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Init
+loadUsers();
+loadPricing();
+loadPendingPortals();
+
+async function registerCalendly() {
+  const btn = document.querySelector('[onclick="registerCalendly()"]');
+  if (btn) btn.textContent = 'Connecting...';
+  try {
+    const r = await api('POST', '/api/admin/calendly/register', {});
+    const statusEl = document.getElementById('calendlyStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
     } else {
-      alert('Error saving sale: ' + (data.error || 'unknown'));
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Calendly webhook registered successfully! New bookings will now create leads in Monday.com.</span>';
+      if (btn) btn.textContent = 'Connected ✓';
     }
   } catch(e) {
-    alert('Failed: ' + e.message);
+    const statusEl = document.getElementById('calendlyStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
   }
 }
 
-async function loadAllSales() {
-  const from = document.getElementById('salesDateFrom')?.value || '';
-  const to = document.getElementById('salesDateTo')?.value || '';
-  let url = '/api/admin/all-sales';
-  if (from && to) url += '?from=' + from + '&to=' + to;
-  const res = await fetch(url);
-  const data = await res.json();
-  const container = document.getElementById('allSalesList');
-  if (!data.sales || !data.sales.length) {
-    container.innerHTML = '<p style="color:#888;font-size:13px">No sales recorded yet.</p>';
-    return;
-  }
-  const total = data.sales.reduce((s, r) => s + r.sale_amount, 0);
-  container.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:6px 0;border-bottom:2px solid #f0e8e4;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">
-      <span>Rep</span><span>Client</span><span>Type</span><span>Amount</span><span></span>
-    </div>` +
-    data.sales.map(r => `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto auto;gap:8px;padding:10px 0;border-bottom:1px solid #f0e8e4;align-items:center;font-size:13px">
-      <span style="font-weight:700">${r.rep_name}</span>
-      <span>${r.client_name}</span>
-      <span style="color:#888">${r.project_type || '—'}</span>
-      <span style="font-weight:700;color:#27AE60">${fmt(r.sale_amount)}</span>
-      <button onclick="deleteMgrSale(${r.id})" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px">✕</button>
-    </div>`).join('') +
-    `<div style="padding:10px 0;font-size:13px;font-weight:700;text-align:right;color:#EA672F;border-top:2px solid #f0e8e4">Total: ${fmt(total)}</div>`;
-}
-async function deleteMgrSale(id) {
-  if (!confirm('Remove this sale?')) return;
-  await fetch('/api/admin/commission/records/' + id, { method: 'DELETE' });
-  loadAllSales();
-}
-
-async function loadStorage() {
+async function registerMondayWebhook() {
+  const btn = document.querySelector('[onclick="registerMondayWebhook()"]');
+  if (btn) btn.textContent = 'Registering...';
   try {
-    const r = await fetch('/api/admin/storage');
-    const d = await r.json();
-    if (d.error) { document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Error: ' + d.error + '</p>'; return; }
-    const fmtb = b => b < 1024 ? b + ' B' : b < 1024*1024 ? (b/1024).toFixed(1) + ' KB' : b < 1024*1024*1024 ? (b/1024/1024).toFixed(1) + ' MB' : (b/1024/1024/1024).toFixed(2) + ' GB';
-    const pct = d.disk.percent;
-    const barColor = pct > 80 ? '#c0392b' : pct > 60 ? '#F39C12' : '#27AE60';
-    document.getElementById('storagePanel').innerHTML = `
-      <div style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-size:13px;font-weight:700">Disk Usage</span>
-          <span style="font-size:13px;color:#888">${fmtb(d.disk.used)} of ${fmtb(d.disk.total)} used (${pct}%)</span>
-        </div>
-        <div style="background:#e0d9d5;border-radius:8px;height:12px;overflow:hidden">
-          <div style="background:${barColor};width:${pct}%;height:100%;border-radius:8px"></div>
-        </div>
-        <div style="font-size:11px;color:#888;margin-top:4px">${fmtb(d.disk.available)} available</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div style="background:#faf7f5;border-radius:8px;padding:12px">
-          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Database</div>
-          <div style="font-size:18px;font-weight:700">${fmtb(d.database.size)}</div>
-        </div>
-        <div style="background:#faf7f5;border-radius:8px;padding:12px">
-          <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:4px">Uploaded Files</div>
-          <div style="font-size:18px;font-weight:700">${fmtb(d.lead_files.size)}</div>
-          <div style="font-size:11px;color:#888">${d.lead_files.count} files</div>
-        </div>
-      </div>
-      ${pct > 70 ? '<div style="margin-top:12px;background:#fff3cd;border:1.5px solid #F39C12;border-radius:8px;padding:10px 14px;font-size:13px;color:#856404">⚠️ Disk usage above 70% — consider upgrading the Render disk.</div>' : ''}
-      <div style="margin-top:20px;border-top:1.5px solid #f0e8e4;padding-top:16px">
-        <div style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">⚠️ Known Limitations & Future Recommendations</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div style="background:#FFF8F5;border-left:3px solid #EA672F;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
-            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📊 Dashboard Performance at Scale</div>
-            <div style="color:#555">Currently queries Monday.com live on every page load. With 5+ reps or 12+ months of data, loading may take 10–30 seconds. <strong>Recommended fix:</strong> Implement a data caching layer in SQLite that refreshes every few minutes.</div>
-          </div>
-          <div style="background:#FFF8F5;border-left:3px solid #F39C12;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
-            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">💾 Database Persistence</div>
-            <div style="color:#555">Rep start dates and other settings may reset on redeploy if the Render persistent disk is not correctly mounted. <strong>Recommended fix:</strong> Verify disk is mounted at /data in Render dashboard, or migrate settings to Monday.com columns.</div>
-          </div>
-          <div style="background:#FFF8F5;border-left:3px solid #3498DB;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
-            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">🔗 Monday.com Webhooks</div>
-            <div style="color:#555">Webhooks need re-registering if the service URL changes. Currently registered for proposal status changes. <strong>Recommended:</strong> Re-register via Admin → Integrations after any URL change.</div>
-          </div>
-          <div style="background:#FFF8F5;border-left:3px solid #27AE60;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
-            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📋 Proposal Tracking</div>
-            <div style="color:#555">Proposals only appear in commission stats if the rep dropdown (dropdown_mm5c51r2) is filled in on the Proposals board. Proposals generated via our system set this automatically — manually created proposals in Monday.com need the dropdown filled manually.</div>
-          </div>
-          <div style="background:#FFF8F5;border-left:3px solid #9B59B6;padding:10px 14px;border-radius:0 8px 8px 0;font-size:12px">
-            <div style="font-weight:700;color:#2A2B29;margin-bottom:3px">📅 Commission Date Accuracy</div>
-            <div style="color:#555">Closed deals must have the date_mm3gx943 (closed date) column filled in Monday.com to appear in date-filtered reports. Deals without a closed date are included in all-time totals only.</div>
-          </div>
-        </div>
-      </div>`;
+    const r = await api('POST', '/api/admin/monday/register-webhook', {});
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (r.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ ' + r.error + '</span>';
+      if (btn) btn.textContent = 'Register Webhook';
+    } else {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#27AE60">✅ Monday.com webhook registered! (ID: ' + r.id + ') When you set a proposal status to SENT, the lead will reappear in the rep\'s Follow Up list.</span>';
+      if (btn) btn.textContent = 'Registered ✓';
+    }
   } catch(e) {
-    document.getElementById('storagePanel').innerHTML = '<p style="color:#c00">Could not load storage info.</p>';
+    const statusEl = document.getElementById('mondayWebhookStatus');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#c00">❌ Error: ' + e.message + '</span>';
+    if (btn) btn.textContent = 'Register Webhook';
   }
 }
-</script>
-</body>
-</html>
