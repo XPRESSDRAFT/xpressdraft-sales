@@ -1154,19 +1154,39 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
       [user.id, weekStart]
     );
     const totalSales = records.reduce((sum, r) => sum + r.sale_amount, 0);
-    const commission = calcCommission(totalSales, user.role || 'standard');
 
     // Get Monday.com stats
     const repName = user.monday_name || user.name;
     let mondayStats = { sentProposals: 0, sentValue: 0, closedDeals: 0, closedValue: 0, conversionRate: 0 };
+    let weeklyCommission = 0;
+    let weeklyCommissionBreakdown = [];
+    let totalLeads = 0;
     try {
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
+      // Weekly commission calculation
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, getRepStartDate(user) || null, null);
+      for (const [wStart, deals] of Object.entries(weeklyDeals)) {
+        const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
+        const weekComm = calcCommission(weekTotal, user.role || 'standard');
+        weeklyCommission += weekComm;
+        weeklyCommissionBreakdown.push({ weekStart: wStart, deals, weekTotal, weekComm });
+      }
+      if (noDateItems.length > 0) {
+        const noDateTotal = noDateItems.reduce((sum, i) => {
+          const val = i.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
+          return sum + (parseFloat(String(val).replace(/[^0-9.]/g, '')) || 0);
+        }, 0);
+        weeklyCommission += calcCommission(noDateTotal, user.role || 'standard');
+      }
+      const leadsData = await monday.getLeadsForRep(repName);
+      totalLeads = leadsData.length;
     } catch(e) { console.error('Monday stats error for', repName, ':', e.message); }
 
-    // If leader, get sub-reps data using leader's start date as from date for override
+    const commission = weeklyCommission || calcCommission(totalSales, user.role || 'standard');
+
+    // If leader, get sub-reps data using leader's start date for override
     let subReps = [];
     if (user.role === 'leader') {
-      // Override only counts from when the leader started
       const overrideFrom = getRepStartDate(user) || fromDate || null;
       const assignedReps = await dbAll('SELECT * FROM users WHERE leader_id = ?', [user.id]);
       for (const rep of assignedReps) {
@@ -1175,9 +1195,7 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
         let subOverrideStats = { closedValue: 0 };
         let subTotalLeads = 0;
         try {
-          // Stats for display use the selected period
           subStats = await monday.getRepStatsFromMonday(subRepName, fromDate || null, toDate || null);
-          // Override calculated from leader's start date only
           subOverrideStats = await monday.getRepStatsFromMonday(subRepName, overrideFrom, toDate || null);
           const subLeads = await monday.getLeadsForRep(subRepName);
           subTotalLeads = subLeads.length;
@@ -1191,10 +1209,13 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
     }
 
     const totalOverride = subReps.reduce((sum, r) => sum + (r.overrideCommission || 0), 0);
+    const leadConversionRate = totalLeads > 0 ? Math.round((mondayStats.closedDeals / totalLeads) * 100) : 0;
     res.json({
-      user, records, totalSales, commission, weekStart,
+      user, records, totalSales: mondayStats.closedValue || totalSales, commission, weekStart,
       role: user.role || 'standard',
       subReps, totalOverride, totalEarnings: commission + totalOverride,
+      totalLeads, leadConversionRate,
+      weeklyCommissionBreakdown,
       ...mondayStats
     });
   } catch(e) {
