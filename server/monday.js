@@ -630,16 +630,22 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
     
     console.log('getItemWeekStart:', item.name, '| text:', dateText, '| parsed:', dateStr);
     
-    const d = new Date(dateStr + 'T00:00:00');
+    const d = new Date(dateStr + 'T12:00:00Z'); // Use noon UTC to avoid timezone boundary issues
     if (isNaN(d)) {
       console.log('Invalid date for:', item.name, dateStr);
       return null;
     }
-    // Find Wednesday of that week (AEST)
-    const day = d.getDay();
+    // Find Wednesday of that week using UTC
+    const day = d.getUTCDay(); // 0=Sun, 3=Wed
     const diff = day >= 3 ? day - 3 : day + 4;
-    d.setDate(d.getDate() - diff);
-    return d.toISOString().split('T')[0];
+    const weekStartMs = d.getTime() - diff * 24 * 60 * 60 * 1000;
+    const weekStartDate = new Date(weekStartMs);
+    const y = weekStartDate.getUTCFullYear();
+    const m = String(weekStartDate.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(weekStartDate.getUTCDate()).padStart(2, '0');
+    const result = `${y}-${m}-${dd}`;
+    console.log('getItemWeekStart RESULT:', item.name, '| date:', dateStr, '| weekStart:', result);
+    return result;
   }
 
   function getAmount(item) {
@@ -650,9 +656,9 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
   // Group deals by week
   console.log('getWeeklyCommission: repItems found:', repItems.length);
   repItems.forEach(item => {
-    const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || 'NO DATE';
-    const amt = item.column_values?.find(c => c.id === 'numeric_mky1cmcv')?.text || '0';
-    console.log('  Deal:', item.name, '| date:', dateCol, '| amount:', amt);
+    const ws = getItemWeekStart(item);
+    const col = item.column_values?.find(c => c.id === 'date_mm3gx943');
+    console.log('  Item:', item.name, '| date text:', col?.text, '| date value:', col?.value, '| weekStart:', ws);
   });
   const weeklyDeals = {};
   for (const item of repItems) {
