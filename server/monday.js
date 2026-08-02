@@ -600,17 +600,43 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
 
   // Group by commission week (Wed-Tue)
   function getItemWeekStart(item) {
-    const dateCol = item.column_values?.find(c => c.id === 'date_mm3gx943')?.text || '';
-    if (!dateCol) return null;
-    let dateStr = dateCol;
-    if (dateCol.includes('/')) {
-      const parts = dateCol.split('/');
+    const col = item.column_values?.find(c => c.id === 'date_mm3gx943');
+    const dateText = col?.text || '';
+    const dateValue = col?.value || '';
+    
+    // Try text first, then parse from value JSON
+    let dateStr = dateText;
+    
+    // Monday.com value field is JSON like {"date":"2026-07-01"}
+    if (!dateStr && dateValue) {
+      try {
+        const parsed = JSON.parse(dateValue);
+        dateStr = parsed.date || '';
+      } catch(e) {}
+    }
+    
+    if (!dateStr) return null;
+    
+    // Handle DD/MM/YYYY
+    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const parts = dateStr.split('/');
       dateStr = parts[2] + '-' + parts[1] + '-' + parts[0];
     }
-    const d = new Date(dateStr);
-    if (isNaN(d)) return null;
-    // Find Wednesday of that week
-    const day = d.getDay(); // 0=Sun, 3=Wed
+    // Handle DD-MM-YYYY
+    if (dateStr.match(/^\d{2}-\d{2}-\d{4}$/)) {
+      const parts = dateStr.split('-');
+      dateStr = parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+    
+    console.log('getItemWeekStart:', item.name, '| text:', dateText, '| parsed:', dateStr);
+    
+    const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d)) {
+      console.log('Invalid date for:', item.name, dateStr);
+      return null;
+    }
+    // Find Wednesday of that week (AEST)
+    const day = d.getDay();
     const diff = day >= 3 ? day - 3 : day + 4;
     d.setDate(d.getDate() - diff);
     return d.toISOString().split('T')[0];
