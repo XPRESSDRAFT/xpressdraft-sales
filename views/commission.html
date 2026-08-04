@@ -132,6 +132,11 @@
       <div class="stat-value" id="nextTierAmount">—</div>
       <div class="stat-sub" id="nextTierRate"></div>
     </div>
+    <div class="stat-card" id="overrideStatCard" style="display:none;background:#EA672F">
+      <div class="stat-label" style="color:rgba(255,255,255,0.7)">Override Commission</div>
+      <div class="stat-value" id="overrideStatValue" style="color:#fff">$0</div>
+      <div class="stat-sub" style="color:rgba(255,255,255,0.7)">2% on team sales</div>
+    </div>
   </div>
 
   <!-- Tier progress bar -->
@@ -275,8 +280,7 @@ function calcCommissionFE(total, role) {
 
 function getWeekEnd(start) {
   const d = new Date(start);
-  d.setDate(d.getDate() + 7);
-  d.setSeconds(d.getSeconds() - 1);
+  d.setDate(d.getDate() + 6); // Wed + 6 = Tue
   return d;
 }
 
@@ -290,9 +294,9 @@ function daysUntilReset() {
 function calcCommission(total, role) {
   if (role === 'leader') {
     if (total <= 8000) return total * 0.03;
-    if (total <= 15000) return 8000 * 0.03 + (total - 8000) * 0.04;
-    if (total <= 25000) return 8000 * 0.03 + 7000 * 0.04 + (total - 15000) * 0.05;
-    return 8000 * 0.03 + 7000 * 0.04 + 10000 * 0.05 + (total - 25000) * 0.06;
+    if (total <= 15000) return total * 0.04;
+    if (total <= 25000) return total * 0.05;
+    return total * 0.06;
   } else {
     if (total <= 15000) return total * 0.02;
     if (total <= 25000) return 15000 * 0.02 + (total - 15000) * 0.03;
@@ -584,6 +588,17 @@ async function loadSummary(userId = null) {
       </div>`;
   } else if (overallCard) {
     overallCard.style.display = 'none';
+  }
+
+  // Show override stat card for leaders
+  const overrideStatCard = document.getElementById('overrideStatCard');
+  const overrideStatValue = document.getElementById('overrideStatValue');
+  if (overrideStatCard && role === 'leader' && subReps && subReps.length > 0) {
+    const totalOverrideCalc = subReps.reduce((sum, r) => sum + (r.overrideCommission || 0), 0);
+    overrideStatCard.style.display = 'block';
+    if (overrideStatValue) overrideStatValue.textContent = fmt(totalOverrideCalc);
+  } else if (overrideStatCard) {
+    overrideStatCard.style.display = 'none';
   }
 
   // Show leader override section

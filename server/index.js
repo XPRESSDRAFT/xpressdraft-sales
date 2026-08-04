@@ -685,8 +685,8 @@ app.get('/api/commission/summary', requireAuth, async (req, res) => {
       // Total leads on Negotiations board
       const leadsData = await monday.getLeadsForRep(repName);
       totalLeads = leadsData.length;
-      // Calculate commission week by week — always use full history regardless of selected period
-      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, getRepStartDate(user) || null, null);
+      // Calculate commission week by week using selected date range
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, fromDate || getRepStartDate(user) || null, toDate || null);
       console.log('Weekly deals keys:', Object.keys(weeklyDeals), '| noDateItems:', noDateItems.length);
       for (const [wStart, deals] of Object.entries(weeklyDeals)) {
         const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
@@ -1165,7 +1165,7 @@ app.get('/api/admin/commission/:userId', requireAuth, requireAdmin, async (req, 
     try {
       mondayStats = await monday.getRepStatsFromMonday(repName, fromDate || null, toDate || null);
       // Weekly commission calculation
-      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, getRepStartDate(user) || null, null);
+      const { weeklyDeals, noDateItems } = await monday.getWeeklyCommission(repName, fromDate || getRepStartDate(user) || null, toDate || null);
       for (const [wStart, deals] of Object.entries(weeklyDeals)) {
         const weekTotal = deals.reduce((sum, d) => sum + d.value, 0);
         const weekComm = calcCommission(weekTotal, user.role || 'standard');
