@@ -206,7 +206,8 @@
   <div class="stat-card" id="totalEarningsCard" style="display:none;margin-bottom:24px;text-align:center;background:#2A2B29;color:#fff">
     <div class="stat-label" style="color:#888">Total Earnings This Week</div>
     <div class="stat-value" id="totalEarnings" style="color:#EA672F;font-size:32px"></div>
-    <div style="font-size:12px;color:#888;margin-top:4px">Own commission + team override</div>
+    <div id="totalEarningsBreakdown" style="font-size:12px;color:#888;margin-top:8px;line-height:1.8"></div>
+    <div style="font-size:11px;color:#555;margin-top:4px;font-style:italic">Salary + Commission + Override</div>
   </div>
 
   <!-- Sub-rep dashboards (leaders only) -->
@@ -604,11 +605,28 @@ async function loadSummary(userId = null) {
   // Show leader override section
   if (role === 'leader' && subReps && subReps.length > 0) {
     const totalOverrideCalc = subReps.reduce((sum, r) => sum + (r.overrideCommission || 0), 0);
-    const totalEarningsCalc = (displayCommission || commission) + totalOverrideCalc;
+    const weeklyCommEarned = displayCommission || 0;
     document.getElementById('overridePanel').style.display = 'block';
     document.getElementById('totalEarningsCard').style.display = 'block';
     document.getElementById('overrideTotal').textContent = fmt(totalOverrideCalc);
+
+    // Get salary from invoice summary
+    let salaryAmount = 0;
+    try {
+      const invRes = await fetch('/api/invoice/summary');
+      const invData = await invRes.json();
+      salaryAmount = invData.weeklyAmount || 0;
+    } catch(e) {}
+
+    const totalEarningsCalc = salaryAmount + weeklyCommEarned + totalOverrideCalc;
     document.getElementById('totalEarnings').textContent = fmt(totalEarningsCalc);
+    const breakdown = document.getElementById('totalEarningsBreakdown');
+    if (breakdown) {
+      breakdown.innerHTML =
+        (salaryAmount > 0 ? `Salary: ${fmt(salaryAmount)}<br>` : '') +
+        `Commission: ${fmt(weeklyCommEarned)}<br>` +
+        `Override: ${fmt(totalOverrideCalc)}`;
+    }
     document.getElementById('overrideList').innerHTML = subReps.map(r => `
       <div class="rep-row">
         <div class="rep-name">${r.user.name}</div>
@@ -619,9 +637,27 @@ async function loadSummary(userId = null) {
         <div class="rep-commission">+${fmt(r.overrideCommission || 0)}</div>
       </div>
     `).join('');
-  } else {
+  } else if (document.getElementById('overridePanel')) {
     document.getElementById('overridePanel').style.display = 'none';
-    document.getElementById('totalEarningsCard').style.display = 'none';
+    // Still show total earnings for standard reps (salary + commission)
+    const totalEarningsCard = document.getElementById('totalEarningsCard');
+    if (totalEarningsCard) {
+      totalEarningsCard.style.display = 'block';
+      let salaryAmount = 0;
+      try {
+        const invRes = await fetch('/api/invoice/summary');
+        const invData = await invRes.json();
+        salaryAmount = invData.weeklyAmount || 0;
+      } catch(e) {}
+      const totalEarningsCalc = salaryAmount + (displayCommission || 0);
+      document.getElementById('totalEarnings').textContent = fmt(totalEarningsCalc);
+      const breakdown = document.getElementById('totalEarningsBreakdown');
+      if (breakdown) {
+        breakdown.innerHTML =
+          (salaryAmount > 0 ? `Salary: ${fmt(salaryAmount)}<br>` : '') +
+          `Commission: ${fmt(displayCommission || 0)}`;
+      }
+    }
   }
 }
 
