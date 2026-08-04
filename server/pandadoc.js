@@ -104,8 +104,8 @@ function buildScopeNotes(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
   const addr = (f.addr || f.site_address || '').toLowerCase();
-  const hasOriginalPlans = f.original_plans === 'Y';
-  const beyondFootprint = f.beyond_footprint === 'Y';
+  const hasOriginalPlans = isYes(f.plans);
+  const beyondFootprint = isYes(f.beyond);
   const isSloped = (f.terrain || '').toLowerCase().includes('slope');
   const isReno = type.includes('renov');
   const isExtension = type.includes('extension') || type.includes('addition');
@@ -146,9 +146,9 @@ function buildScopeNotes(f) {
   if (isNewHome || isExtension) {
     workingItems.push('Roof plan');
   }
-  if (f.wet_area === 'Y') workingItems.push('Wet area internal elevations (if applicable — optional)');
-  if (f.kitchen_design === 'Y') workingItems.push('Kitchen design layout (if applicable — optional)');
-  if (f.joinery_details === 'Y') workingItems.push('Joinery details (if applicable — optional)');
+  if (isYes(f.wetarea)) workingItems.push('Wet area internal elevations (if applicable — optional)');
+  if (isYes(f.kitchen)) workingItems.push('Kitchen design layout (if applicable — optional)');
+  if (isYes(f.joinery)) workingItems.push('Joinery details (if applicable — optional)');
   if (isReno || isExtension || isNewHome || isGrannyFlat) {
     workingItems.push('Electrical Plans — position of lighting, power points and data (proposed area)');
   }
@@ -224,6 +224,13 @@ function getFooter(templateKey) {
 }
 
 // ── Build PandaDoc tokens from call record ────────────────────────────────────
+// Helper: check if a field value is "yes" regardless of format (Y, Yes, yes)
+function isYes(val) {
+  if (!val) return false;
+  const v = String(val).toLowerCase().trim();
+  return v === 'y' || v === 'yes';
+}
+
 function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
   const f = rec.fields || {};
   const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
@@ -234,7 +241,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const total = priceExGst + gst;
 
   // Site visit logic (Standard template)
-  const hasOriginalPlans = f.original_plans === 'Y';
+  const hasOriginalPlans = isYes(f.plans);
   const isDoubleStorey = (f.p_storey || '').includes('2') || (f.p_storey || '').toLowerCase().includes('double');
   const type = (f.p_type || '').toLowerCase();
   const isAddition = type.includes('addition');
@@ -260,12 +267,12 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const templateKey2 = selectTemplate(f);
 
   // Build project details summary from checkbox selections
-  const yesNo = (val) => val === 'Y' ? 'Yes' : 'No';
+  const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
   if (f.beyond) details.push('Going beyond existing footprint: ' + yesNo(f.beyond));
   if (f.addition) details.push('Would the project have an addition: ' + yesNo(f.addition));
-  if (f.addition === 'Y' && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
-  if (f.addition === 'Y' && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
+  if (isYes(f.addition) && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
+  if (isYes(f.addition) && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
   if (f.surveyplans) details.push('Survey plans available: ' + yesNo(f.surveyplans));
   if (f.surveyreq) details.push('Survey required: ' + yesNo(f.surveyreq));
   if (f.existstoreys) details.push('Existing number of storeys: ' + f.existstoreys);
@@ -327,9 +334,9 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'site_visit_type',    value: siteVisitType },
     { name: 'site_visit_price',   value: fmt(siteVisitPrice) },
     { name: 'site_visit_gst',     value: fmt(siteVisitGst) },
-    { name: 'opt_wet_area',       value: f.wet_area === 'Y' ? '☑' : '☐' },
-    { name: 'opt_kitchen',        value: f.kitchen_design === 'Y' ? '☑' : '☐' },
-    { name: 'opt_joinery',        value: f.joinery_details === 'Y' ? '☑' : '☐' },
+    { name: 'opt_wet_area',       value: isYes(f.wetarea) ? '☑' : '☐' },
+    { name: 'opt_kitchen',        value: isYes(f.kitchen) ? '☑' : '☐' },
+    { name: 'opt_joinery',        value: isYes(f.joinery) ? '☑' : '☐' },
     { name: 'opt_pool',           value: (f.pool && f.pool !== 'N' && f.pool !== '') ? '☑' : '☐' },
     { name: 'opt_front_fence',    value: '☐' },
     { name: 'opt_bbq_area',       value: '☐' },
