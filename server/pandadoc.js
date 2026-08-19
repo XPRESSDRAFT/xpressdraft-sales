@@ -105,7 +105,7 @@ function buildScopeNotes(f) {
   const storey = (f.p_storey || '').toLowerCase();
   const addr = (f.addr || f.site_address || '').toLowerCase();
   const hasOriginalPlans = isYes(f.plans);
-  const beyondFootprint = isYes(f.beyond);
+  const beyondFootprint = isYes(f.beyond) || (type.includes('renov') && (type.includes('extension') || type.includes('addition')));
   const isSloped = (f.terrain || '').toLowerCase().includes('slope');
   const isReno = type.includes('renov');
   const isExtension = type.includes('extension') || type.includes('addition');
@@ -269,7 +269,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   // Build project details summary from checkbox selections
   const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
-  if (f.beyond) details.push('Going beyond existing footprint: ' + yesNo(f.beyond));
+  if (f.beyond || beyondFootprint) details.push('Going beyond existing footprint: ' + (beyondFootprint ? 'Yes' : 'No'));
   if (f.addition) details.push('Would the project have an addition: ' + yesNo(f.addition));
   if (isYes(f.addition) && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
   if (isYes(f.addition) && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));

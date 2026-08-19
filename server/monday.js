@@ -209,7 +209,7 @@ async function getProposalFollowUpLeads(repName) {
   const data = await query(`
     query($boardId: ID!) {
       boards(ids: [$boardId]) {
-        groups(ids: ["group_mky78qcz"]) {
+        groups(ids: ["group_mkxzcgkr", "group_mky78qcz"]) {
           id
           title
           items_page(limit: 100) {
