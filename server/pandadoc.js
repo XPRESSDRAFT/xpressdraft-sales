@@ -30,7 +30,6 @@ function selectTemplate(fields) {
 function fmt(n) {
   return '$' + parseFloat(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function fmtDate(d) {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const date = d ? new Date(d) : new Date();
@@ -97,6 +96,8 @@ function buildScopeNotes(f) {
   const isReno = type.includes('renov');
   const isExtension = type.includes('extension') || type.includes('addition');
   const isDouble = storey.includes('2') || storey.includes('double');
+  const isNewHome = type.includes('new home') || type.includes('new_home') || type.includes('new build');
+  const isAsBuilt = type.includes('as-constructed') || type.includes('as built') || type.includes('as_built');
 
   const conceptItems = [];
   const workingItems = [];
