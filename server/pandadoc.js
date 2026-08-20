@@ -35,13 +35,11 @@ function fmtDate(d) {
   const date = d ? new Date(d) : new Date();
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
-
 function addDays(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return fmtDate(d);
 }
-
 function proposalNumber(clientName, existingCount) {
   const nameParts = (clientName || 'UNK').trim().split(/\s+/);
   const lastName = nameParts[nameParts.length - 1] || 'UNK';
@@ -49,7 +47,6 @@ function proposalNumber(clientName, existingCount) {
   const count = String((existingCount || 0) + 1).padStart(3, '0');
   return `${prefix}${count}`;
 }
-
 function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
@@ -98,7 +95,9 @@ function buildScopeNotes(f) {
   const isDouble = storey.includes('2') || storey.includes('double');
   const isNewHome = type.includes('new home') || type.includes('new_home') || type.includes('new build');
   const isAsBuilt = type.includes('as-constructed') || type.includes('as built') || type.includes('as_built');
-
+  const isNSW = addr.includes('nsw') || addr.includes('new south wales');
+  const isMultiUnit = type.includes('multi') || type.includes('townhouse') || type.includes('duplex');
+  const isGrannyFlat = type.includes('granny');
   const conceptItems = [];
   const workingItems = [];
 
