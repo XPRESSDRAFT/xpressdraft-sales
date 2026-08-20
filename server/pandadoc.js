@@ -1,7 +1,6 @@
 // pandadoc.js — Xpress Draft PandaDoc Integration
 const fetch = require('node-fetch');
 
-// ── Template IDs ──────────────────────────────────────────────────────────────
 const TEMPLATES = {
   standard:   'Yf4Q5mZvVahX7wYmxDXszN',
   as_built:   'SFgVm38NQwNHKrmy4Lrd5P',
@@ -19,7 +18,6 @@ function pandaHeaders() {
   };
 }
 
-// ── Select correct template based on call data ────────────────────────────────
 function selectTemplate(fields) {
   const type = (fields.p_type || '').toLowerCase();
   if (type.includes('as-constructed') || type.includes('as built') || type.includes('as_built')) {
@@ -34,12 +32,10 @@ function selectTemplate(fields) {
   return 'standard';
 }
 
-// ── Format currency ───────────────────────────────────────────────────────────
 function fmt(n) {
   return '$' + parseFloat(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// ── Format date ───────────────────────────────────────────────────────────────
 function fmtDate(d) {
   const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const date = d ? new Date(d) : new Date();
@@ -52,7 +48,6 @@ function addDays(days) {
   return fmtDate(d);
 }
 
-// ── Generate proposal number ──────────────────────────────────────────────────
 function proposalNumber(clientName, existingCount) {
   const nameParts = (clientName || 'UNK').trim().split(/\s+/);
   const lastName = nameParts[nameParts.length - 1] || 'UNK';
@@ -61,9 +56,6 @@ function proposalNumber(clientName, existingCount) {
   return `${prefix}${count}`;
 }
 
-
-
-// ── Map project type to formal proposal description ───────────────────────────
 function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
@@ -86,8 +78,7 @@ function mapProjectType(f) {
     return 'PROPOSED SECONDARY DWELLING';
   }
   if (type.includes('as-constructed') || type.includes('as_constructed') || type.includes('as constructed')) {
-    // Extract building type from briefing
-    let buildingType = 'Dwelling';
+      let buildingType = 'Dwelling';
     if (briefing.includes('carport')) buildingType = 'Carport';
     else if (briefing.includes('deck')) buildingType = 'Deck';
     else if (briefing.includes('alfresco')) buildingType = 'Alfresco';
@@ -99,13 +90,11 @@ function mapProjectType(f) {
   return (f.p_type || '').toUpperCase();
 }
 
-// ── Auto-build scope of works text ───────────────────────────────────────────
 function buildScopeNotes(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
   const addr = (f.addr || f.site_address || '').toLowerCase();
   const hasOriginalPlans = isYes(f.plans);
-  // Beyond footprint: true for extension, renovation+extension, but NOT for replacement additions
   const isReplacement = (f.addition === 'replacement') || type.includes('replacement');
   const beyondFootprint = isYes(f.beyond) || 
     (type.includes('extension') && !isReplacement) ||
@@ -123,8 +112,7 @@ function buildScopeNotes(f) {
   const conceptItems = [];
   const workingItems = [];
 
-  // ── CONCEPT DRAWINGS ──
-  conceptItems.push('Proposed Design to be reviewed against Local Codes & Council Regulations');
+    conceptItems.push('Proposed Design to be reviewed against Local Codes & Council Regulations');
   if (!hasOriginalPlans && !isNewHome && !isAsBuilt) {
     conceptItems.push('Site visit to obtain building measurements');
   }
@@ -139,8 +127,7 @@ function buildScopeNotes(f) {
   conceptItems.push('Elevations to demonstrate layout proposal');
   conceptItems.push('External 3D views to assist design decisions');
 
-  // ── WORKING / CONSTRUCTION DRAWINGS — in prescribed order ──
-  workingItems.push('Proposed Design to be reviewed against Local Authority and Australian Standards');
+    workingItems.push('Proposed Design to be reviewed against Local Authority and Australian Standards');
   workingItems.push('Site Plan in accordance with land survey (if applicable) drawings to be provided by the client');
   if (isReno || isExtension) {
     workingItems.push('Demolition plan(s)');
@@ -171,15 +158,12 @@ function buildScopeNotes(f) {
     workingItems.push('Project specification with description of materials and finishes');
   }
 
-  // Build output with bold titles
   const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n') + (surveyNote ? '\n' + surveyNote : '');
   const workingSection = 'WORKING DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
 
   return conceptSection + '\n\n' + workingSection;
 }
 
-
-// ── Map tool project type to formal proposal project type ─────────────────────
 function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
@@ -187,8 +171,7 @@ function mapProjectType(f) {
   const briefing = (f.brief_summary || '').toLowerCase();
 
   if (type.includes('as-constructed') || type.includes('as constructed')) {
-    // Extract building type from briefing
-    let buildingType = 'dwelling';
+      let buildingType = 'dwelling';
     if (briefing.includes('carport')) buildingType = 'carport';
     else if (briefing.includes('deck')) buildingType = 'deck';
     else if (briefing.includes('alfresco')) buildingType = 'alfresco';
@@ -218,7 +201,6 @@ function mapProjectType(f) {
   return (f.p_type || 'PROPOSED WORKS').toUpperCase();
 }
 
-// ── Build footer text ─────────────────────────────────────────────────────────
 const FOOTER_STANDARD = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
 
 const FOOTER_AS_BUILT = '\n\nStructural engineering drawings and certification may be required for portions of the proposed works; however, these are not included within our scope of works and are to be provided by others.';
@@ -227,7 +209,6 @@ function getFooter(templateKey) {
   return templateKey === 'as_built' ? FOOTER_AS_BUILT : FOOTER_STANDARD;
 }
 
-// ── Build PandaDoc tokens from call record ────────────────────────────────────
 // Helper: check if a field value is "yes" regardless of format (Y, Yes, yes)
 function isYes(val) {
   if (!val) return false;
@@ -238,13 +219,10 @@ function isYes(val) {
 function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
   const f = rec.fields || {};
   const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
-  console.log('Price debug - priceOverride:', priceOverride, 'f.quoted_price:', f.quoted_price, 'rawPrice:', rawPrice);
   const priceExGst = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
-  console.log('Price debug - priceExGst:', priceExGst);
   const gst = priceExGst * 0.1;
   const total = priceExGst + gst;
 
-  // Site visit logic (Standard template)
   const hasOriginalPlans = isYes(f.plans);
   const isDoubleStorey = (f.p_storey || '').includes('2') || (f.p_storey || '').toLowerCase().includes('double');
   const type = (f.p_type || '').toLowerCase();
@@ -270,7 +248,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const briefing = (f.brief_summary || '').trim();
   const templateKey2 = selectTemplate(f);
 
-  // Build project details summary from checkbox selections
   const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
   if (f.beyond || beyondFootprint) details.push('Going beyond existing footprint: ' + (beyondFootprint ? 'Yes' : 'No'));
@@ -287,7 +264,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (f.plans) details.push('Original house plans: ' + yesNo(f.plans));
   if (f.p_add_mode === 'Granny Flat — Attached (add-on)') details.push('Addition: Granny Flat — Attached (add-on) (+$2,900)');
   if (f.p_add_mode === 'Granny Flat — Detached (add-on)') details.push('Addition: Granny Flat — Detached (add-on) (+$2,200)');
-  // DA type identification
   const ptype = (f.p_type || '').toLowerCase();
   if (ptype.includes('da only') || ptype.includes('da_only')) details.push('Application type: DA Only');
   if (ptype.includes('da') && (ptype.includes('ba') || ptype.includes('+ ba'))) details.push('Application type: DA + BA');
@@ -295,7 +271,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const detailsText = (details.length > 0 && templateKey2 !== 'as_built') ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
   const projectDescription = briefing + detailsText + getFooter(templateKey2);
 
-  // Use dedicated email and phone fields if available, fall back to splitting contact
   let clientEmail = (rec.email || f.client_email || '').trim();
   let clientPhone = (rec.phone || f.client_phone || '').trim();
   if (!clientEmail) {
@@ -345,7 +320,9 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'opt_front_fence',    value: '☐' },
     { name: 'opt_bbq_area',       value: '☐' },
     { name: 'beyond_footprint',   value: beyondFootprint ? 'Yes' : 'No' },
+    { name: 'beyond footprint',   value: beyondFootprint ? 'Yes' : 'No' },
     { name: 'survey_required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
+    { name: 'survey required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
     { name: 'as_built_price',     value: fmt(priceExGst) },
     { name: 'as_built_gst',       value: fmt(gst) },
     { name: 'site_visit_ab_price',value: fmt(300) },
@@ -353,7 +330,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   ];
 }
 
-// ── Create and send a proposal ────────────────────────────────────────────────
 async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
@@ -380,8 +356,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
         role: 'Client'
       }
     ],
-    // CC removed — rep notified via webhook on payment
-    tokens: tokens,
+      tokens: tokens,
     pricing_tables: [{
       name: 'Deposit Table',
       data_merge: false,
@@ -417,7 +392,9 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       'project_type': { value: mapProjectType(recFields) },
       'deposit_20': { value: (total * ((depositPct || 20) / 100)).toFixed(2) },
       'deposit_amount': { value: (total * ((depositPct || 20) / 100)).toFixed(2) },
-      'stripe_payment_link': { value: stripeLink || '' }
+      'stripe_payment_link': { value: stripeLink || '' },
+      'beyond_footprint': { value: beyondFootprint ? 'Yes' : 'No' },
+      'survey_required': { value: (beyondFootprint || isSloped) ? 'Yes' : 'No' }
     },
     metadata: {
       client_id: rec.id,
@@ -427,8 +404,6 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     currency: 'AUD'
   };
 
-  console.log('PandaDoc: creating document for template:', templateKey, templateId);
-  console.log('Tokens being sent:', JSON.stringify(tokens.filter(t => ['price_ex_gst','price_gst','price_total','project_type','project_description'].includes(t.name))));
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -436,7 +411,6 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   });
 
   const data = await res.json();
-  console.log('PandaDoc response status:', res.status, JSON.stringify(data).slice(0, 300));
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
   // Wait for document to finish processing then send for signature
@@ -444,19 +418,16 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   let sent = false;
   for (let attempt = 1; attempt <= 8; attempt++) {
     await new Promise(r => setTimeout(r, 2000));
-    // Check document status
-    const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, {
+      const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, {
       headers: pandaHeaders()
     });
     const statusData = await statusRes.json();
-    console.log(`Document status attempt ${attempt}:`, statusData.status);
     if (statusData.status === 'document.draft') {
       try {
         await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
         sent = true;
         break;
       } catch(e) {
-        console.log('Send failed:', e.message.slice(0, 100));
         if (attempt === 8) throw e;
       }
     }
@@ -466,7 +437,6 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   return { documentId: data.id, templateType: templateKey };
 }
 
-// ── Send document for signing ─────────────────────────────────────────────────
 async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   const msgType = projType || 'Xpress Draft';
   const numSuffix = proposalNum ? `_${proposalNum}` : '';
@@ -485,7 +455,6 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   }
 }
 
-// ── Send engagement document after signing ────────────────────────────────────
 async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   const payload = {
     name: `Xpress Draft — Engagement & Pre-Consultation — ${rec.name}`,
@@ -498,8 +467,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
         role: 'Client'
       }
     ],
-    // CC removed — rep notified via webhook on payment
-    tokens: [
+      tokens: [
       { name: 'client_full_name', value: rec.name || '' },
       { name: 'site_address',     value: rec.addr || '' },
       { name: 'cs_representative',value: repName || '' },
@@ -509,7 +477,6 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     tags: ['xpressdraft', 'engagement']
   };
 
-  console.log('PandaDoc: sending engagement document for:', rec.name);
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
@@ -517,10 +484,8 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   });
 
   const data = await res.json();
-  console.log('Engagement doc response status:', res.status, JSON.stringify(data).slice(0, 200));
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
 
-  // Wait for processing then send
   for (let attempt = 1; attempt <= 5; attempt++) {
     await new Promise(r => setTimeout(r, 2000));
     const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
@@ -534,9 +499,7 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   return { documentId: data.id };
 }
 
-// ── Webhook handler — called when client signs ────────────────────────────────
 async function handleWebhook(event, db, emailModule, mondayModule) {
-  console.log('Webhook received:', event.event, event.data?.status);
 
   const meta = event.data?.metadata || {};
   if (meta.type === 'engagement') return; // don't chain engagement doc again
@@ -550,13 +513,11 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
 
   const clientId = meta.client_id;
   if (!clientId) {
-    console.log('Webhook: no client_id in metadata');
-    return;
+      return;
   }
 
-  // Look up client record
   const row = await new Promise((res, rej) => db.get('SELECT * FROM clients WHERE id = ?', [clientId], (e, r) => e ? rej(e) : res(r)));
-  if (!row) { console.log('Webhook: client not found:', clientId); return; }
+  if (!row) return;
 
   const rec = { ...JSON.parse(row.data), id: row.id };
   const user = await new Promise((res, rej) => db.get('SELECT * FROM users WHERE id = ?', [row.user_id], (e, r) => e ? rej(e) : res(r)));
@@ -569,44 +530,33 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
     'SELECT * FROM proposals WHERE client_id = ? ORDER BY created_at DESC LIMIT 1', 
     [clientId], (e, r) => e ? rej(e) : res(r)
   ));
-  // Price stored in metadata or client fields
   const priceRaw = clientData.price_override || meta.price || meta.priceOverride || 
                    clientData.quoted_price || clientData.price_ex_gst || rec.priceOverride || 0;
   const price = parseFloat(String(priceRaw).replace(/[^0-9.]/g,'')) || 0;
-  console.log('Webhook price:', price, 'raw:', priceRaw);
 
-  console.log('Webhook: processing for client:', clientId, 'event:', event.event, 'status:', event.data?.status);
-
-  // Notify the rep that the deal is closed
   if (emailModule && user) {
     try {
       await emailModule.sendRepNotification(user.name, user.email, row.name, clientEmail, rec.addr || '');
-      console.log('Rep notification sent to:', user.email);
     } catch(e) {
       console.error('Rep notification error:', e.message);
     }
   }
 
-  // Send SMS to rep if they have a phone number
   if (user && user.phone) {
     try {
       const twilio = require('./twilio');
       await twilio.sendRepNotificationSMS(user.phone, row.name, rec.addr || '');
-      console.log('Rep SMS sent to:', user.phone);
     } catch(e) {
       console.error('Rep SMS error:', e.message);
     }
   }
 
-  // Send engagement document
   try {
     await sendEngagementDocument(rec, user.name, user.email, clientEmail);
-    console.log('Engagement document sent to:', clientEmail);
-  } catch(e) {
+    } catch(e) {
     console.error('Engagement doc error:', e.message);
   }
 
-  // Move lead to CLOSED DEALS in Monday.com
   const mondayId = rec.monday_id || (rec.fields && rec.fields.monday_id);
   if (mondayModule && mondayId) {
     try {
@@ -617,7 +567,6 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
     }
   }
 
-  // Click START PROJECT on 26_3 Proposal board
   if (mondayModule) {
     try {
       await mondayModule.clickStartProject(row.name);
