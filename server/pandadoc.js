@@ -222,10 +222,15 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const priceExGst = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
   const gst = priceExGst * 0.1;
   const total = priceExGst + gst;
+  const type = (f.p_type || '').toLowerCase();
+  const isSloped = (f.terrain || '').toLowerCase().includes('slope');
+  const isReplacement = (f.addition === 'replacement') || type.includes('replacement');
+  const beyondFootprint = isYes(f.beyond) ||
+    (type.includes('extension') && !isReplacement) ||
+    (type.includes('renov') && type.includes('extension') && !isReplacement);
 
   const hasOriginalPlans = isYes(f.plans);
   const isDoubleStorey = (f.p_storey || '').includes('2') || (f.p_storey || '').toLowerCase().includes('double');
-  const type = (f.p_type || '').toLowerCase();
   const isAddition = type.includes('addition');
   const isRenovation = type.includes('renov') || type.includes('extension');
 
@@ -250,7 +255,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
 
   const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
-  if (f.beyond || beyondFootprint) details.push('Going beyond existing footprint: ' + (beyondFootprint ? 'Yes' : 'No'));
+  const _bf = typeof beyondFootprint !== 'undefined' ? beyondFootprint : (isYes(f.beyond) || (type.includes('extension') && !type.includes('replacement')));
+  if (f.beyond || _bf) details.push('Going beyond existing footprint: ' + (_bf ? 'Yes' : 'No'));
   if (f.addition) details.push('Would the project have an addition: ' + yesNo(f.addition));
   if (isYes(f.addition) && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
   if (isYes(f.addition) && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
