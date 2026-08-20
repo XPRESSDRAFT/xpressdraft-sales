@@ -1,6 +1,5 @@
 // pandadoc.js — Xpress Draft PandaDoc Integration
 const fetch = require('node-fetch');
-
 const TEMPLATES = {
   standard:   'Yf4Q5mZvVahX7wYmxDXszN',
   as_built:   'SFgVm38NQwNHKrmy4Lrd5P',
@@ -8,16 +7,13 @@ const TEMPLATES = {
   da_and_ba:  'ifdsd3t5tSw8UyFGrwnBRg',
   engagement: 'xw3aCtXHEnHeyVJzNC5bVm'
 };
-
 const PANDADOC_API = 'https://api.pandadoc.com/public/v1';
-
 function pandaHeaders() {
   return {
     'Authorization': `API-Key ${process.env.PANDADOC_API_KEY}`,
     'Content-Type': 'application/json'
   };
 }
-
 function selectTemplate(fields) {
   const type = (fields.p_type || '').toLowerCase();
   if (type.includes('as-constructed') || type.includes('as built') || type.includes('as_built')) {
@@ -31,7 +27,6 @@ function selectTemplate(fields) {
   }
   return 'standard';
 }
-
 function fmt(n) {
   return '$' + parseFloat(n || 0).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -59,7 +54,6 @@ function proposalNumber(clientName, existingCount) {
 function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
-  const isDouble = storey.includes('2') || storey.includes('double');
   const briefing = (f.brief_summary || '').toLowerCase();
 
   if (type.includes('renovation') && (type.includes('extension') || type.includes('addition'))) {
@@ -102,12 +96,7 @@ function buildScopeNotes(f) {
   const isSloped = (f.terrain || '').toLowerCase().includes('slope');
   const isReno = type.includes('renov');
   const isExtension = type.includes('extension') || type.includes('addition');
-  const isNewHome = type.includes('new home') || type.includes('new_home');
-  const isGrannyFlat = type.includes('granny');
-  const isAsBuilt = type.includes('as-constructed') || type.includes('as built');
   const isDouble = storey.includes('2') || storey.includes('double');
-  const isNSW = addr.includes('nsw') || addr.includes('new south wales');
-  const isMultiUnit = type.includes('multi') || type.includes('townhouse') || type.includes('duplex');
 
   const conceptItems = [];
   const workingItems = [];
@@ -230,13 +219,16 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     (type.includes('renov') && type.includes('extension') && !isReplacement);
 
   const hasOriginalPlans = isYes(f.plans);
-  const isDoubleStorey = (f.p_storey || '').includes('2') || (f.p_storey || '').toLowerCase().includes('double');
+  const isDoubleStorey = (f.p_storey||'').includes('2')||(f.p_storey||'').toLowerCase().includes('double');
   const isAddition = type.includes('addition');
-  const isRenovation = type.includes('renov') || type.includes('extension');
+  const isRenovation = type.includes('renov')||type.includes('extension');
 
   let siteVisitPrice = 0;
   let siteVisitType = '';
-  if (!hasOriginalPlans) {
+  const isNewHome = type.includes('new home') || type.includes('new_home') || type.includes('new build');
+  const isAsBuilt = type.includes('as-constructed') || type.includes('as built') || type.includes('as_built');
+  const isGrannyFlat = type.includes('granny');
+  if (!hasOriginalPlans && !isNewHome) {
     if (isAddition) {
       siteVisitPrice = 300;
       siteVisitType = 'Site Visit — Additions (no original plans supplied)';
@@ -246,7 +238,15 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     } else if (isRenovation) {
       siteVisitPrice = 400;
       siteVisitType = 'Site Visit — Reno/Extension, Single Storey (no original plans supplied)';
+    } else {
+      // All other project types including as-built
+      siteVisitPrice = 400;
+      siteVisitType = 'Site Visit — No original plans supplied';
     }
+  } else if (isAsBuilt) {
+    // As-built always requires site visit regardless of plans
+    siteVisitPrice = 400;
+    siteVisitType = 'Site Visit — As Constructed';
   }
   const siteVisitGst = siteVisitPrice * 0.1;
 
