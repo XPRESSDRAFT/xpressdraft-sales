@@ -410,31 +410,45 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
 
   var proposalBtn = document.getElementById('proposalBtn');
   if (proposalBtn) {
-    proposalBtn.addEventListener('click', function() {
-      if (!state.editingId) { toast('Save the call record first'); return; }
+    proposalBtn.addEventListener('click', async function() {
+      // If opened from lead detail panel, load the lead's saved client record first
+      if (activeLead && (!state.editingId || state.mondayId !== activeLead.monday_id)) {
+        // Search saved records for this lead's monday_id
+        const records = await new Promise(resolve => {
+          loadRecords(records => resolve(records));
+        }).catch(() => []);
+        const match = (records || []).find(r => r.monday_id === activeLead.monday_id);
+        if (match) {
+          loadRecord(match.id);
+          await new Promise(r => setTimeout(r, 400)); // wait for form to populate
+        } else {
+          // Pre-fill from lead data
+          if ($('#cName')) $('#cName').value = activeLead.name || '';
+          if ($('#cAddr')) $('#cAddr').value = activeLead.address || '';
+          if ($('#cEmail')) $('#cEmail').value = activeLead.email || '';
+          if ($('#cPhone')) $('#cPhone').value = activeLead.phone || '';
+          state.mondayId = activeLead.monday_id;
+        }
+      }
+      if (!state.editingId && !activeLead) { toast('Save the call record first'); return; }
       var d = gather();
       var tmplKey = selectTemplate(d);
       document.getElementById('pdTemplate').textContent = TEMPLATE_LABELS[tmplKey] || tmplKey;
-      // Show rep phone if available
+      // Show rep details
       var repPhoneEl = document.getElementById('pdRepPhone');
       if (repPhoneEl) {
         fetch('/api/me').then(r => r.json()).then(me => {
           repPhoneEl.textContent = me.phone ? ': ' + me.name + ' — ' + me.phone : ': ' + me.name;
         }).catch(() => {});
       }
-      document.getElementById('pdClientName').textContent = document.getElementById('cName') ? document.getElementById('cName').value.trim() : '';
-      var phoneEl = document.getElementById('cPhone');
-      document.getElementById('pdClientPhone').value = phoneEl ? phoneEl.value.trim() : '';
-      // Pre-fill email from contact field if it contains an email address
-      var emailVal = document.getElementById('cEmail') ? document.getElementById('cEmail').value.trim() : (d.client_email || '');
-      document.getElementById('pdEmail').value = emailVal;
-      // Pre-fill price from live calculator or saved record
+      document.getElementById('pdClientName').textContent = activeLead ? activeLead.name : (document.getElementById('cName') ? document.getElementById('cName').value.trim() : '');
+      var phoneVal = activeLead ? activeLead.phone : (document.getElementById('cPhone') ? document.getElementById('cPhone').value.trim() : '');
+      document.getElementById('pdClientPhone').value = phoneVal || '';
+      var emailVal = activeLead ? activeLead.email : (document.getElementById('cEmail') ? document.getElementById('cEmail').value.trim() : '');
+      document.getElementById('pdEmail').value = emailVal || '';
       var priceEl = document.getElementById('pfProposal');
       var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.,]/g,'').replace(/,/g,'') : '';
-      console.log('pdPrice debug - pfProposal text:', priceEl ? priceEl.textContent : 'NOT FOUND', 'priceRaw:', priceRaw);
-      if (!priceRaw || priceRaw === '') {
-        priceRaw = d.quoted_price || (d.fields && d.fields.quoted_price) || '';
-      }
+      if (!priceRaw) priceRaw = d.quoted_price || (d.fields && d.fields.quoted_price) || '';
       document.getElementById('pdPrice').value = priceRaw || '';
       document.getElementById('pdStatus').textContent = '';
       document.getElementById('pdOverlay').style.display = 'flex';
@@ -457,9 +471,24 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     if (!email) { status.textContent = 'Please enter the client email address.'; return; }
     if (!state.editingId) { status.textContent = 'No client record selected.'; return; }
 
-    // Auto-save current form state to ensure monday_id is stored before sending
-    saveCurrent();
-    await new Promise(r => setTimeout(r, 300)); // Brief wait for save to complete
+    // Auto-save current form state and wait for completion before sending
+    await new Promise((resolve) => {
+      const rec = {
+        id: state.editingId,
+        name: $('#cName').value.trim(),
+        addr: $('#cAddr').value,
+        email: $('#cEmail') ? $('#cEmail').value : '',
+        phone: $('#cPhone') ? $('#cPhone').value : '',
+        date: $('#cDate').value,
+        exp: state.exp,
+        fields: gather(),
+        checks: { ...state.checks },
+        monday_id: state.mondayId || '',
+        updated: Date.now()
+      };
+      saveRecord(rec, () => { state.editingId = rec.id; resolve(); });
+      setTimeout(resolve, 1000); // fallback timeout
+    });
 
     var btn = this;
     btn.disabled = true;

@@ -105,7 +105,11 @@ function buildScopeNotes(f) {
   const storey = (f.p_storey || '').toLowerCase();
   const addr = (f.addr || f.site_address || '').toLowerCase();
   const hasOriginalPlans = isYes(f.plans);
-  const beyondFootprint = isYes(f.beyond) || (type.includes('renov') && (type.includes('extension') || type.includes('addition')));
+  // Beyond footprint: true for extension, renovation+extension, but NOT for replacement additions
+  const isReplacement = (f.addition === 'replacement') || type.includes('replacement');
+  const beyondFootprint = isYes(f.beyond) || 
+    (type.includes('extension') && !isReplacement) ||
+    (type.includes('renov') && type.includes('extension') && !isReplacement);
   const isSloped = (f.terrain || '').toLowerCase().includes('slope');
   const isReno = type.includes('renov');
   const isExtension = type.includes('extension') || type.includes('addition');
@@ -340,6 +344,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'opt_pool',           value: (f.pool && f.pool !== 'N' && f.pool !== '') ? '☑' : '☐' },
     { name: 'opt_front_fence',    value: '☐' },
     { name: 'opt_bbq_area',       value: '☐' },
+    { name: 'beyond_footprint',   value: beyondFootprint ? 'Yes' : 'No' },
+    { name: 'survey_required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
     { name: 'as_built_price',     value: fmt(priceExGst) },
     { name: 'as_built_gst',       value: fmt(gst) },
     { name: 'site_visit_ab_price',value: fmt(300) },
