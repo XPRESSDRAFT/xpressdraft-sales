@@ -255,8 +255,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
 
   const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
-  const _bf = typeof beyondFootprint !== 'undefined' ? beyondFootprint : (isYes(f.beyond) || (type.includes('extension') && !type.includes('replacement')));
-  if (f.beyond || _bf) details.push('Going beyond existing footprint: ' + (_bf ? 'Yes' : 'No'));
+  if (f.beyond || beyondFootprint) details.push('Going beyond existing footprint: ' + (beyondFootprint ? 'Yes' : 'No'));
   if (f.addition) details.push('Would the project have an addition: ' + yesNo(f.addition));
   if (isYes(f.addition) && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
   if (isYes(f.addition) && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
@@ -348,6 +347,13 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   const gst = priceExGst * 0.1;
   const total = priceExGst + gst;
   const briefingText = (recFields.brief_summary || '').trim();
+  // Define beyondFootprint and isSloped for use in fields
+  const _type = (recFields.p_type || '').toLowerCase();
+  const _isReplacement = (recFields.addition === 'replacement') || _type.includes('replacement');
+  const beyondFootprint = isYes(recFields.beyond) ||
+    (_type.includes('extension') && !_isReplacement) ||
+    (_type.includes('renov') && _type.includes('extension') && !_isReplacement);
+  const isSloped = (recFields.terrain || '').toLowerCase().includes('slope');
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
@@ -456,7 +462,6 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   });
   if (!res.ok) {
     const err = await res.json();
-    console.error('Send document error:', JSON.stringify(err));
     throw new Error(JSON.stringify(err.detail || err) || 'Failed to send document');
   }
 }
@@ -544,8 +549,7 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
     try {
       await emailModule.sendRepNotification(user.name, user.email, row.name, clientEmail, rec.addr || '');
     } catch(e) {
-      console.error('Rep notification error:', e.message);
-    }
+        }
   }
 
   if (user && user.phone) {
@@ -553,15 +557,13 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       const twilio = require('./twilio');
       await twilio.sendRepNotificationSMS(user.phone, row.name, rec.addr || '');
     } catch(e) {
-      console.error('Rep SMS error:', e.message);
-    }
+        }
   }
 
   try {
     await sendEngagementDocument(rec, user.name, user.email, clientEmail);
     } catch(e) {
-    console.error('Engagement doc error:', e.message);
-  }
+    }
 
   const mondayId = rec.monday_id || (rec.fields && rec.fields.monday_id);
   if (mondayModule && mondayId) {
@@ -569,8 +571,7 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       await mondayModule.moveToClosedDeals(mondayId);
       console.log('Lead moved to CLOSED DEALS:', mondayId);
     } catch(e) {
-      console.error('Monday closed deals error:', e.message);
-    }
+      }
   }
 
   if (mondayModule) {
@@ -578,8 +579,7 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       await mondayModule.clickStartProject(row.name);
       console.log('START PROJECT clicked for:', row.name);
     } catch(e) {
-      console.error('START PROJECT error:', e.message);
-    }
+      }
   }
 
   // For jobs $5K+ create Monday.com item in PENDING CLIENT LOGINS
@@ -592,8 +592,7 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       );
       console.log('Monday.com item created:', itemId, 'for:', row.name);
     } catch(e) {
-      console.error('Monday.com error:', e.message);
-    }
+      }
   }
 }
 
