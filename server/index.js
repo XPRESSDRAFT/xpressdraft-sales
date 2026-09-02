@@ -1681,7 +1681,6 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
         sequence: 'SEQUENCE CALL',
         waiting: 'WAITING FOR CLIENTS',
         qualified: 'QUALIFIED LEADS',
-        closed: 'CLOSED DEALS',
         lost: 'LOST',
         help: 'HELP REQUIRED',
       };
@@ -1691,8 +1690,8 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
         proposal_followup: monday.PROPOSAL_GROUPS.follow_up,
         sent_proposals: monday.PROPOSAL_GROUPS.sent_proposals,
         started: monday.PROPOSAL_GROUPS.started_projects,
+        closed: monday.PROPOSAL_GROUPS.started_projects,
         new_requests: monday.PROPOSAL_GROUPS.new_requests,
-        // If on proposal board and rep clicks followup — go to proposal follow up
         followup: monday.PROPOSAL_GROUPS.follow_up,
       };
 

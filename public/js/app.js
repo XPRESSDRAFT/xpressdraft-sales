@@ -472,6 +472,8 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     if (!state.editingId) { status.textContent = 'No client record selected.'; return; }
 
     // Auto-save current form state and wait for completion before sending
+    // Also ensure monday_id from active lead is included
+    const currentMondayId = state.mondayId || (activeLead ? activeLead.monday_id : '');
     await new Promise((resolve) => {
       const rec = {
         id: state.editingId,
@@ -483,11 +485,11 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         exp: state.exp,
         fields: gather(),
         checks: { ...state.checks },
-        monday_id: state.mondayId || '',
+        monday_id: currentMondayId,
         updated: Date.now()
       };
       saveRecord(rec, () => { state.editingId = rec.id; resolve(); });
-      setTimeout(resolve, 1000); // fallback timeout
+      setTimeout(resolve, 1000);
     });
 
     var btn = this;

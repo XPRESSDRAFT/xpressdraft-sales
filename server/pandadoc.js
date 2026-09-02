@@ -515,8 +515,6 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
   const meta = event.data?.metadata || {};
   if (meta.type === 'engagement') return; // don't chain engagement doc again
 
-  // Only trigger on document.paid — this fires after both signing AND payment
-  // Ignore document.completed (signing only) to avoid sending before payment
   const isPaid = event.event === 'document_state_changed' && event.data?.status === 'document.paid';
   const isPaymentCompleted = event.event === 'document_payment_completed';
 
@@ -536,7 +534,6 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
 
   const clientData = rec.fields || {};
   const clientEmail = rec.email || clientData.client_email || rec.contact || '';
-  // Look up price from the proposal record or client data
   const proposalRow = await new Promise((res, rej) => db.get(
     'SELECT * FROM proposals WHERE client_id = ? ORDER BY created_at DESC LIMIT 1', 
     [clientId], (e, r) => e ? rej(e) : res(r)
@@ -568,21 +565,24 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
   const mondayId = rec.monday_id || (rec.fields && rec.fields.monday_id);
   if (mondayModule && mondayId) {
     try {
-      await mondayModule.moveToClosedDeals(mondayId);
-      console.log('Lead moved to CLOSED DEALS:', mondayId);
-    } catch(e) {
+      const itemCheck = await mondayModule.query(`query { items(ids: ["${mondayId}"]) { board { id } } }`);
+      const boardId = itemCheck?.items?.[0]?.board?.id;
+      const isOnProposalBoard = String(boardId) === String(mondayModule.BOARDS.proposal);
+
+      if (isOnProposalBoard) {
+        await mondayModule.moveToGroup(mondayModule.BOARDS.proposal, mondayId, mondayModule.PROPOSAL_GROUPS.started_projects);
+      } else {
+        await mondayModule.moveToBoard(mondayModule.BOARDS.negotiations, mondayId, mondayModule.BOARDS.proposal, mondayModule.PROPOSAL_GROUPS.started_projects);
       }
+      console.log('Lead moved to STARTED PROJECTS:', mondayId);
+      const today = new Date().toISOString().split('T')[0];
+      const closedDateVal = JSON.stringify(JSON.stringify({ date: today }));
+      await mondayModule.query(`mutation { change_column_value(board_id: ${mondayModule.BOARDS.proposal}, item_id: ${mondayId}, column_id: "date_mm3gx943", value: ${closedDateVal}) { id } }`).catch(e => console.error('Set closed date error:', e.message));
+    } catch(e) {
+      console.error('Monday move to STARTED PROJECTS error:', e.message);
+    }
   }
 
-  if (mondayModule) {
-    try {
-      await mondayModule.clickStartProject(row.name);
-      console.log('START PROJECT clicked for:', row.name);
-    } catch(e) {
-      }
-  }
-
-  // For jobs $5K+ create Monday.com item in PENDING CLIENT LOGINS
   if (mondayModule && price >= 5000) {
     try {
       const itemId = await mondayModule.createPendingLoginItem(
