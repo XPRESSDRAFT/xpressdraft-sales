@@ -51,7 +51,6 @@ function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
   const briefing = (f.brief_summary || '').toLowerCase();
-
   if (type.includes('renovation') && (type.includes('extension') || type.includes('addition'))) {
     return 'ALTERATIONS & ADDITIONS';
   }
@@ -79,7 +78,6 @@ function mapProjectType(f) {
   }
   return (f.p_type || '').toUpperCase();
 }
-
 function buildScopeNotes(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
@@ -100,7 +98,6 @@ function buildScopeNotes(f) {
   const isGrannyFlat = type.includes('granny');
   const conceptItems = [];
   const workingItems = [];
-
     conceptItems.push('Proposed Design to be reviewed against Local Codes & Council Regulations');
   if (!hasOriginalPlans && !isNewHome && !isAsBuilt) {
     conceptItems.push('Site visit to obtain building measurements');
@@ -115,7 +112,6 @@ function buildScopeNotes(f) {
   conceptItems.push('Floor Plan(s) to demonstrate layout proposal');
   conceptItems.push('Elevations to demonstrate layout proposal');
   conceptItems.push('External 3D views to assist design decisions');
-
     workingItems.push('Proposed Design to be reviewed against Local Authority and Australian Standards');
   workingItems.push('Site Plan in accordance with land survey (if applicable) drawings to be provided by the client');
   if (isReno || isExtension) {
@@ -146,19 +142,15 @@ function buildScopeNotes(f) {
   if (isNewHome) {
     workingItems.push('Project specification with description of materials and finishes');
   }
-
   const conceptSection = 'CONCEPT DRAWINGS\n' + conceptItems.map(i => '- ' + i).join('\n') + (surveyNote ? '\n' + surveyNote : '');
   const workingSection = 'WORKING DRAWINGS\n' + workingItems.map(i => '- ' + i).join('\n');
-
   return conceptSection + '\n\n' + workingSection;
 }
-
 function mapProjectType(f) {
   const type = (f.p_type || '').toLowerCase();
   const storey = (f.p_storey || '').toLowerCase();
   const isDouble = storey.includes('2') || storey.includes('double');
   const briefing = (f.brief_summary || '').toLowerCase();
-
   if (type.includes('as-constructed') || type.includes('as constructed')) {
       let buildingType = 'dwelling';
     if (briefing.includes('carport')) buildingType = 'carport';
@@ -189,22 +181,17 @@ function mapProjectType(f) {
   if (type.includes('da') && (type.includes('ba') || type.includes('+ ba'))) return 'PROPOSED DEVELOPMENT';
   return (f.p_type || 'PROPOSED WORKS').toUpperCase();
 }
-
 const FOOTER_STANDARD = '\n\nStructural engineering drawings and certification will likely be required for the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
-
 const FOOTER_AS_BUILT = '\n\nStructural engineering drawings and certification may be required for portions of the proposed works; however, these are not included within our scope of works and are to be provided by others.';
-
 function getFooter(templateKey) {
   return templateKey === 'as_built' ? FOOTER_AS_BUILT : FOOTER_STANDARD;
 }
-
 // Helper: check if a field value is "yes" regardless of format (Y, Yes, yes)
 function isYes(val) {
   if (!val) return false;
   const v = String(val).toLowerCase().trim();
   return v === 'y' || v === 'yes';
 }
-
 function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
   const f = rec.fields || {};
   const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
@@ -217,12 +204,10 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const beyondFootprint = isYes(f.beyond) ||
     (type.includes('extension') && !isReplacement) ||
     (type.includes('renov') && type.includes('extension') && !isReplacement);
-
   const hasOriginalPlans = isYes(f.plans);
   const isDoubleStorey = (f.p_storey||'').includes('2')||(f.p_storey||'').toLowerCase().includes('double');
   const isAddition = type.includes('addition');
   const isRenovation = type.includes('renov')||type.includes('extension');
-
   let siteVisitPrice = 0;
   let siteVisitType = '';
   const isNewHome = type.includes('new home') || type.includes('new_home') || type.includes('new build');
@@ -249,10 +234,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     siteVisitType = 'Site Visit — As Constructed';
   }
   const siteVisitGst = siteVisitPrice * 0.1;
-
   const briefing = (f.brief_summary || '').trim();
   const templateKey2 = selectTemplate(f);
-
   const yesNo = (val) => isYes(val) ? 'Yes' : 'No';
   const details = [];
   if (f.beyond || beyondFootprint) details.push('Going beyond existing footprint: ' + (beyondFootprint ? 'Yes' : 'No'));
@@ -272,10 +255,8 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   const ptype = (f.p_type || '').toLowerCase();
   if (ptype.includes('da only') || ptype.includes('da_only')) details.push('Application type: DA Only');
   if (ptype.includes('da') && (ptype.includes('ba') || ptype.includes('+ ba'))) details.push('Application type: DA + BA');
-
   const detailsText = (details.length > 0 && templateKey2 !== 'as_built') ? '\n\nPROJECT DETAILS\n' + details.map(d => '- ' + d).join('\n') : '';
   const projectDescription = briefing + detailsText + getFooter(templateKey2);
-
   let clientEmail = (rec.email || f.client_email || '').trim();
   let clientPhone = (rec.phone || f.client_phone || '').trim();
   if (!clientEmail) {
@@ -284,7 +265,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     clientEmail = (contactParts.find(p => p.includes('@')) || '').trim();
     clientPhone = clientPhone || (contactParts.find(p => !p.includes('@')) || '').trim();
   }
-
   return [
     { name: 'proposal_number',    value: proposalNumber(rec.name, existingCount) },
     { name: 'client_full_name',   value: rec.name || '' },
@@ -334,12 +314,10 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'site_visit_ab_gst',  value: fmt(30) },
   ];
 }
-
 async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink) {
   const templateKey = selectTemplate(rec.fields || {});
   const templateId = TEMPLATES[templateKey];
   const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '');
-
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
   const recFields = rec.fields || {};
@@ -415,16 +393,13 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     tags: ['xpressdraft', templateKey],
     currency: 'AUD'
   };
-
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify(payload)
   });
-
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
-
   // Wait for document to finish processing then send for signature
   // Poll document status until it's ready (not 'document.uploaded')
   let sent = false;
@@ -445,10 +420,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     }
     if (attempt === 8 && !sent) throw new Error('Document did not reach draft status after 8 attempts');
   }
-
   return { documentId: data.id, templateType: templateKey };
 }
-
 async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   const msgType = projType || 'Xpress Draft';
   const numSuffix = proposalNum ? `_${proposalNum}` : '';
@@ -465,7 +438,6 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
     throw new Error(JSON.stringify(err.detail || err) || 'Failed to send document');
   }
 }
-
 async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   const payload = {
     name: `Xpress Draft — Engagement & Pre-Consultation — ${rec.name}`,
@@ -487,16 +459,13 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
     metadata: { client_id: rec.id, type: 'engagement' },
     tags: ['xpressdraft', 'engagement']
   };
-
   const res = await fetch(`${PANDADOC_API}/documents`, {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify(payload)
   });
-
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
-
   for (let attempt = 1; attempt <= 5; attempt++) {
     await new Promise(r => setTimeout(r, 2000));
     const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
@@ -506,32 +475,64 @@ async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
       break;
     }
   }
-
   return { documentId: data.id };
 }
-
 async function handleWebhook(event, db, emailModule, mondayModule) {
-
   const meta = event.data?.metadata || {};
   if (meta.type === 'engagement') return; // don't chain engagement doc again
-
   const isPaid = event.event === 'document_state_changed' && event.data?.status === 'document.paid';
   const isPaymentCompleted = event.event === 'document_payment_completed';
-
   if (!isPaid && !isPaymentCompleted) return;
-
   const clientId = meta.client_id;
   if (!clientId) {
-      return;
+    if (mondayModule) {
+      try {
+        const recipients = event.data?.recipients || [];
+        const clientName = recipients[0] ? `${recipients[0].first_name||''} ${recipients[0].last_name||''}`.trim() : (event.data?.name||'');
+        if (clientName) {
+          const searchResult = await mondayModule.query(`query { boards(ids: ["${mondayModule.BOARDS.proposal}"]) { items_page(limit: 100) { items { id name column_values(ids: ["text_mky9p0t3","text_mky7ram8"]) { id text } } } } }`);
+          const items = searchResult?.boards?.[0]?.items_page?.items || [];
+          const docName = (event.data?.name||'').toLowerCase();
+          const clientNameLower = clientName.toLowerCase();
+          const matched = items.find(item => {
+            const itemNameLower = item.name.toLowerCase();
+            // Item name may be "Jane Needham - NEE003" — extract parts
+            const itemParts = itemNameLower.split(/[-–]/);
+            const itemClientName = (itemParts[0]||'').trim();
+            const itemJobNum = (itemParts[1]||'').trim();
+            const jobNum = (item.column_values?.find(c=>c.id==='text_mky9p0t3')?.text||'').toLowerCase();
+            const siteAddr = (item.column_values?.find(c=>c.id==='text_mky7ram8')?.text||'').toLowerCase();
+            // Match if client name matches the item name or the client name part
+            const nameMatch = itemNameLower.includes(clientNameLower) || 
+                              clientNameLower.includes(itemClientName) ||
+                              itemClientName.includes(clientNameLower);
+            if (!nameMatch) return false;
+            // Cross-check with job number from item name, column, or doc name
+            const jobRef = itemJobNum || jobNum;
+            if (jobRef && docName.includes(jobRef)) return true;
+            if (jobRef && clientNameLower.includes(jobRef)) return true;
+            if (siteAddr && docName.includes(siteAddr)) return true;
+            return nameMatch;
+          });
+          if (matched) {
+            await mondayModule.moveToGroup(mondayModule.BOARDS.proposal, matched.id, mondayModule.PROPOSAL_GROUPS.started_projects);
+            const today = new Date().toISOString().split('T')[0];
+            const cdv = JSON.stringify(JSON.stringify({date:today}));
+            await mondayModule.query(`mutation { change_column_value(board_id: ${mondayModule.BOARDS.proposal}, item_id: ${matched.id}, column_id: "date_mm3gx943", value: ${cdv}) { id } }`).catch(()=>{});
+            console.log('Manual proposal: moved', matched.name, 'to STARTED PROJECTS');
+          } else {
+            console.log('Manual proposal: no match found for', clientName);
+          }
+        }
+      } catch(e) { console.error('Manual proposal Monday move error:', e.message); }
+    }
+    return;
   }
-
   const row = await new Promise((res, rej) => db.get('SELECT * FROM clients WHERE id = ?', [clientId], (e, r) => e ? rej(e) : res(r)));
   if (!row) return;
-
   const rec = { ...JSON.parse(row.data), id: row.id };
   const user = await new Promise((res, rej) => db.get('SELECT * FROM users WHERE id = ?', [row.user_id], (e, r) => e ? rej(e) : res(r)));
   if (!user) return;
-
   const clientData = rec.fields || {};
   const clientEmail = rec.email || clientData.client_email || rec.contact || '';
   const proposalRow = await new Promise((res, rej) => db.get(
@@ -541,34 +542,15 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
   const priceRaw = clientData.price_override || meta.price || meta.priceOverride || 
                    clientData.quoted_price || clientData.price_ex_gst || rec.priceOverride || 0;
   const price = parseFloat(String(priceRaw).replace(/[^0-9.]/g,'')) || 0;
-
-  if (emailModule && user) {
-    try {
-      await emailModule.sendRepNotification(user.name, user.email, row.name, clientEmail, rec.addr || '');
-    } catch(e) {
-        }
-  }
-
-  if (user && user.phone) {
-    try {
-      const twilio = require('./twilio');
-      await twilio.sendRepNotificationSMS(user.phone, row.name, rec.addr || '');
-    } catch(e) {
-        }
-  }
-
-  try {
-    await sendEngagementDocument(rec, user.name, user.email, clientEmail);
-    } catch(e) {
-    }
-
+  if (emailModule && user) { try { await emailModule.sendRepNotification(user.name, user.email, row.name, clientEmail, rec.addr || ''); } catch(e) {} }
+  if (user && user.phone) { try { const twilio = require('./twilio'); await twilio.sendRepNotificationSMS(user.phone, row.name, rec.addr || ''); } catch(e) {} }
+  try { await sendEngagementDocument(rec, user.name, user.email, clientEmail); } catch(e) {}
   const mondayId = rec.monday_id || (rec.fields && rec.fields.monday_id);
   if (mondayModule && mondayId) {
     try {
       const itemCheck = await mondayModule.query(`query { items(ids: ["${mondayId}"]) { board { id } } }`);
       const boardId = itemCheck?.items?.[0]?.board?.id;
       const isOnProposalBoard = String(boardId) === String(mondayModule.BOARDS.proposal);
-
       if (isOnProposalBoard) {
         await mondayModule.moveToGroup(mondayModule.BOARDS.proposal, mondayId, mondayModule.PROPOSAL_GROUPS.started_projects);
       } else {
@@ -582,7 +564,6 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       console.error('Monday move to STARTED PROJECTS error:', e.message);
     }
   }
-
   if (mondayModule && price >= 5000) {
     try {
       const itemId = await mondayModule.createPendingLoginItem(
@@ -595,5 +576,4 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       }
   }
 }
-
 module.exports = { createProposal, sendEngagementDocument, handleWebhook, selectTemplate, TEMPLATES };
