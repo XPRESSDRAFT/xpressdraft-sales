@@ -1733,8 +1733,31 @@ app.get('/api/leads/:mondayId/files', requireAuth, (req, res) => {
 });
 
 // Upload files for a lead
-app.post('/api/leads/:mondayId/files', requireAuth, upload.array('files', 10), (req, res) => {
-  res.json({ ok: true, count: req.files.length });
+app.post('/api/leads/:mondayId/files', requireAuth, upload.array('files', 10), async (req, res) => {
+  const { mondayId } = req.params;
+  const results = [];
+  for (const file of req.files) {
+    // Upload to Monday.com FILES RECEIVED column
+    try {
+      const FormData = require('form-data');
+      const fs2 = require('fs');
+      const form = new FormData();
+      form.append('query', `mutation ($file: File!) { add_file_to_column(item_id: ${mondayId}, column_id: "file_mkxzg1me", file: $file) { id } }`);
+      form.append('variables[file]', fs2.createReadStream(file.path), { filename: file.originalname, contentType: file.mimetype });
+      const mondayRes = await fetch('https://api.monday.com/v2/file', {
+        method: 'POST',
+        headers: { 'Authorization': process.env.MONDAY_API_KEY, ...form.getHeaders() },
+        body: form
+      });
+      const mondayData = await mondayRes.json();
+      console.log('File uploaded to Monday.com:', file.originalname, mondayData?.data?.add_file_to_column?.id ? 'OK' : 'FAILED');
+      results.push({ name: file.originalname, monday: !!mondayData?.data?.add_file_to_column?.id });
+    } catch(e) {
+      console.error('Monday file upload error:', e.message);
+      results.push({ name: file.originalname, monday: false });
+    }
+  }
+  res.json({ ok: true, count: req.files.length, results });
 });
 
 // Download a file
