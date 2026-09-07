@@ -393,32 +393,35 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     tags: ['xpressdraft', templateKey],
     currency: 'AUD'
   };
-  const res = await fetch(`${PANDADOC_API}/documents`, {
-    method: 'POST',
-    headers: pandaHeaders(),
-    body: JSON.stringify(payload)
-  });
+  const ctrl = new AbortController();
+  const tmo = setTimeout(() => ctrl.abort(), 30000);
+  let res;
+  try {
+    res = await fetch(`${PANDADOC_API}/documents`, { method: 'POST', headers: pandaHeaders(), body: JSON.stringify(payload), signal: ctrl.signal });
+  } catch(fetchErr) {
+    clearTimeout(tmo);
+    throw new Error('PandaDoc request timed out or failed: ' + fetchErr.message);
+  }
+  clearTimeout(tmo);
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
-  // Wait for document to finish processing then send for signature
-  // Poll document status until it's ready (not 'document.uploaded')
+  console.log('PandaDoc document created:', data.id, '| status:', data.status);
   let sent = false;
-  for (let attempt = 1; attempt <= 8; attempt++) {
-    await new Promise(r => setTimeout(r, 2000));
-      const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, {
-      headers: pandaHeaders()
-    });
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
     const statusData = await statusRes.json();
+    console.log('PandaDoc status attempt', attempt, ':', statusData.status);
     if (statusData.status === 'document.draft') {
       try {
         await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
         sent = true;
         break;
       } catch(e) {
-        if (attempt === 8) throw e;
+        if (attempt === 12) throw e;
       }
     }
-    if (attempt === 8 && !sent) throw new Error('Document did not reach draft status after 8 attempts');
+    if (attempt === 12 && !sent) throw new Error('Document did not reach draft status after 12 attempts (36s)');
   }
   return { documentId: data.id, templateType: templateKey };
 }

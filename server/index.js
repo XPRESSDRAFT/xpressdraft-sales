@@ -511,7 +511,9 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
       console.error('SMS error:', smsErr.message);
     }
 
+    console.log('Calling PandaDoc createProposal for:', rec.name);
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink);
+    console.log('PandaDoc createProposal completed:', result?.documentId);
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
     let mondayLeadId = rec.monday_id || parsedData.monday_id;
