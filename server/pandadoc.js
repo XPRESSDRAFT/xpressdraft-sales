@@ -428,7 +428,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
 async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   const msgType = projType || 'Xpress Draft';
   const numSuffix = proposalNum ? `_${proposalNum}` : '';
-  const res = await fetch(`${PANDADOC_API}/documents/${documentId}/send`, {
+  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('PandaDoc send timed out after 20s')), 20000));
+  const fetchPromise = fetch(`${PANDADOC_API}/documents/${documentId}/send`, {
     method: 'POST',
     headers: pandaHeaders(),
     body: JSON.stringify({
@@ -436,10 +437,13 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
       silent: false
     })
   });
+  const res = await Promise.race([fetchPromise, timeoutPromise]);
+  const respText = await res.text();
+  console.log('PandaDoc send response status:', res.status, '| body:', respText.slice(0, 200));
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(JSON.stringify(err.detail || err) || 'Failed to send document');
+    throw new Error('PandaDoc send failed ' + res.status + ': ' + respText.slice(0, 100));
   }
+  console.log('PandaDoc document sent successfully:', documentId);
 }
 async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   const payload = {

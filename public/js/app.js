@@ -105,12 +105,12 @@ function recompute(){
   const pool=POOL[d.p_pool]||0;
   const terrain=(d.terrain==='Slope')?400:0;
   const plans=(d.plans==='No')?400:0;
-  // deductions only when a base project (not additions-only)
-  let ded=0;
+  // additions when selecting Yes for optionals
+  let optionals=0;
   if(haveBase){
-    if(d.joinery==='No')ded+=400;
-    if(d.kitchen==='No')ded+=400;
-    if(d.wetarea==='No')ded+=400;
+    if(d.joinery==='Yes')optionals+=400;
+    if(d.kitchen==='Yes')optionals+=400;
+    if(d.wetarea==='Yes')optionals+=400;
   }
   const additionsOnly=!haveBase && mode && mode!=='None';
   if(!haveBase && !additionsOnly){
@@ -119,7 +119,7 @@ function recompute(){
     note.style.display='block';note.textContent='Select storey, project type and bedrooms to begin.';
     return;
   }
-  const subtotal=base+add+pool+terrain+plans-ded;
+  const subtotal=base+add+pool+terrain+plans+optionals;
   const ratio=1-(num(d.p_discount)/100);
   // Add-ons from additions dropdown
   let addon = 0;
@@ -138,7 +138,7 @@ function recompute(){
   if(pool)rows.push(['Pool ('+d.p_pool+')',money(pool)]);
   if(terrain)rows.push(['Slope',money(terrain)]);
   if(plans)rows.push(['No original plans',money(plans)]);
-  if(ded)rows.push(['Deductions',('-'+money(ded))]);
+  if(optionals)rows.push(['Optional inclusions',money(optionals)]);
   if(ratio!==1)rows.push(['Discount '+num(d.p_discount)+'%','×'+ratio.toFixed(2)]);
   bdEl.innerHTML=rows.map(r=>`<div class="bd-row"><span>${esc(r[0])}</span><span>${esc(r[1])}</span></div>`).join('');
   note.style.display='none';
