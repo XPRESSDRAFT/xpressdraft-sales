@@ -326,8 +326,47 @@ app.get('/api/clients', requireAuth, async (req, res) => {
 
 app.post('/api/clients', requireAuth, async (req, res) => {
   const { id, name, monday_id, ...rest } = req.body;
-  const data = JSON.stringify({ id, name, ...rest });
+
+  // Safety check: if this ID already exists, verify it belongs to this user AND has same monday_id
+  if (id) {
+    const existing = await dbGet('SELECT * FROM clients WHERE id = ?', [id]);
+    if (existing && existing.user_id !== req.session.userId) {
+      console.error('SECURITY: User', req.session.userId, 'tried to overwrite client owned by', existing.user_id);
+      return res.status(403).json({ error: 'Cannot overwrite another user\'s client record' });
+    }
+    if (existing && monday_id) {
+      const existingData = JSON.parse(existing.data || '{}');
+      if (existingData.monday_id && existingData.monday_id !== monday_id) {
+        console.error('OVERWRITE PREVENTED: monday_id mismatch for client', id, '- existing:', existingData.monday_id, 'new:', monday_id);
+        // Set error status on the Monday item being wrongly targeted
+        await monday.setErrorStatus(monday_id).catch(() => {});
+        return res.status(409).json({ error: 'Client record mismatch — please refresh and try again' });
+      }
+    }
+  }
+
+  const data = JSON.stringify({ id, name, monday_id, ...rest });
   await dbRun(`INSERT INTO clients (id, user_id, name, data, updated_at) VALUES (?, ?, ?, ?, strftime('%s','now')) ON CONFLICT(id) DO UPDATE SET name=excluded.name, data=excluded.data, updated_at=excluded.updated_at`, [id, req.session.userId, name || 'Unknown', data]);
+
+  // Sync notes/brief to Monday.com long_text_mkxzbgfq column as backup
+  if (monday_id && rest.fields) {
+    try {
+      const fields = typeof rest.fields === 'string' ? JSON.parse(rest.fields) : rest.fields;
+      const notes = [
+        fields.brief_summary ? `Brief: ${fields.brief_summary}` : '',
+        fields.notes ? `Notes: ${fields.notes}` : '',
+        rest.addr ? `Address: ${rest.addr}` : '',
+        fields.p_type ? `Type: ${fields.p_type}` : '',
+        rest.exp ? `Price: $${rest.exp.total || ''}` : '',
+      ].filter(Boolean).join('\n');
+
+      if (notes) {
+        const noteVal = JSON.stringify(JSON.stringify({ text: notes }));
+        await monday.query(`mutation { change_column_value(board_id: ${monday.BOARDS.negotiations}, item_id: ${monday_id}, column_id: "long_text_mkxzbgfq", value: ${noteVal}) { id } }`).catch(e => console.error('Monday notes sync error:', e.message));
+      }
+    } catch(e) { console.error('Notes sync error:', e.message); }
+  }
+
   res.json({ ok: true });
 });
 
@@ -595,6 +634,17 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Proposal route error:', e.message);
     console.error('Stack:', e.stack);
+    // Set ERROR - SALES status on Monday.com item so admin is alerted
+    try {
+      const failedClient = await dbGet('SELECT * FROM clients WHERE id = ?', [req.body.clientId]);
+      if (failedClient) {
+        const failedData = JSON.parse(failedClient.data || '{}');
+        const failedMondayId = failedData.monday_id || failedClient.monday_id;
+        if (failedMondayId) {
+          await monday.setErrorStatus(failedMondayId);
+        }
+      }
+    } catch(me) { console.error('Error status set failed:', me.message); }
     res.status(500).json({ error: e.message || 'Proposal generation failed' });
   }
 });

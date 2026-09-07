@@ -649,34 +649,41 @@ function renderLeads(leads) {
 }
 
 function callNow(mondayId) {
-  // Pre-fill call form and close My Leads panel
   const lead = leadsData ? leadsData.find(l => l.monday_id === mondayId) : null;
   if (!lead) { openLead(mondayId); return; }
 
-  // Set state
+  // CRITICAL: Reset editing state for new lead to prevent overwriting previous client
   state.mondayId = mondayId;
+  state.editingId = null;
+  state.exp = {};
+  state.checks = {};
 
-  // Pre-fill call form fields
-  if ($('#cName')) $('#cName').value = lead.name;
-  if ($('#cPhone')) $('#cPhone').value = lead.phone || '';
-  if ($('#cEmail')) $('#cEmail').value = lead.email || '';
-  if ($('#cAddr')) $('#cAddr').value = lead.address || '';
-  if ($('#cDate')) $('#cDate').value = new Date().toISOString().slice(0, 10);
+  // Clear the form first
+  resetForm();
 
-  // Pre-fill call notes from rep notes
-  const callNotesField = document.querySelector('[data-f="notes"]');
-  if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
-
-  // Update editing label
-  if ($('#editingName')) $('#editingName').textContent = lead.name;
+  // Check if this lead already has a saved record — load it if so
+  loadRecords(function(records) {
+    const existing = (records || []).find(r => r.monday_id === mondayId);
+    if (existing) {
+      loadRecord(existing.id);
+      toast('Calling ' + lead.name + ' — existing record loaded');
+    } else {
+      // Pre-fill with Monday.com lead data
+      if ($('#cName')) $('#cName').value = lead.name;
+      if ($('#cPhone')) $('#cPhone').value = lead.phone || '';
+      if ($('#cEmail')) $('#cEmail').value = lead.email || '';
+      if ($('#cAddr')) $('#cAddr').value = lead.address || '';
+      if ($('#cDate')) $('#cDate').value = new Date().toISOString().slice(0, 10);
+      const callNotesField = document.querySelector('[data-f="notes"]');
+      if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
+      if ($('#editingName')) $('#editingName').textContent = lead.name;
+      toast('Calling ' + lead.name + ' — form pre-filled');
+    }
+  });
 
   // Close My Leads panel
   document.getElementById('leadsPanel').style.display = 'none';
-
-  // Scroll to top of call form
   window.scrollTo({ top: 0, behavior: 'smooth' });
-
-  toast('Calling ' + lead.name + ' — form pre-filled');
 }
 
 function openLead(mondayId) {
