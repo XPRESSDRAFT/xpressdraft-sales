@@ -456,8 +456,8 @@ const twilio = require('./twilio');
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
   try {
-    const { clientId, priceOverride, clientEmail, clientPhone, depositPct } = req.body;
-    console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct });
+    const { clientId, priceOverride, clientEmail, clientPhone, depositPct, priorProposals } = req.body;
+    console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct, priorProposals });
     if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
     const row = await dbGet('SELECT * FROM clients WHERE id = ? AND user_id = ?', [clientId, req.session.userId]);
@@ -511,7 +511,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
       console.error('SMS error:', smsErr.message);
     }
 
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, existingProposals.length, depositPct || 20, stripeLink);
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink);
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
     let mondayLeadId = rec.monday_id || parsedData.monday_id;
