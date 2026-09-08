@@ -392,7 +392,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     + '<h2 style="font-size:18px;font-weight:800;color:#2A2B29;margin:0 0 6px">Send Proposal via PandaDoc</h2>'
     + '<p style="font-size:13px;color:#888;margin:0 0 24px">Review details before sending to the client for signing.</p>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client</label>'
-    + '<div id="pdClientName" style="font-size:15px;font-weight:700;color:#2A2B29;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;"></div></div>'
+    + '<input id="pdClientName" type="text" placeholder="Client or company name" style="font-size:15px;font-weight:700;color:#2A2B29;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;width:100%;box-sizing:border-box;font-family:inherit;outline:none;"></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Client phone</label>'
     + '<input id="pdClientPhone" type="text" style="width:100%;font-family:inherit;font-size:14px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;padding:10px 14px;outline:none;box-sizing:border-box" placeholder="04XX XXX XXX"></div>'
     + '<div style="margin-bottom:14px"><label style="display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:5px">Template selected</label>'
@@ -444,7 +444,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
       if (activeLead) {
         // From My Leads panel — find saved record for this lead
         const records = await new Promise(resolve => {
-          loadRecords(recs => resolve(recs || []));
+          load(recs => resolve(recs || []));
         }).catch(() => []);
         const match = records.find(r => r.monday_id === activeLead.monday_id);
         state.mondayId = activeLead.monday_id;
@@ -482,7 +482,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         }).catch(() => {});
       }
 
-      document.getElementById('pdClientName').textContent = clientName;
+      document.getElementById('pdClientName').value = clientName;
       document.getElementById('pdClientPhone').value = clientPhone;
       document.getElementById('pdEmail').value = clientEmail;
       document.getElementById('pdStatus').textContent = '';
@@ -541,6 +541,7 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
           clientId: state.editingId,
           clientEmail: email,
           clientPhone: document.getElementById('pdClientPhone').value.trim(),
+          clientNameOverride: document.getElementById('pdClientName').value.trim(),
           priceOverride: price ? parseFloat(price.replace(/[^0-9.]/g,'')) : null,
           depositPct: parseFloat(document.getElementById('pdDeposit').value) || 20,
           priorProposals: parseInt(document.getElementById('pdPriorProposals').value) || 0
@@ -684,40 +685,43 @@ function renderLeads(leads) {
 
 function callNow(mondayId) {
   const lead = leadsData ? leadsData.find(l => l.monday_id === mondayId) : null;
-  if (!lead) { openLead(mondayId); return; }
+  if (!lead) return;
 
-  // CRITICAL: Reset editing state for new lead to prevent overwriting previous client
-  state.mondayId = mondayId;
-  state.editingId = null;
-  state.exp = {};
-  state.checks = {};
-
-  // Clear the form first
-  resetForm();
-
-  // Check if this lead already has a saved record — load it if so
-  loadRecords(function(records) {
-    const existing = (records || []).find(r => r.monday_id === mondayId);
-    if (existing) {
-      loadRecord(existing.id);
-      toast('Calling ' + lead.name + ' — existing record loaded');
-    } else {
-      // Pre-fill with Monday.com lead data
-      if ($('#cName')) $('#cName').value = lead.name;
-      if ($('#cPhone')) $('#cPhone').value = lead.phone || '';
-      if ($('#cEmail')) $('#cEmail').value = lead.email || '';
-      if ($('#cAddr')) $('#cAddr').value = lead.address || '';
-      if ($('#cDate')) $('#cDate').value = new Date().toISOString().slice(0, 10);
-      const callNotesField = document.querySelector('[data-f="notes"]');
-      if (callNotesField && lead.rep_notes) callNotesField.value = lead.rep_notes;
-      if ($('#editingName')) $('#editingName').textContent = lead.name;
-      toast('Calling ' + lead.name + ' — form pre-filled');
-    }
-  });
-
-  // Close My Leads panel
   document.getElementById('leadsPanel').style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  resetForm();
+  state.mondayId = mondayId;
+
+  // Pre-fill from lead immediately so form is never blank
+  if ($('#cName')) $('#cName').value = lead.name || '';
+  if ($('#cPhone')) $('#cPhone').value = lead.phone || '';
+  if ($('#cEmail')) $('#cEmail').value = lead.email || '';
+  if ($('#cAddr')) $('#cAddr').value = lead.address || '';
+  if ($('#cDate')) $('#cDate').value = new Date().toISOString().slice(0,10);
+  $('#editingName').textContent = lead.name || '';
+
+  // Then check for existing saved record and overlay it if found
+  load(function(records) {
+    const existing = (records || []).find(r => r.monday_id === mondayId);
+    if (existing) {
+      state.editingId = existing.id;
+      state.checks = {...(existing.checks || {})};
+      setExp(existing.exp || 'new');
+      if (existing.name) $('#cName').value = existing.name;
+      if (existing.addr) $('#cAddr').value = existing.addr;
+      if (existing.email && $('#cEmail')) $('#cEmail').value = existing.email;
+      if (existing.phone && $('#cPhone')) $('#cPhone').value = existing.phone;
+      if (existing.date) $('#cDate').value = existing.date;
+      apply(existing.fields || {});
+      renderChecklist(); updateProgress();
+      $('#editingName').textContent = existing.name || lead.name;
+      toast('Loaded: ' + (existing.name || lead.name));
+    } else {
+      const notesField = document.querySelector('[data-f="notes"]');
+      if (notesField && lead.rep_notes) notesField.value = lead.rep_notes;
+      toast('Calling ' + lead.name);
+    }
+  });
 }
 
 function openLead(mondayId) {

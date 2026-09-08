@@ -495,7 +495,7 @@ const twilio = require('./twilio');
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
   try {
-    const { clientId, priceOverride, clientEmail, clientPhone, depositPct, priorProposals } = req.body;
+    const { clientId, priceOverride, clientEmail, clientPhone, depositPct, priorProposals, clientNameOverride } = req.body;
     console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct, priorProposals });
     if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
@@ -550,7 +550,11 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
       console.error('SMS error:', smsErr.message);
     }
 
-    console.log('Calling PandaDoc createProposal for:', rec.name);
+    console.log('Calling PandaDoc createProposal for:', clientNameOverride || rec.name);
+    // Use name override if provided (e.g. builder sending proposal in client's name)
+    if (clientNameOverride && clientNameOverride !== rec.name) {
+      rec.name = clientNameOverride;
+    }
     const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink);
     console.log('PandaDoc createProposal completed:', result?.documentId);
 
