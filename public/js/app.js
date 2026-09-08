@@ -62,7 +62,23 @@ function updateProgress(){const n=STAGES.filter(s=>state.checks[s.k]).length,pct
 function gather(){const d={};$$('[data-f]').forEach(el=>{const k=el.getAttribute('data-f');if(el.classList.contains('yn')){const on=el.querySelector('button.on');d[k]=on?on.textContent:'';}else d[k]=el.value;});return d;}
 function apply(data){$$('[data-f]').forEach(el=>{const k=el.getAttribute('data-f'),v=(data&&data[k])||'';if(el.classList.contains('yn')){el.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.textContent===v));}else el.value=v;});}
 $$('.yn').forEach(yn=>yn.querySelectorAll('button').forEach(b=>b.onclick=()=>{yn.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}));
-function resetForm(){state.checks={};state.editingId=null;setExp('new');apply({});$('#cName').value='';$('#cAddr').value='';if($('#cEmail'))$('#cEmail').value='';if($('#cPhone'))$('#cPhone').value='';$('#cDate').value=new Date().toISOString().slice(0,10);renderChecklist();updateProgress();$('#editingName').textContent='New client (unsaved)';}
+function resetForm(){
+  state.checks={};state.editingId=null;state.mondayId='';state.exp={};
+  setExp('new');apply({});
+  $('#cName').value='';$('#cAddr').value='';
+  if($('#cEmail'))$('#cEmail').value='';
+  if($('#cPhone'))$('#cPhone').value='';
+  $('#cDate').value=new Date().toISOString().slice(0,10);
+  // Clear ALL yn buttons (Yes/No toggles)
+  document.querySelectorAll('.yn button').forEach(btn => btn.classList.remove('active'));
+  // Clear ALL select/dropdown fields
+  document.querySelectorAll('[data-f]').forEach(el => {
+    if(el.tagName === 'SELECT') el.selectedIndex = 0;
+    else if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = '';
+  });
+  renderChecklist();updateProgress();
+  $('#editingName').textContent='New client (unsaved)';
+}
 function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},monday_id:state.mondayId||'',updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();
   // Sync call notes to Monday.com if lead is loaded
   if (state.mondayId) {
@@ -75,7 +91,14 @@ function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Ente
     }
   }
 });}
-function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return;state.editingId=c.id;state.checks={...(c.checks||{})};setExp(c.exp||'new');$('#cName').value=c.name;$('#cAddr').value=c.addr||'';if($('#cEmail'))$('#cEmail').value=c.email||'';if($('#cPhone'))$('#cPhone').value=c.phone||'';$('#cDate').value=c.date||'';apply(c.fields||{});renderChecklist();updateProgress();$('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});toast('Opened "'+c.name+'"');});}
+function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return;
+  resetForm();
+  state.editingId=c.id;state.mondayId=c.monday_id||'';state.checks={...(c.checks||{})};
+  setExp(c.exp||'new');$('#cName').value=c.name;$('#cAddr').value=c.addr||'';
+  if($('#cEmail'))$('#cEmail').value=c.email||'';if($('#cPhone'))$('#cPhone').value=c.phone||'';
+  $('#cDate').value=c.date||'';apply(c.fields||{});renderChecklist();updateProgress();
+  $('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});
+  toast('Opened "'+c.name+'"');});}
 function renderSaved(){load(list=>{const el=$('#savedList');if(!list.length){el.innerHTML='<div class="saved-empty">No clients saved yet. Fill in a call and hit Save.</div>';return;}list.sort((a,b)=>b.updated-a.updated);el.className='saved-list';el.innerHTML='';list.forEach(c=>{const n=STAGES.filter(s=>c.checks&&c.checks[s.k]).length,pct=Math.round(n/STAGES.length*100);const d=c.date?new Date(c.date).toLocaleDateString():'—';const badge=c.exp==='exp'?'<span class="sr-badge exp">Experienced</span>':'<span class="sr-badge new">New</span>';const row=document.createElement('div');row.className='saved-row';row.innerHTML=`<div class="sr-main"><div class="sr-name">${esc(c.name)}${badge}</div><div class="sr-meta">${esc(c.addr||'')} · ${d}</div></div><div class="sr-prog">${pct}%</div><div class="sr-actions"><button class="icon-btn" title="Open"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn" title="Delete"><svg viewBox="0 0 20 20" fill="none"><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;const[o,del]=row.querySelectorAll('.icon-btn');o.onclick=()=>openClient(c.id);del.onclick=()=>{if(confirm('Delete '+c.name+'?')){deleteRecord(c.id,()=>{renderSaved();toast('Deleted');});}};el.appendChild(row);});});}
 $('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
 
@@ -413,38 +436,45 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
   var proposalBtn = document.getElementById('proposalBtn');
   if (proposalBtn) {
     proposalBtn.addEventListener('click', async function() {
-      if (!activeLead) { toast('No lead selected'); return; }
+      // Work from either active lead (My Leads panel) or current form state
+      if (!activeLead && !state.editingId) { toast('Save the call record first'); return; }
 
-      // Always find and load the correct record for this specific lead
-      const records = await new Promise(resolve => {
-        loadRecords(recs => resolve(recs || []));
-      }).catch(() => []);
+      var d, clientName, clientPhone, clientEmail;
 
-      const match = records.find(r => r.monday_id === activeLead.monday_id);
-
-      // Set state to correct lead
-      state.mondayId = activeLead.monday_id;
-
-      let d;
-      if (match) {
-        // Use saved record data directly - don't touch the form
-        state.editingId = match.id;
-        const rec = match;
-        d = rec.fields || {};
-        // Populate price from saved record
-        const savedPrice = rec.exp && rec.exp.total ? rec.exp.total : (d.quoted_price || '');
-        document.getElementById('pdPrice').value = savedPrice || '';
+      if (activeLead) {
+        // From My Leads panel — find saved record for this lead
+        const records = await new Promise(resolve => {
+          loadRecords(recs => resolve(recs || []));
+        }).catch(() => []);
+        const match = records.find(r => r.monday_id === activeLead.monday_id);
+        state.mondayId = activeLead.monday_id;
+        if (match) {
+          state.editingId = match.id;
+          d = match.fields || {};
+          const savedPrice = match.exp && match.exp.total ? match.exp.total : '';
+          document.getElementById('pdPrice').value = savedPrice || '';
+        } else {
+          state.editingId = null;
+          d = {};
+          document.getElementById('pdPrice').value = '';
+        }
+        clientName = activeLead.name || '';
+        clientPhone = activeLead.phone || '';
+        clientEmail = activeLead.email || '';
       } else {
-        // No saved record - use lead data from Monday.com
-        state.editingId = null;
-        d = {};
-        document.getElementById('pdPrice').value = '';
+        // From call form — use current form state
+        d = gather();
+        clientName = $('#cName') ? $('#cName').value.trim() : '';
+        clientPhone = $('#cPhone') ? $('#cPhone').value.trim() : '';
+        clientEmail = $('#cEmail') ? $('#cEmail').value.trim() : '';
+        var priceEl = document.getElementById('pfProposal');
+        var priceRaw = priceEl ? priceEl.textContent.replace(/[^0-9.,]/g,'').replace(/,/g,'') : '';
+        document.getElementById('pdPrice').value = priceRaw || '';
       }
 
       const tmplKey = selectTemplate(d);
       document.getElementById('pdTemplate').textContent = TEMPLATE_LABELS[tmplKey] || tmplKey;
 
-      // Rep details
       var repPhoneEl = document.getElementById('pdRepPhone');
       if (repPhoneEl) {
         fetch('/api/me').then(r => r.json()).then(me => {
@@ -452,10 +482,9 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
         }).catch(() => {});
       }
 
-      // Always use active lead's contact details
-      document.getElementById('pdClientName').textContent = activeLead.name || '';
-      document.getElementById('pdClientPhone').value = activeLead.phone || '';
-      document.getElementById('pdEmail').value = activeLead.email || '';
+      document.getElementById('pdClientName').textContent = clientName;
+      document.getElementById('pdClientPhone').value = clientPhone;
+      document.getElementById('pdEmail').value = clientEmail;
       document.getElementById('pdStatus').textContent = '';
       document.getElementById('pdPriorProposals').value = '0';
       document.getElementById('pdOverlay').style.display = 'flex';
@@ -790,11 +819,15 @@ async function closeLeadDetail() {
 async function saveLeadNotes() {
   if (!activeLead) return;
   const notes = document.getElementById('leadNotes').value;
+  const btn = document.getElementById('saveNotesBtn');
+  if (btn) { btn.textContent = '💾 Saving…'; btn.disabled = true; btn.style.background = '#888'; }
   try {
     await apiFetch('/api/leads/' + activeLead.monday_id + '/notes', 'PATCH', { notes });
-    activeLead.enquiry = notes;
-    toast('Notes saved to Monday.com');
+    activeLead.rep_notes = notes;
+    if (btn) { btn.textContent = '✓ Saved'; btn.style.background = '#27AE60'; }
+    setTimeout(() => { if (btn) { btn.textContent = '💾 Save Notes'; btn.disabled = false; btn.style.background = '#2A2B29'; } }, 2000);
   } catch(e) {
+    if (btn) { btn.textContent = '✗ Failed'; btn.style.background = '#c0392b'; setTimeout(() => { btn.textContent = '💾 Save Notes'; btn.disabled = false; btn.style.background = '#2A2B29'; }, 2000); }
     toast('Error saving notes: ' + e.message);
   }
 }
@@ -881,16 +914,32 @@ async function loadLeadFiles(mondayId) {
   const container = document.getElementById('leadFiles');
   if (!container) return;
   try {
-    const files = await apiFetch('/api/leads/' + mondayId + '/files');
-    if (!files || files.length === 0) {
+    // Load from both local storage and Monday.com
+    const [localFiles, mondayFilesRes] = await Promise.allSettled([
+      apiFetch('/api/leads/' + mondayId + '/files'),
+      apiFetch('/api/leads/' + mondayId + '/monday-files')
+    ]);
+    const local = (localFiles.status === 'fulfilled' ? localFiles.value : []) || [];
+    const mondayFiles = (mondayFilesRes.status === 'fulfilled' ? mondayFilesRes.value : []) || [];
+
+    // Deduplicate by name
+    const allFiles = [...local];
+    const localNames = new Set(local.map(f => f.name));
+    for (const mf of mondayFiles) {
+      if (!localNames.has(mf.name)) allFiles.push({ ...mf, fromMonday: true });
+    }
+
+    if (!allFiles.length) {
       container.innerHTML = '<p style="font-size:12px;color:#888;margin:0">No files uploaded yet.</p>';
       return;
     }
-    container.innerHTML = files.map(f => 
+    container.innerHTML = allFiles.map(f =>
       '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
-      '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + '</span>' +
-      '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>' +
-      '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕ Delete</button>' +
+      '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + (f.fromMonday ? ' <span style="font-size:10px;color:#888">(Monday)</span>' : '') + '</span>' +
+      (f.fromMonday && f.url
+        ? '<a href="' + f.url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">View</a>'
+        : '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>') +
+      (!f.fromMonday ? '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕</button>' : '') +
       '</div>'
     ).join('');
   } catch(e) {
@@ -1008,21 +1057,26 @@ function checkNewLeads(leads) {
   }
   const newLeads = leads.filter(l => !_lastLeadIds.has(l.monday_id));
   if (newLeads.length > 0) {
-    var banner = document.getElementById('newLeadsBanner');
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'newLeadsBanner';
-      banner.style.cssText = 'position:fixed;top:70px;right:20px;z-index:9999;background:#27AE60;color:#fff;padding:14px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
-      banner.onclick = function() { banner.remove(); };
-      document.body.appendChild(banner);
-    }
     var followUpNew = newLeads.filter(l => l.from_proposal_board);
     var freshNew = newLeads.filter(l => !l.from_proposal_board);
     var msg = '';
     if (followUpNew.length > 0) msg += followUpNew.length + ' proposal(s) ready to follow up';
     if (freshNew.length > 0) msg += (msg ? ' · ' : '') + freshNew.length + ' new lead(s) arrived';
-    banner.textContent = '🔔 ' + msg + ' — click to dismiss';
-    setTimeout(() => { if (banner) banner.remove(); }, 30000);
+    if (msg) {
+      // Show banner regardless of panel state
+      var banner = document.getElementById('newLeadsBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'newLeadsBanner';
+        banner.style.cssText = 'position:fixed;top:70px;right:20px;z-index:9999;background:#27AE60;color:#fff;padding:14px 20px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.2);animation:pulse 1s ease-in-out 3';
+        banner.onclick = function() { banner.remove(); };
+        document.body.appendChild(banner);
+      }
+      banner.textContent = '🔔 ' + msg + ' — click to dismiss';
+      // Play notification sound if available
+      try { new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAA').play().catch(()=>{}); } catch(e) {}
+      setTimeout(() => { if (banner && banner.parentNode) banner.remove(); }, 30000);
+    }
   }
   leads.forEach(l => _lastLeadIds.add(l.monday_id));
   _lastLeadCount = leads.length;

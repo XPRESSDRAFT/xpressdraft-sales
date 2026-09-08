@@ -344,12 +344,19 @@ async function updateLeadDetails(itemId, details) {
 // ── Update rep notes field (syncs to NOTES column) ───────────────────────────
 async function updateNotes(itemId, notes) {
   const value = JSON.stringify({ text: notes });
+  // Check which board the item is on
+  let boardId = BOARDS.negotiations;
+  try {
+    const itemCheck = await query(`query { items(ids: ["${itemId}"]) { board { id } } }`);
+    const bid = itemCheck?.items?.[0]?.board?.id;
+    if (bid) boardId = bid;
+  } catch(e) {}
   const data = await query(`
     mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
       change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) {
         id
       }
-    }`, { boardId: BOARDS.negotiations, itemId, colId: COLS.notes, value });
+    }`, { boardId, itemId, colId: COLS.notes, value });
   return data?.change_column_value?.id;
 }
 
