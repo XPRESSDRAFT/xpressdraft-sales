@@ -200,10 +200,10 @@ document.addEventListener('DOMContentLoaded', function() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-          max_tokens: 400,
+          max_tokens: 500,
           messages: [{
             role: 'user',
-            content: 'You are an assistant for an Australian residential architectural drafting company (Xpress Draft). Rewrite the following rough bullet points from a sales call into a clear, professional project briefing. Use 3–6 short sentences in plain English. Keep all the facts; do not invent details. Write it as an internal briefing the drafting team can act on. No preamble, no markdown, just the briefing text.\n\nRough notes:\n' + bullets
+            content: 'You are an assistant for an Australian residential architectural drafting company (Xpress Draft). Rewrite the following rough bullet points from a sales call into a clear, professional project briefing.\n\nIMPORTANT FORMATTING RULES:\n- Keep each sentence under 100 characters where possible\n- Use 3-5 short sentences per paragraph maximum\n- Break long sentences into two shorter ones\n- Bullet point lists are fine and preferred over long sentences\n- Total output must be concise — aim for around 1200 characters maximum\n- No preamble, no markdown formatting, just the briefing text\n\nKeep all facts; do not invent details. Write as an internal briefing the drafting team can act on.\n\nRough notes:\n' + bullets
           }]
         })
       });
