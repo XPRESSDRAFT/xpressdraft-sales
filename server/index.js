@@ -555,7 +555,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     if (clientNameOverride && clientNameOverride !== rec.name) {
       rec.name = clientNameOverride;
     }
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink);
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink, clientPhone, clientNameOverride);
     console.log('PandaDoc createProposal completed:', result?.documentId);
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
@@ -1776,6 +1776,25 @@ app.get('/api/leads/:mondayId/monday-files', requireAuth, async (req, res) => {
     res.json(files);
   } catch(e) {
     console.error('Get Monday files error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Proxy Monday.com file download through our server (avoids Monday login requirement)
+app.get('/api/leads/:mondayId/monday-files/proxy', requireAuth, async (req, res) => {
+  try {
+    const { url, name } = req.query;
+    if (!url) return res.status(400).json({ error: 'No URL provided' });
+    const fileRes = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${process.env.MONDAY_API_KEY}` }
+    });
+    if (!fileRes.ok) return res.status(fileRes.status).json({ error: 'Failed to fetch file' });
+    const contentType = fileRes.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${name || 'file'}"`);
+    fileRes.body.pipe(res);
+  } catch(e) {
+    console.error('Monday file proxy error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

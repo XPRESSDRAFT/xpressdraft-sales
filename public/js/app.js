@@ -200,10 +200,10 @@ document.addEventListener('DOMContentLoaded', function() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-          max_tokens: 500,
+          max_tokens: 400,
           messages: [{
             role: 'user',
-            content: 'You are an assistant for an Australian residential architectural drafting company (Xpress Draft). Rewrite the following rough bullet points from a sales call into a clear, professional project briefing.\n\nIMPORTANT FORMATTING RULES:\n- Keep each sentence under 100 characters where possible\n- Use 3-5 short sentences per paragraph maximum\n- Break long sentences into two shorter ones\n- Bullet point lists are fine and preferred over long sentences\n- Total output must be concise — aim for around 1200 characters maximum\n- No preamble, no markdown formatting, just the briefing text\n\nKeep all facts; do not invent details. Write as an internal briefing the drafting team can act on.\n\nRough notes:\n' + bullets
+            content: 'You are an assistant for an Australian residential architectural drafting company (Xpress Draft). Rewrite the following rough bullet points from a sales call into a clear, professional project briefing. Use 3–6 short sentences in plain English. Keep all the facts; do not invent details. Write it as an internal briefing the drafting team can act on. No preamble, no markdown, just the briefing text. Keep the total response under 1200 characters.\n\nRough notes:\n' + bullets
           }]
         })
       });
@@ -315,9 +315,15 @@ async function generateProposal(isRevision) {
     const text = result.text;
     if (!text) throw new Error('No text returned from API.');
 
+    // Enforce 1200 character limit on AI-generated portion to prevent page overflow
+    let trimmedText = text;
+    if (text.length > 1200) {
+      trimmedText = text.substring(0, 1200).replace(/\s+\S*$/, '') + '…';
+    }
+
     // Store assistant reply in history for future revisions
-    propHistory.push({ role: 'assistant', content: text });
-    const displayText = text + '\n\nStructural engineering drawings and certification may be required for portions of the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
+    propHistory.push({ role: 'assistant', content: trimmedText });
+    const displayText = trimmedText + '\n\nStructural engineering drawings and certification may be required for portions of the proposed works; however, these are not included within our scope of works and are to be provided by others.\n\nThis proposal and associated fee structure are based on the project scope and assumptions outlined within this briefing. Any details, refinements, or adjustments to the scope will be confirmed and finalised at the time of engagement, following completion of the pre-consultation form to be issued to the client.';
     $('#propDoc').textContent = displayText;
     $('#propOutput').classList.add('visible');
     $('#propEditBar').style.display = 'flex';
@@ -941,7 +947,7 @@ async function loadLeadFiles(mondayId) {
       '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
       '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + (f.fromMonday ? ' <span style="font-size:10px;color:#888">(Monday)</span>' : '') + '</span>' +
       (f.fromMonday && f.url
-        ? '<a href="' + f.url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">View</a>'
+        ? '<a href="/api/leads/' + mondayId + '/monday-files/proxy?url=' + encodeURIComponent(f.url) + '&name=' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>'
         : '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>') +
       (!f.fromMonday ? '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕</button>' : '') +
       '</div>'

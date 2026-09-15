@@ -314,10 +314,16 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'site_visit_ab_gst',  value: fmt(30) },
   ];
 }
-async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink) {
-  const templateKey = selectTemplate(rec.fields || {});
+async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink, clientPhone, clientNameOverride) {
+  // Apply modal overrides to rec before building tokens
+  const recWithOverrides = { ...rec };
+  if (clientEmail) recWithOverrides.email = clientEmail;
+  if (clientPhone) recWithOverrides.phone = clientPhone;
+  if (clientNameOverride) recWithOverrides.name = clientNameOverride;
+
+  const templateKey = selectTemplate(recWithOverrides.fields || {});
   const templateId = TEMPLATES[templateKey];
-  const tokens = buildTokens(rec, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '');
+  const tokens = buildTokens(recWithOverrides, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '');
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
   const recFields = rec.fields || {};
@@ -341,8 +347,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     recipients: [
       {
         email: clientEmail || '',
-        first_name: (rec.name || '').split(' ')[0],
-        last_name: (rec.name || '').split(' ').slice(1).join(' '),
+        first_name: (recWithOverrides.name || '').split(' ')[0],
+        last_name: (recWithOverrides.name || '').split(' ').slice(1).join(' '),
         role: 'Client'
       }
     ],
