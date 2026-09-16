@@ -586,7 +586,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
         const repName = user.monday_name || user.name;
 
         // First update rep columns on Negotiations board so history is preserved
-        const negColVals = JSON.stringify({ labels: [repName] });
+        const negColVals = JSON.stringify({ labels: [repName.toUpperCase()] });
         await monday.query(`
           mutation {
             change_column_value(
@@ -615,7 +615,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
               value: ${JSON.stringify(JSON.stringify({ date: today }))}
             ) { id }
           }`).catch(e => console.error('Set sent on date error:', e.message));
-        const propColVals = JSON.stringify({ labels: [repName] });
+        const propColVals = JSON.stringify({ labels: [repName.toUpperCase()] });
         await monday.query(`
           mutation {
             change_column_value(

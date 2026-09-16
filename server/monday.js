@@ -713,6 +713,7 @@ module.exports = {
   getRepStatsFromMonday,
   getWeeklyCommission,
   setErrorStatus,
+  moveToBoard,
   getProposalFollowUpLeads,
   moveToSentProposals,
   PROPOSAL_GROUPS,
