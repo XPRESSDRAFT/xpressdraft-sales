@@ -1772,15 +1772,57 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
 // Get Monday.com files for a lead
 app.get('/api/leads/:mondayId/monday-files', requireAuth, async (req, res) => {
   try {
-    const files = await monday.getLeadFiles(req.params.mondayId);
-    res.json(files);
+    const { mondayId } = req.params;
+    const assets = await monday.getLeadFiles(mondayId);
+    const cacheDir = path.join(dataDir, 'monday_files', mondayId);
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+
+    const result = [];
+    for (const asset of assets) {
+      // Sanitise filename — strip special chars as per Monday's file storage rules
+      const safeName = (asset.name || 'file').replace(/[^a-zA-Z0-9._\-]/g, '_');
+      const cachedPath = path.join(cacheDir, safeName);
+      const serveUrl = `/api/leads/${mondayId}/monday-files/${encodeURIComponent(safeName)}`;
+
+      // Download and cache if not already on disk
+      if (!fs.existsSync(cachedPath)) {
+        try {
+          const publicUrl = asset.public_url || asset.url;
+          if (publicUrl) {
+            const fileRes = await fetch(publicUrl);
+            if (fileRes.ok) {
+              const buffer = await fileRes.buffer();
+              fs.writeFileSync(cachedPath, buffer);
+              console.log('Cached Monday file:', safeName);
+            }
+          }
+        } catch(e) { console.error('Monday file cache error:', asset.name, e.message); }
+      }
+
+      result.push({
+        name: asset.name,
+        safeName,
+        url: serveUrl,
+        fromMonday: true,
+        size: asset.file_size,
+        created: asset.created_at
+      });
+    }
+    res.json(result);
   } catch(e) {
     console.error('Get Monday files error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-// Proxy Monday.com file download through our server (avoids Monday login requirement)
+// Serve cached Monday files
+app.get('/api/leads/:mondayId/monday-files/:filename', requireAuth, (req, res) => {
+  const filePath = path.join(dataDir, 'monday_files', req.params.mondayId, req.params.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.download(filePath, req.params.filename);
+});
+
+// Proxy Monday.com file download through our server (fallback for uncached files)
 app.get('/api/leads/:mondayId/monday-files/proxy', requireAuth, async (req, res) => {
   try {
     const { url, name } = req.query;

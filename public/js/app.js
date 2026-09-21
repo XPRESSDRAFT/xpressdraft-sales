@@ -947,7 +947,7 @@ async function loadLeadFiles(mondayId) {
       '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border:1.5px solid #e0d9d5;border-radius:8px;margin-bottom:6px">' +
       '<span style="font-size:12px;color:#2A2B29;flex:1">📄 ' + esc(f.name) + (f.fromMonday ? ' <span style="font-size:10px;color:#888">(Monday)</span>' : '') + '</span>' +
       (f.fromMonday && f.url
-        ? '<a href="/api/leads/' + mondayId + '/monday-files/proxy?url=' + encodeURIComponent(f.url) + '&name=' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>'
+        ? '<a href="' + f.url + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>'
         : '<a href="/api/leads/' + mondayId + '/files/' + encodeURIComponent(f.name) + '" target="_blank" style="font-size:11px;color:#EA672F;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid #EA672F;border-radius:6px">Download</a>') +
       (!f.fromMonday ? '<button onclick="deleteLeadFile(\'' + mondayId + '\',\'' + f.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;color:#fff;background:#c0392b;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700">✕</button>' : '') +
       '</div>'
