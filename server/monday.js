@@ -448,6 +448,33 @@ async function clickStartProject(clientName) {
 }
 
 // ── Create PENDING CLIENT LOGINS item (existing function kept) ────────────────
+// ── Create a new lead item on Negotiations board ──────────────────────────────
+async function createLeadItem(clientName, phone, email, address, repName) {
+  const columnValues = {};
+  if (phone) columnValues[COLS.phone] = JSON.stringify({ phone, countryShortName: 'AU' });
+  if (email) columnValues[COLS.email] = JSON.stringify({ email, text: email });
+  if (address) columnValues[COLS.address] = address;
+  if (repName) columnValues['dropdown_mm5cb995'] = JSON.stringify({ labels: [repName.toUpperCase()] });
+
+  const groupId = await getGroupId(BOARDS.negotiations, 'QUALIFIED LEADS') || await getGroupId(BOARDS.negotiations, 'QUALIFIED');
+  if (!groupId) throw new Error('Could not find QUALIFIED LEADS group on Negotiations board');
+
+  const data = await query(`
+    mutation($boardId: ID!, $groupId: String!, $name: String!, $columnValues: JSON!) {
+      create_item(board_id: $boardId, group_id: $groupId, item_name: $name, column_values: $columnValues) {
+        id
+      }
+    }`, {
+    boardId: BOARDS.negotiations,
+    groupId,
+    name: clientName,
+    columnValues: JSON.stringify(columnValues)
+  });
+  const newId = data?.create_item?.id || null;
+  console.log('Created Monday lead item for', clientName, ':', newId);
+  return newId;
+}
+
 async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
   const groupId = await getGroupId(BOARDS.negotiations, 'PENDING CLIENT LOGINS').catch(() => null);
   
@@ -714,6 +741,7 @@ module.exports = {
   getWeeklyCommission,
   setErrorStatus,
   moveToBoard,
+  createLeadItem,
   getProposalFollowUpLeads,
   moveToSentProposals,
   PROPOSAL_GROUPS,

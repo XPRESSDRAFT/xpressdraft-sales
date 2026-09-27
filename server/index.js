@@ -653,6 +653,21 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
   }
 });
 
+// ── Create new lead on Monday.com ────────────────────────────────────────────
+app.post('/api/leads/create', requireAuth, async (req, res) => {
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
+    const { name, phone, email, address } = req.body;
+    if (!name) return res.status(400).json({ error: 'Client name required' });
+    const repName = user.monday_name || user.name;
+    const mondayId = await monday.createLeadItem(name, phone, email, address, repName);
+    res.json({ ok: true, mondayId });
+  } catch(e) {
+    console.error('Create lead error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Keep-alive ping ──────────────────────────────────────────────────────────
 app.get('/ping', (req, res) => res.send('ok'));
 

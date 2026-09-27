@@ -79,7 +79,22 @@ function resetForm(){
   renderChecklist();updateProgress();
   $('#editingName').textContent='New client (unsaved)';
 }
-function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},monday_id:state.mondayId||'',updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();
+function saveCurrent(){const name=$('#cName').value.trim();if(!name){toast('Enter a client name first');$('#cName').focus();return;}
+  // If new client with no Monday link, create Monday item first
+  if (!state.mondayId && !state.editingId) {
+    const phone=$('#cPhone')?$('#cPhone').value:'';
+    const email=$('#cEmail')?$('#cEmail').value:'';
+    const addr=$('#cAddr').value;
+    fetch('/api/leads/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,phone,email,address:addr})})
+      .then(r=>r.json()).then(data=>{
+        if(data.mondayId){state.mondayId=data.mondayId;toast('Added to Monday.com: '+name);}
+        _doSave(name);
+      }).catch(()=>_doSave(name));
+    return;
+  }
+  _doSave(name);
+}
+function _doSave(name){const rec={id:state.editingId||uid(),name,addr:$('#cAddr').value,contact:($('#cEmail')?$('#cEmail').value:'')+' / '+($('#cPhone')?$('#cPhone').value:''),email:$('#cEmail')?$('#cEmail').value:'',phone:$('#cPhone')?$('#cPhone').value:'',date:$('#cDate').value,exp:state.exp,fields:gather(),checks:{...state.checks},monday_id:state.mondayId||'',updated:Date.now()};saveRecord(rec,()=>{state.editingId=rec.id;$('#editingName').textContent=name;toast('Saved "'+name+'"');renderSaved();
   // Sync call notes to Monday.com if lead is loaded
   if (state.mondayId) {
     var notesField = document.querySelector('[data-f="notes"]');
@@ -100,7 +115,7 @@ function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return
   $('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});
   toast('Opened "'+c.name+'"');});}
 function renderSaved(){load(list=>{const el=$('#savedList');if(!list.length){el.innerHTML='<div class="saved-empty">No clients saved yet. Fill in a call and hit Save.</div>';return;}list.sort((a,b)=>b.updated-a.updated);el.className='saved-list';el.innerHTML='';list.forEach(c=>{const n=STAGES.filter(s=>c.checks&&c.checks[s.k]).length,pct=Math.round(n/STAGES.length*100);const d=c.date?new Date(c.date).toLocaleDateString():'—';const badge=c.exp==='exp'?'<span class="sr-badge exp">Experienced</span>':'<span class="sr-badge new">New</span>';const row=document.createElement('div');row.className='saved-row';row.innerHTML=`<div class="sr-main"><div class="sr-name">${esc(c.name)}${badge}</div><div class="sr-meta">${esc(c.addr||'')} · ${d}</div></div><div class="sr-prog">${pct}%</div><div class="sr-actions"><button class="icon-btn" title="Open"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn" title="Delete"><svg viewBox="0 0 20 20" fill="none"><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;const[o,del]=row.querySelectorAll('.icon-btn');o.onclick=()=>openClient(c.id);del.onclick=()=>{if(confirm('Delete '+c.name+'?')){deleteRecord(c.id,()=>{renderSaved();toast('Deleted');});}};el.appendChild(row);});});}
-$('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
+$('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client — fill in details and save to add to Monday.com');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
 
 /* ===== LIVE PRICE ESTIMATE (mirrors XPDT pricing spreadsheet) ===== */
 const RATES={
