@@ -104,7 +104,7 @@ document.getElementById('appLayout').innerHTML = `
         <div class="field"><label>If addition — attached to the house?</label><div class="yn" data-f="attached"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>If addition — undercover?</label><div class="yn" data-f="undercover"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Survey plans available?</label><div class="yn" data-f="surveyplans"><button>Yes</button><button>No</button></div></div>
-        <div class="field"><label>Survey required? <span style="color:var(--orange)">*beyond footprint</span></label><div class="yn" data-f="surveyreq"><button>Yes</button><button>No</button></div></div>
+        <div class="field"><label>Site visit required? <span style="color:var(--orange)">*beyond footprint</span></label><div class="yn" data-f="surveyreq"><button>Yes</button><button>No</button></div></div>
         <div class="field"><label>Existing number of storeys</label><input type="text" data-f="existstoreys"></div>
         <div class="field"><label>Proposed number of storeys</label><input type="text" data-f="propstoreys"></div>
         <div class="field"><label>Kitchen design?</label><div class="yn" data-f="kitchen"><button>Yes</button><button>No</button></div></div>

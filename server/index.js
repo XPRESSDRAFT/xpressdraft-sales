@@ -495,7 +495,7 @@ const twilio = require('./twilio');
 // Generate and send proposal
 app.post('/api/proposal', requireAuth, async (req, res) => {
   try {
-    const { clientId, priceOverride, clientEmail, clientPhone, depositPct, priorProposals, clientNameOverride } = req.body;
+    const { clientId, priceOverride, clientEmail, clientPhone, depositPct, priorProposals, clientNameOverride, siteVisitOverride } = req.body;
     console.log('Proposal request:', { clientId, priceOverride, clientEmail, depositPct, priorProposals });
     if (!clientId) return res.status(400).json({ error: 'Missing clientId' });
 
@@ -555,7 +555,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
     if (clientNameOverride && clientNameOverride !== rec.name) {
       rec.name = clientNameOverride;
     }
-    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink, clientPhone, clientNameOverride);
+    const result = await pandadoc.createProposal(rec, user.name, user.email, clientEmail, priceOverride, priorProposals !== undefined ? priorProposals : existingProposals.length, depositPct || 20, stripeLink, clientPhone, clientNameOverride, siteVisitOverride);
     console.log('PandaDoc createProposal completed:', result?.documentId);
 
     // Move lead from Negotiations to SENT PROPOSALS on Proposal board
@@ -1971,29 +1971,7 @@ app.get('/api/proposal/:clientId', requireAuth, async (req, res) => {
 });
 
 
-// ── API: pending portal logins (admin) ───────────────────────────────────────
-app.get('/api/pending-portals', requireAuth, requireAdmin, async (req, res) => {
-  const rows = await dbAll('SELECT * FROM pending_portals WHERE sent = 0 ORDER BY created_at DESC', []);
-  res.json(rows);
-});
-
-app.post('/api/pending-portals/:id/send', requireAuth, requireAdmin, async (req, res) => {
-  const { portalEmail, portalPassword } = req.body;
-  if (!portalEmail || !portalPassword) return res.status(400).json({ error: 'Portal email and password required' });
-  const row = await dbGet('SELECT * FROM pending_portals WHERE id = ?', [req.params.id]);
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  try {
-    await emailModule.sendPortalWelcome(row.client_name, row.client_email, portalEmail, portalPassword, row.pandadoc_link);
-    await dbRun('UPDATE pending_portals SET sent = 1 WHERE id = ?', [row.id]);
-    res.json({ ok: true });
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-
-
-  // ── Start ───────────────────────────────────────────────────────────────────
+// ── Start ───────────────────────────────────────────────────────────────────
   app.listen(PORT, () => {
     console.log(`Xpress Draft running on http://localhost:${PORT}`);
   });

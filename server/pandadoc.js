@@ -107,7 +107,7 @@ function buildScopeNotes(f) {
   }
   conceptItems.push('Selection of materials (Structure, Cladding and Roofing) (if applicable)');
   const surveyNote = (beyondFootprint || isSloped) 
-    ? '*Survey required — project extends beyond the existing footprint and/or on a sloping block.' 
+    ? '*Site visit required — project extends beyond the existing footprint and/or on a sloping block.' 
     : '';
   conceptItems.push('Floor Plan(s) to demonstrate layout proposal');
   conceptItems.push('Elevations to demonstrate layout proposal');
@@ -192,7 +192,7 @@ function isYes(val) {
   const v = String(val).toLowerCase().trim();
   return v === 'y' || v === 'yes';
 }
-function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink) {
+function buildTokens(rec, repName, priceOverride, existingCount, depositPct, stripeLink, siteVisitOverride) {
   const f = rec.fields || {};
   const rawPrice = priceOverride || f.quoted_price || f.p_price || 0;
   const priceExGst = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
@@ -233,6 +233,11 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     siteVisitPrice = 400;
     siteVisitType = 'Site Visit — As Constructed';
   }
+  // Allow rep to override site visit price from proposal modal
+  if (siteVisitOverride !== null && siteVisitOverride !== undefined && !isNaN(siteVisitOverride)) {
+    siteVisitPrice = parseFloat(siteVisitOverride);
+    if (!siteVisitType) siteVisitType = 'Site Visit';
+  }
   const siteVisitGst = siteVisitPrice * 0.1;
   const briefing = (f.brief_summary || '').trim();
   const templateKey2 = selectTemplate(f);
@@ -243,7 +248,7 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
   if (isYes(f.addition) && f.attached) details.push('If addition — attached to the house: ' + yesNo(f.attached));
   if (isYes(f.addition) && f.undercover) details.push('If addition — undercover: ' + yesNo(f.undercover));
   if (f.surveyplans) details.push('Survey plans available: ' + yesNo(f.surveyplans));
-  if (f.surveyreq) details.push('Survey required: ' + yesNo(f.surveyreq));
+  if (f.surveyreq) details.push('Site visit required: ' + yesNo(f.surveyreq));
   if (f.existstoreys) details.push('Existing number of storeys: ' + f.existstoreys);
   if (f.propstoreys) details.push('Proposed number of storeys: ' + f.propstoreys);
   if (f.kitchen) details.push('Kitchen design: ' + yesNo(f.kitchen));
@@ -306,15 +311,16 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     { name: 'opt_bbq_area',       value: '☐' },
     { name: 'beyond_footprint',   value: beyondFootprint ? 'Yes' : 'No' },
     { name: 'beyond footprint',   value: beyondFootprint ? 'Yes' : 'No' },
-    { name: 'survey_required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
-    { name: 'survey required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
+    { name: 'site_visit_description', value: siteVisitType || '' },
+    { name: 'site_visit_required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
+    { name: 'site visit required',    value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
     { name: 'as_built_price',     value: fmt(priceExGst) },
     { name: 'as_built_gst',       value: fmt(gst) },
     { name: 'site_visit_ab_price',value: fmt(300) },
     { name: 'site_visit_ab_gst',  value: fmt(30) },
   ];
 }
-async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink, clientPhone, clientNameOverride) {
+async function createProposal(rec, repName, repEmail, clientEmail, priceOverride, existingCount, depositPct, stripeLink, clientPhone, clientNameOverride, siteVisitOverride) {
   // Apply modal overrides to rec before building tokens
   const recWithOverrides = { ...rec };
   if (clientEmail) recWithOverrides.email = clientEmail;
@@ -323,7 +329,7 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
 
   const templateKey = selectTemplate(recWithOverrides.fields || {});
   const templateId = TEMPLATES[templateKey];
-  const tokens = buildTokens(recWithOverrides, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '');
+  const tokens = buildTokens(recWithOverrides, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '', siteVisitOverride);
   const siteAddr = rec.addr || rec.fields?.addr || '';
   const projType = mapProjectType(rec.fields || {}) || (rec.fields?.p_type || 'Proposal');
   const recFields = rec.fields || {};
@@ -390,7 +396,8 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
       'deposit_amount': { value: (total * ((depositPct || 20) / 100)).toFixed(2) },
       'stripe_payment_link': { value: stripeLink || '' },
       'beyond_footprint': { value: beyondFootprint ? 'Yes' : 'No' },
-      'survey_required': { value: (beyondFootprint || isSloped) ? 'Yes' : 'No' }
+      'site_visit_required': { value: (beyondFootprint || isSloped) ? 'Yes' : 'No' },
+      'site_visit_description': { value: siteVisitType || '' }
     },
     metadata: {
       client_id: rec.id,
