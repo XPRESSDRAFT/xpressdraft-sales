@@ -107,7 +107,7 @@ function _doSave(name){const rec={id:state.editingId||uid(),name,addr:$('#cAddr'
   }
 });}
 function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return;
-  resetForm();
+  resetForm();activeLead=null;
   state.editingId=c.id;state.mondayId=c.monday_id||'';state.checks={...(c.checks||{})};
   setExp(c.exp||'new');$('#cName').value=c.name;$('#cAddr').value=c.addr||'';
   if($('#cEmail'))$('#cEmail').value=c.email||'';if($('#cPhone'))$('#cPhone').value=c.phone||'';
@@ -115,7 +115,7 @@ function openClient(id){load(list=>{const c=list.find(x=>x.id===id);if(!c)return
   $('#editingName').textContent=c.name;window.scrollTo({top:0,behavior:'smooth'});
   toast('Opened "'+c.name+'"');});}
 function renderSaved(){load(list=>{const el=$('#savedList');if(!list.length){el.innerHTML='<div class="saved-empty">No clients saved yet. Fill in a call and hit Save.</div>';return;}list.sort((a,b)=>b.updated-a.updated);el.className='saved-list';el.innerHTML='';list.forEach(c=>{const n=STAGES.filter(s=>c.checks&&c.checks[s.k]).length,pct=Math.round(n/STAGES.length*100);const d=c.date?new Date(c.date).toLocaleDateString():'—';const badge=c.exp==='exp'?'<span class="sr-badge exp">Experienced</span>':'<span class="sr-badge new">New</span>';const row=document.createElement('div');row.className='saved-row';row.innerHTML=`<div class="sr-main"><div class="sr-name">${esc(c.name)}${badge}</div><div class="sr-meta">${esc(c.addr||'')} · ${d}</div></div><div class="sr-prog">${pct}%</div><div class="sr-actions"><button class="icon-btn" title="Open"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn" title="Delete"><svg viewBox="0 0 20 20" fill="none"><path d="M5 6h10M8 6V4h4v2M6 6l1 10h6l1-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;const[o,del]=row.querySelectorAll('.icon-btn');o.onclick=()=>openClient(c.id);del.onclick=()=>{if(confirm('Delete '+c.name+'?')){deleteRecord(c.id,()=>{renderSaved();toast('Deleted');});}};el.appendChild(row);});});}
-$('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();toast('New client — fill in details and save to add to Monday.com');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
+$('#saveBtn').onclick=saveCurrent;$('#saveTop').onclick=saveCurrent;$('#newTop').onclick=()=>{resetForm();activeLead=null;toast('New client — fill in details and save to add to Monday.com');};$('#clearBtn').onclick=()=>resetForm();$('#printBtn').onclick=()=>window.print();
 
 /* ===== LIVE PRICE ESTIMATE (mirrors XPDT pricing spreadsheet) ===== */
 const RATES={

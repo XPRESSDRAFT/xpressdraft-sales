@@ -451,8 +451,8 @@ async function clickStartProject(clientName) {
 // ── Create a new lead item on Negotiations board ──────────────────────────────
 async function createLeadItem(clientName, phone, email, address, repName) {
   const columnValues = {};
-  if (phone) columnValues[COLS.phone] = JSON.stringify({ phone, countryShortName: 'AU' });
-  if (email) columnValues[COLS.email] = JSON.stringify({ email, text: email });
+  if (phone) columnValues[COLS.phone] = JSON.stringify(JSON.stringify({ phone, countryShortName: 'AU' }));
+  if (email) columnValues[COLS.email] = JSON.stringify(JSON.stringify({ email, text: email }));
   if (address) columnValues[COLS.address] = address;
   if (repName) columnValues['dropdown_mm5cb995'] = JSON.stringify({ labels: [repName.toUpperCase()] });
 
