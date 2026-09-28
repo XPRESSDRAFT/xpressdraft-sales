@@ -233,7 +233,6 @@ function buildTokens(rec, repName, priceOverride, existingCount, depositPct, str
     siteVisitPrice = 400;
     siteVisitType = 'Site Visit — As Constructed';
   }
-  // Allow rep to override site visit price from proposal modal
   if (siteVisitOverride !== null && siteVisitOverride !== undefined && !isNaN(siteVisitOverride)) {
     siteVisitPrice = parseFloat(siteVisitOverride);
     if (!siteVisitType) siteVisitType = 'Site Visit';
@@ -326,7 +325,6 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   if (clientEmail) recWithOverrides.email = clientEmail;
   if (clientPhone) recWithOverrides.phone = clientPhone;
   if (clientNameOverride) recWithOverrides.name = clientNameOverride;
-
   const templateKey = selectTemplate(recWithOverrides.fields || {});
   const templateId = TEMPLATES[templateKey];
   const tokens = buildTokens(recWithOverrides, repName, priceOverride, existingCount, depositPct || 20, stripeLink || '', siteVisitOverride);
@@ -344,6 +342,13 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
     (_type.includes('extension') && !_isReplacement) ||
     (_type.includes('renov') && _type.includes('extension') && !_isReplacement);
   const isSloped = (recFields.terrain || '').toLowerCase().includes('slope');
+  const _isNewHome=_type.includes('new home')||_type.includes('new_home')||_type.includes('new build');
+  const _isAsBuilt=_type.includes('as-constructed')||_type.includes('as built')||_type.includes('as_built');
+  const _hasPlans=isYes(recFields.plans),_isAddition=_type.includes('addition');
+  const _isRenovation=_type.includes('renov')||_type.includes('extension');
+  const _isDoubleStorey=(recFields.p_storey||'').includes('2')||(recFields.p_storey||'').toLowerCase().includes('double');
+  let siteVisitType = _isAsBuilt ? 'Site Visit — As Constructed' : (!_hasPlans && !_isNewHome ? (_isAddition ? 'Site Visit — Additions (no original plans supplied)' : (_isRenovation && _isDoubleStorey ? 'Site Visit — Reno/Extension, Double Storey (no original plans supplied)' : (_isRenovation ? 'Site Visit — Reno/Extension, Single Storey (no original plans supplied)' : 'Site Visit — No original plans supplied'))) : '');
+  if (siteVisitOverride !== null && siteVisitOverride !== undefined && !isNaN(siteVisitOverride) && !siteVisitType) siteVisitType = 'Site Visit';
   const payload = {
     name: `Xpressdraft_Proposal: ${siteAddr}`,
     template_uuid: templateId,
@@ -418,14 +423,12 @@ async function createProposal(rec, repName, repEmail, clientEmail, priceOverride
   clearTimeout(tmo);
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || data.message || JSON.stringify(data) || 'PandaDoc error ' + res.status);
-  console.log('PandaDoc document created:', data.id, '| status:', data.status);
   let sent = false;
   for (let attempt = 1; attempt <= 12; attempt++) {
     await new Promise(r => setTimeout(r, 3000));
     const statusRes = await fetch(`${PANDADOC_API}/documents/${data.id}`, { headers: pandaHeaders() });
     const statusData = await statusRes.json();
-    console.log('PandaDoc status attempt', attempt, ':', statusData.status);
-    if (statusData.status === 'document.draft') {
+      if (statusData.status === 'document.draft') {
       try {
         await sendDocument(data.id, projType, tokens.find(t => t.name === 'proposal_number')?.value || '', siteAddr);
         sent = true;
@@ -452,11 +455,9 @@ async function sendDocument(documentId, projType, proposalNum, siteAddr) {
   });
   const res = await Promise.race([fetchPromise, timeoutPromise]);
   const respText = await res.text();
-  console.log('PandaDoc send response status:', res.status, '| body:', respText.slice(0, 200));
   if (!res.ok) {
     throw new Error('PandaDoc send failed ' + res.status + ': ' + respText.slice(0, 100));
   }
-  console.log('PandaDoc document sent successfully:', documentId);
 }
 async function sendEngagementDocument(rec, repName, repEmail, clientEmail) {
   const payload = {

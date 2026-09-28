@@ -728,7 +728,8 @@ async function getWeeklyCommission(repName, startDate, endDate = null) {
 async function setErrorStatus(mondayId, boardId) {
   try {
     const board = boardId || BOARDS.negotiations;
-    await query(`mutation { change_column_value(board_id: ${board}, item_id: ${mondayId}, column_id: "color_mkxzy23p", value: "{\"label\":\"ERROR - SALES\"}") { id } }`);
+    const value = JSON.stringify(JSON.stringify({ label: 'ERROR - SALES' }));
+    await query(`mutation { change_column_value(board_id: ${board}, item_id: ${mondayId}, column_id: "color_mkxzy23p", value: ${value}) { id } }`);
     console.log('ERROR - SALES status set for item:', mondayId);
   } catch(e) {
     console.error('Set error status failed:', e.message);
