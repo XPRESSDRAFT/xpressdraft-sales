@@ -332,6 +332,7 @@ function showTab(name) {
   if (name === 'sales') { loadRepDropdown(); loadAllSales(); }
   if (name === 'pipeline') loadPipeline();
   if (name === 'invoices') loadInvoicesTab();
+  if (name === 'pricing') loadPricing();
 }
 
 const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
