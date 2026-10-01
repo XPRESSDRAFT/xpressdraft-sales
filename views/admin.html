@@ -89,14 +89,14 @@
 
   <!-- Tab Navigation -->
   <div class="tab-nav">
-    <button class="tab-btn active" onclick="showTab('team')">👥 Team</button>
-    <button class="tab-btn" onclick="showTab('commission')">💰 Commission</button>
-    <button class="tab-btn" onclick="showTab('pipeline')">📊 Pipeline</button>
-    <button class="tab-btn" onclick="showTab('sales')">📋 Sales</button>
-    <button class="tab-btn" onclick="showTab('pricing')">💲 Pricing</button>
-    <button class="tab-btn" onclick="showTab('invoices')">🧾 Invoices</button>
-    <button class="tab-btn" onclick="showTab('integrations')">🔗 Integrations</button>
-    <button class="tab-btn" onclick="showTab('system')">⚙️ System</button>
+    <button class="tab-btn active" onclick=\"showTab('team', this)\">👥 Team</button>
+    <button class="tab-btn" onclick=\"showTab('commission', this)\">💰 Commission</button>
+    <button class="tab-btn" onclick=\"showTab('pipeline', this)\">📊 Pipeline</button>
+    <button class="tab-btn" onclick=\"showTab('sales', this)\">📋 Sales</button>
+    <button class="tab-btn" onclick=\"showTab('pricing', this)\">💲 Pricing</button>
+    <button class="tab-btn" onclick=\"showTab('invoices', this)\">🧾 Invoices</button>
+    <button class="tab-btn" onclick=\"showTab('integrations', this)\">🔗 Integrations</button>
+    <button class="tab-btn" onclick=\"showTab('system', this)\">⚙️ System</button>
   </div>
 
   <!-- TEAM TAB -->
@@ -322,11 +322,12 @@
 
 <script src="/js/admin.js"></script>
 <script>
-function showTab(name) {
+function showTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
+  const panel = document.getElementById('tab-' + name);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'commission') loadCommissionTab();
   if (name === 'system') loadStorage();
   if (name === 'sales') { loadRepDropdown(); loadAllSales(); }
