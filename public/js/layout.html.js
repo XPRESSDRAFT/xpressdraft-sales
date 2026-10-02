@@ -67,6 +67,8 @@ document.getElementById('appLayout').innerHTML = `
             <option>Shed Home</option>
             <option>Working Drawings Only</option>
             <option>As-Constructed</option>
+            <option>DA Only</option>
+            <option>DA + BA</option>
           </select>
         </div>
         <div class="pi-row">
