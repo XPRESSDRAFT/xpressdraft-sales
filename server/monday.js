@@ -47,7 +47,23 @@ function headers() {
   };
 }
 
+// Short cache for read queries so admin tabs don't refetch the same board dozens of times
+const _readCache = new Map();
+const READ_CACHE_MS = 60000;
+
 async function query(q, variables = {}) {
+  const isMutation = /^\s*mutation/i.test(q);
+  if (isMutation) { _readCache.clear(); return _rawQuery(q, variables); }
+  const key = q + JSON.stringify(variables);
+  const hit = _readCache.get(key);
+  if (hit && Date.now() - hit.t < READ_CACHE_MS) return hit.p.then(d => structuredClone(d));
+  const p = _rawQuery(q, variables);
+  _readCache.set(key, { t: Date.now(), p });
+  p.catch(() => _readCache.delete(key));
+  return p.then(d => structuredClone(d));
+}
+
+async function _rawQuery(q, variables = {}) {
   const res = await fetch(MONDAY_API, {
     method: 'POST',
     headers: headers(),
