@@ -1,6 +1,7 @@
 
 // ── Pending Portal Logins ──────────────────────────────────────────────────────
 async function loadPendingPortals() {
+  if (!document.getElementById('portalList')) return;
   const rows = await api('GET', '/api/pending-portals');
   const list = document.getElementById('portalList');
   const badge = document.getElementById('portalBadge');
