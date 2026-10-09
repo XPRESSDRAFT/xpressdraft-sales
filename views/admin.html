@@ -336,6 +336,17 @@ function showTab(name, btn) {
   if (name === 'pricing') loadPricing();
 }
 
+// Bind tab clicks directly (does not rely on inline onclick)
+(function bindTabs() {
+  var names = ['team','commission','pipeline','sales','pricing','invoices','integrations','system'];
+  document.querySelectorAll('.tab-nav .tab-btn').forEach(function (btn, i) {
+    btn.removeAttribute('onclick');
+    btn.addEventListener('click', function () {
+      try { showTab(names[i], btn); } catch (e) { console.error('showTab error:', e); }
+    });
+  });
+})();
+
 const fmt = n => '$' + Number(n).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 var _adminDateMode = 'week';
