@@ -6,8 +6,13 @@ const MONDAY_API = 'https://api.monday.com/v2';
 // Board IDs
 const BOARDS = {
   negotiations:       '18388602724',
-  free_consultations: '224212751',
   proposal:           '18389820785',
+  // free_consultations board removed (Oct 2026): Free Consultations is now a GROUP on Negotiations
+};
+
+// Group IDs on Negotiations board (only groups we reference by ID)
+const NEG_GROUPS = {
+  free_consultations: 'group_mm83s336',
 };
 
 // Group IDs on 26_3 Proposal board
@@ -232,7 +237,7 @@ async function getProposalFollowUpLeads(repName) {
             items {
               id
               name
-              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "dropdown_mm5c51r2", "date_mm135v04", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
+              column_values(ids: ["phone_mky18hs6", "email_mky1wg4h", "text_mky7ram8", "text_mky7qn0k", "long_text_mkxzds8g", "color_mkxzy23p", "color_mky1aas7", "dropdown_mm5c51r2", "long_text_mkxzbgfq", "file_mkxzg1me"]) {
                 id
                 text
                 value
@@ -283,7 +288,7 @@ async function getProposalFollowUpLeads(repName) {
         name: item.name,
         phone: cols['phone_mky18hs6'] || '',
         email: cols['email_mky1wg4h'] || '',
-        address: cols['text_mky7qn0k'] || '',
+        address: cols['text_mky7ram8'] || cols['text_mky7qn0k'] || '',
         enquiry: cols['long_text_mkxzds8g'] || '',
         rep_notes: cols['long_text_mkxzbgfq'] || '',
         status: cols['color_mkxzy23p'] || '',
@@ -337,9 +342,23 @@ async function getLeadFiles(itemId) {
 }
 
 // ── Update multiple lead fields ──────────────────────────────────────────────
+// Proposals board uses a different Site Address column and has no ARRIVAL column
+const PROPOSAL_ADDRESS_COL = 'text_mky7ram8';
+
+async function getItemBoardId(itemId) {
+  try {
+    const itemCheck = await _rawQuery(`query { items(ids: ["${itemId}"]) { board { id } } }`);
+    const bid = itemCheck?.items?.[0]?.board?.id;
+    if (bid) return String(bid);
+  } catch(e) { console.error('getItemBoardId error:', e.message); }
+  return String(BOARDS.negotiations);
+}
+
 async function updateLeadDetails(itemId, details) {
+  const boardId = await getItemBoardId(itemId);
+  const onProposals = boardId === String(BOARDS.proposal);
   const updates = [];
-  if (details.address !== undefined) updates.push({ colId: COLS.address, value: JSON.stringify(details.address) });
+  if (details.address !== undefined) updates.push({ colId: onProposals ? PROPOSAL_ADDRESS_COL : COLS.address, value: JSON.stringify(details.address) });
   if (details.phone !== undefined) updates.push({ colId: COLS.phone, value: JSON.stringify({ phone: details.phone, countryShortName: 'AU' }) });
   if (details.email !== undefined) updates.push({ colId: COLS.email, value: JSON.stringify({ email: details.email, text: details.email }) });
   if (details.source !== undefined) updates.push({ colId: COLS.source, value: JSON.stringify({ label: details.source }) });
@@ -350,7 +369,7 @@ async function updateLeadDetails(itemId, details) {
       await query(`
         mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
           change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) { id }
-        }`, { boardId: BOARDS.negotiations, itemId, colId: u.colId, value: u.value });
+        }`, { boardId, itemId, colId: u.colId, value: u.value });
     } catch(e) {
       console.error('Update field error:', u.colId, e.message);
     }
@@ -361,12 +380,7 @@ async function updateLeadDetails(itemId, details) {
 async function updateNotes(itemId, notes) {
   const value = JSON.stringify({ text: notes });
   // Check which board the item is on
-  let boardId = BOARDS.negotiations;
-  try {
-    const itemCheck = await query(`query { items(ids: ["${itemId}"]) { board { id } } }`);
-    const bid = itemCheck?.items?.[0]?.board?.id;
-    if (bid) boardId = bid;
-  } catch(e) {}
+  const boardId = await getItemBoardId(itemId);
   const data = await query(`
     mutation($boardId: ID!, $itemId: ID!, $colId: String!, $value: JSON!) {
       change_column_value(board_id: $boardId, item_id: $itemId, column_id: $colId, value: $value) {
@@ -378,10 +392,8 @@ async function updateNotes(itemId, notes) {
 
 // ── Click FREE CONSULTATION button → move to Free Consultations board ────────
 async function clickFreeConsultation(itemId) {
-  const groups = await getGroups(BOARDS.free_consultations);
-  const targetGroup = groups[0]?.id;
-  if (!targetGroup) throw new Error('No groups found on Free Consultations board');
-  return await moveToBoard(BOARDS.negotiations, itemId, BOARDS.free_consultations, targetGroup);
+  // FREE CONSULTATIONS is a group on the Negotiations board (the old separate board no longer exists)
+  return await moveToGroup(BOARDS.negotiations, itemId, NEG_GROUPS.free_consultations);
 }
 
 // ── Click PROPOSAL REQUESTED button → move to Proposal board NEW REQUESTS ────
@@ -463,7 +475,6 @@ async function clickStartProject(clientName) {
   return data2?.change_simple_column_value?.id;
 }
 
-// ── Create PENDING CLIENT LOGINS item (existing function kept) ────────────────
 // ── Create a new lead item on Negotiations board ──────────────────────────────
 async function createLeadItem(clientName, phone, email, address, repName) {
   const columnValues = {};
@@ -491,32 +502,6 @@ async function createLeadItem(clientName, phone, email, address, repName) {
   return newId;
 }
 
-async function createPendingLoginItem(clientName, clientEmail, siteAddress) {
-  const groupId = await getGroupId(BOARDS.negotiations, 'PENDING CLIENT LOGINS').catch(() => null);
-  
-  // Fall back to a different board if needed
-  const targetBoardId = '18417343069';
-  const targetGroupId = await getGroupId(targetBoardId, 'PENDING CLIENT LOGINS');
-  if (!targetGroupId) throw new Error('PENDING CLIENT LOGINS group not found');
-
-  const columnValues = JSON.stringify({
-    [COLS.email]: { email: clientEmail, text: clientEmail },
-    [COLS.address]: siteAddress || ''
-  });
-
-  const mutation = `
-    mutation {
-      create_item(
-        board_id: ${targetBoardId},
-        group_id: "${targetGroupId}",
-        item_name: "${clientName.replace(/"/g, '\\"')}",
-        column_values: ${JSON.stringify(columnValues)}
-      ) { id name }
-    }`;
-
-  const data = await query(mutation);
-  return data?.create_item?.id || null;
-}
 
 // ── Get rep commission stats from Monday.com ─────────────────────────────────
 async function getRepStatsFromMonday(repName, fromDate = null, toDate = null) {
@@ -775,6 +760,9 @@ module.exports = {
   clickStartProject,
   updateNotes,
   query,
+  queryFresh: _rawQuery,
+  getItemBoardId,
   BOARDS,
+  NEG_GROUPS,
   COLS,
 };

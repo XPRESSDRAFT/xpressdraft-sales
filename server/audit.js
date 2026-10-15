@@ -1,10 +1,3 @@
-# Proposal audit page
-
-## Step 1: create a new file `server/audit.js`
-
-In GitHub: open the `server` folder, then **Add file → Create new file**, name it `audit.js`, and paste:
-
-```js
 // audit.js — read-only proposal audit page for admins
 // Open /admin/proposal-audit (optionally ?from=YYYY-MM-DD&to=YYYY-MM-DD)
 
@@ -108,24 +101,3 @@ Orange rows = no sent/requested date (the app currently counts these in <b>every
 }
 
 module.exports = { register };
-```
-
-## Step 2: one line in `server/index.js` (around line 477)
-
-**Find:**
-
-```js
-const monday = require('./monday');
-```
-
-**Add this line directly below it:**
-
-```js
-require('./audit').register(app, { requireAuth, requireAdmin, dbAll, monday });
-```
-
-## Step 3: open the page
-
-After Render deploys, go to **/admin/proposal-audit** on your app (e.g. `https://YOUR-APP.onrender.com/admin/proposal-audit`). Use the date boxes for a specific week, or leave them blank for all time.
-
-It is read-only: it does not change anything in Monday.com or the database.

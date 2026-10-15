@@ -89,7 +89,7 @@
 
   <!-- Tab Navigation -->
   <div class="tab-nav">
-   <button class="tab-btn active" onclick="showTab('team', this)">👥 Team</button>
+    <button class="tab-btn active" onclick="showTab('team', this)">👥 Team</button>
     <button class="tab-btn" onclick="showTab('commission', this)">💰 Commission</button>
     <button class="tab-btn" onclick="showTab('pipeline', this)">📊 Pipeline</button>
     <button class="tab-btn" onclick="showTab('sales', this)">📋 Sales</button>
@@ -299,7 +299,16 @@
         </div>
         <button onclick="registerMondayWebhook()" class="btn btn-orange">Register Webhook</button>
       </div>
-      <div id="mondayWebhookStatus" style="font-size:13px;color:#888;padding:10px 0">Click to register the Monday.com webhook on the 26_3 Proposal board.</div>
+      <div id="mondayWebhookStatus" style="font-size:13px;color:#888;padding:10px 0">Webhook 610674462 on the Proposals board is already live. Clicking checks it and never creates a duplicate.</div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1.5px solid #f0e8e4;margin-top:8px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#2A2B29">Automations (replacing Make.com)</div>
+          <div style="font-size:13px;color:#888;margin-top:2px">Clockify → Time Sheet · Clockify set-up on engagement · Lead Inbox read by Claude</div>
+        </div>
+        <button onclick="loadAutomationStatus()" class="btn btn-orange">Check status</button>
+      </div>
+      <div id="automationStatus" style="font-size:13px;color:#888;padding:6px 0 10px">Click "Check status".</div>
     </div>
   </div>
 
@@ -332,6 +341,33 @@ function showTab(name, btn) {
   if (name === 'pipeline') loadPipeline();
   if (name === 'invoices') loadInvoicesTab();
   if (name === 'pricing') loadPricing();
+}
+
+// ── Automation status (Integrations tab) ───────────────────────────────────
+async function loadAutomationStatus() {
+  const el = document.getElementById('automationStatus');
+  el.innerHTML = 'Loading…';
+  try {
+    const r = await fetch('/api/admin/automation-status');
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.status);
+    const ok = b => b ? '<span style="color:#27AE60">✅</span>' : '<span style="color:#c00">❌</span>';
+    const c = d.clockify || {};
+    const eng = (d.engagements.counts || []).map(x => x.status + ': ' + x.n).join(' · ') || 'none yet';
+    const rows = (d.engagements.recent || []).map(e => '<tr><td style="padding:4px 8px">' + e.proposal_item_id + '</td><td style="padding:4px 8px">' + e.status + '</td><td style="padding:4px 8px">' + (e.clockify_project_id || '') + '</td><td style="padding:4px 8px;color:#c00">' + (e.last_error || '') + '</td><td style="padding:4px 8px">' + (e.status === 'failed' ? '<button class="btn btn-sm" onclick="retryEngagement(\'' + e.proposal_item_id + '\')">Retry</button>' : '') + '</td></tr>').join('');
+    el.innerHTML =
+      '<div style="margin-bottom:8px"><b>Settings on Render:</b> ' + Object.keys(d.env).map(k => ok(d.env[k]) + ' ' + k).join(' &nbsp; ') + '</div>' +
+      '<div style="margin-bottom:8px"><b>Clockify → Time Sheet:</b> ' + (c.received || 0) + ' events received · ' + (c.created || 0) + ' rows created · ' + (c.adopted || 0) + ' existing rows matched · ' + (c.updated || 0) + ' updated · ' + (c.archived || 0) + ' archived · ' + (c.errors || 0) + ' errors' + (c.lastEventAt ? ' · last event ' + new Date(c.lastEventAt).toLocaleString('en-AU') : '') + (c.lastError ? '<br><span style="color:#c00">Last error: ' + c.lastError + '</span>' : '') + '</div>' +
+      '<div style="margin-bottom:8px"><b>Clockify set-up on engagement:</b> ' + eng + '</div>' +
+      (rows ? '<table style="font-size:12px;border-collapse:collapse;margin-bottom:8px"><tr><th style="text-align:left;padding:4px 8px">Proposal item</th><th style="text-align:left;padding:4px 8px">Status</th><th style="text-align:left;padding:4px 8px">Clockify project</th><th style="text-align:left;padding:4px 8px">Problem</th><th></th></tr>' + rows + '</table>' : '') +
+      '<div><b>Webhook URLs:</b><br>Clockify (new / updated / timer stopped): <code>' + d.urls.clockifyWebhook + '</code><br>Clockify (deleted): <code>' + d.urls.clockifyDeletedWebhook + '</code><br>Lead Inbox (monday, item created): <code>' + d.urls.leadInboxWebhook + '</code></div>';
+  } catch (e) {
+    el.innerHTML = '<span style="color:#c00">❌ ' + e.message + '</span>';
+  }
+}
+async function retryEngagement(id) {
+  await fetch('/api/admin/engagements/' + id + '/retry', { method: 'POST' });
+  loadAutomationStatus();
 }
 
 // Bind tab clicks directly (does not rely on inline onclick)

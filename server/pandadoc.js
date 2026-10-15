@@ -541,6 +541,7 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
             const cdv = JSON.stringify(JSON.stringify({date:today}));
             await mondayModule.query(`mutation { change_column_value(board_id: ${mondayModule.BOARDS.proposal}, item_id: ${matched.id}, column_id: "date_mm3gx943", value: ${cdv}) { id } }`).catch(()=>{});
             console.log('Manual proposal: moved', matched.name, 'to STARTED PROJECTS');
+            try { require('./engagement').enqueue(matched.id, 'pandadoc-manual'); } catch (e) { console.error('Engagement enqueue error:', e.message); }
           } else {
             console.log('Manual proposal: no match found for', clientName);
           }
@@ -572,29 +573,27 @@ async function handleWebhook(event, db, emailModule, mondayModule) {
       const itemCheck = await mondayModule.query(`query { items(ids: ["${mondayId}"]) { board { id } } }`);
       const boardId = itemCheck?.items?.[0]?.board?.id;
       const isOnProposalBoard = String(boardId) === String(mondayModule.BOARDS.proposal);
+      let proposalItemId = mondayId;
       if (isOnProposalBoard) {
         await mondayModule.moveToGroup(mondayModule.BOARDS.proposal, mondayId, mondayModule.PROPOSAL_GROUPS.started_projects);
       } else {
-        await mondayModule.moveToBoard(mondayModule.BOARDS.negotiations, mondayId, mondayModule.BOARDS.proposal, mondayModule.PROPOSAL_GROUPS.started_projects);
+        const newId = await mondayModule.moveToBoard(mondayModule.BOARDS.negotiations, mondayId, mondayModule.BOARDS.proposal, mondayModule.PROPOSAL_GROUPS.started_projects);
+        if (newId && String(newId) !== String(mondayId)) {
+          proposalItemId = newId;
+          await require('./idmap').remapMondayId(db, mondayId, newId);
+        }
       }
-      console.log('Lead moved to STARTED PROJECTS:', mondayId);
+      console.log('Lead moved to STARTED PROJECTS:', proposalItemId);
       const today = new Date().toISOString().split('T')[0];
       const closedDateVal = JSON.stringify(JSON.stringify({ date: today }));
-      await mondayModule.query(`mutation { change_column_value(board_id: ${mondayModule.BOARDS.proposal}, item_id: ${mondayId}, column_id: "date_mm3gx943", value: ${closedDateVal}) { id } }`).catch(e => console.error('Set closed date error:', e.message));
+      await mondayModule.query(`mutation { change_column_value(board_id: ${mondayModule.BOARDS.proposal}, item_id: ${proposalItemId}, column_id: "date_mm3gx943", value: ${closedDateVal}) { id } }`).catch(e => console.error('Set closed date error:', e.message));
+      // Queue Clockify client/project set-up for this engagement
+      try { require('./engagement').enqueue(proposalItemId, 'pandadoc'); } catch (e) { console.error('Engagement enqueue error:', e.message); }
     } catch(e) {
       console.error('Monday move to STARTED PROJECTS error:', e.message);
     }
   }
-  if (mondayModule && price >= 5000) {
-    try {
-      const itemId = await mondayModule.createPendingLoginItem(
-        row.name, 
-        clientEmail, 
-        rec.addr || ''
-      );
-      console.log('Monday.com item created:', itemId, 'for:', row.name);
-    } catch(e) {
-      }
-  }
+  // PENDING CLIENT LOGINS step removed (Oct 2026): no longer needed.
+
 }
 module.exports = { createProposal, sendEngagementDocument, handleWebhook, selectTemplate, TEMPLATES };

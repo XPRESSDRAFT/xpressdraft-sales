@@ -180,4 +180,4 @@ async function sendUserWelcome(repName, repEmail, password) {
   });
 }
 
-module.exports = { sendRepNotification, sendUserWelcome, sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };
+module.exports = { sendEmail, sendRepNotification, sendUserWelcome, sendSimpleWelcome, sendPortalWelcome, buildSimpleWelcomeEmail, buildPortalWelcomeEmail };

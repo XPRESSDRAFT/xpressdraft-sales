@@ -475,6 +475,12 @@ const pandadoc = require('./pandadoc');
 const emailModule = require('./email');
 const stripeModule = require('./stripe');
 const monday = require('./monday');
+require('./audit').register(app, { requireAuth, requireAdmin, dbAll, monday });
+// Oct 2026 automations (replace Make.com): Clockify → Time Sheet, Clockify set-up on engagement, Lead Inbox AI reader
+require('./clockify').init({ app, db, monday, requireAuth, requireAdmin });
+require('./engagement').init({ app, db, monday, emailModule: require('./email'), requireAuth, requireAdmin });
+require('./leadinbox').init({ app, monday, requireAuth, requireAdmin });
+const { remapMondayId } = require('./idmap');
 const multer = require('multer');
 
 // File storage for lead files
@@ -601,8 +607,9 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
         const newItemId = await monday.moveToBoard(monday.BOARDS.negotiations, mondayLeadId, monday.BOARDS.proposal, monday.PROPOSAL_GROUPS.sent_proposals);
         console.log('Lead moved to SENT PROPOSALS, new item ID:', newItemId);
 
-        // Use new item ID on Proposals board
+        // Use new item ID on Proposals board (and keep local records pointing at it)
         const targetId = newItemId || mondayLeadId;
+        if (newItemId && String(newItemId) !== String(mondayLeadId)) await remapMondayId(db, mondayLeadId, newItemId);
         const today = new Date().toISOString().split('T')[0];
 
         // Set SENT ON date
@@ -626,7 +633,7 @@ app.post('/api/proposal', requireAuth, async (req, res) => {
             ) { id }
           }`).catch(e => console.error('Set proposal dropdown error:', e.message));
 
-        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id = ?', ['sent', mondayLeadId]);
+        await dbRun('UPDATE pending_requests SET status = ? WHERE monday_id IN (?, ?)', ['sent', mondayLeadId, targetId]);
       } catch(e) {
         console.error('Monday proposal move error:', e.message);
       }
@@ -1379,8 +1386,16 @@ app.post('/api/admin/monday/register-webhook', requireAuth, requireAdmin, async 
     const apiKey = process.env.MONDAY_API_KEY;
     if (!apiKey) return res.status(400).json({ error: 'MONDAY_API_KEY not set' });
 
-    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-sales.onrender.com';
     const webhookUrl = appUrl + '/api/monday-webhook';
+
+    // Never create a duplicate: if the Proposals board already has a change_column_value webhook
+    // (webhook 610674462 → xpressdraft-sales), report it as registered.
+    try {
+      const existing = await monday.queryFresh(`query { webhooks(board_id: 18389820785) { id event } }`);
+      const hit = (existing?.webhooks || []).find(w => String(w.event || '').toLowerCase().includes('change_column_value'));
+      if (hit) return res.json({ ok: true, id: hit.id, existing: true });
+    } catch(e) { console.error('Webhook list error:', e.message); }
 
     const result = await monday.query(`
       mutation($url: String!) {
@@ -1427,6 +1442,16 @@ app.post('/api/monday-webhook', async (req, res) => {
     const newValue = event.value?.label?.text || event.value?.label || '';
     const itemId = String(event.pulseId || event.itemId || '');
 
+    // Engagement: DEAL CLOSED date set, PROJECT STARTED status, or item moved into STARTED PROJECTS
+    if (boardId === '18389820785' && itemId) {
+      const destGroup = String(event.destGroupId || event.groupId || '');
+      const startedByStatus = columnId === 'color_mkxzy23p' && /PROJECT STARTED/i.test(String(newValue));
+      const closedDateSet = columnId === 'date_mm3gx943' && event.value && (event.value.date || event.value.text);
+      if (startedByStatus || closedDateSet || destGroup === 'group_mky4ey72') {
+        require('./engagement').enqueue(itemId, 'monday-webhook');
+      }
+    }
+
     if (boardId === '18389820785' && columnId === 'color_mkxzy23p' && 
         newValue.toUpperCase() === 'SENT' && itemId) {
       console.log('Monday: SENT status on Proposal board, item:', itemId);
@@ -1458,7 +1483,7 @@ app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, 
     const token = process.env.CALENDLY_TOKEN;
     if (!token) return res.status(400).json({ error: 'CALENDLY_TOKEN not set in environment variables' });
 
-    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-commission.onrender.com';
+    const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-sales.onrender.com';
     const webhookUrl = appUrl + '/api/calendly-webhook';
 
     // Get user URI first
@@ -1513,10 +1538,38 @@ app.post('/api/admin/calendly/register', requireAuth, requireAdmin, async (req, 
   }
 });
 
+// ── Automation status (Admin → Integrations) ─────────────────────────────────
+app.get('/api/admin/automation-status', requireAuth, requireAdmin, async (req, res) => {
+  const clockify = require('./clockify');
+  const engagements = await dbAll(`SELECT status, COUNT(*) AS n FROM engagements GROUP BY status`).catch(() => []);
+  const recentEng = await dbAll(`SELECT proposal_item_id, status, attempts, last_error, clockify_project_id, updated_at FROM engagements WHERE status NOT IN ('pre-existing') ORDER BY updated_at DESC LIMIT 10`).catch(() => []);
+  const mapped = await dbGet(`SELECT COUNT(*) AS n FROM clockify_entries`).catch(() => ({ n: 0 }));
+  const appUrl = process.env.RENDER_EXTERNAL_URL || 'https://xpressdraft-sales.onrender.com';
+  res.json({
+    urls: {
+      clockifyWebhook: appUrl + '/api/clockify-webhook',
+      clockifyDeletedWebhook: appUrl + '/api/clockify-webhook?event=deleted',
+      leadInboxWebhook: appUrl + '/api/lead-inbox-webhook',
+      mondayWebhook: appUrl + '/api/monday-webhook',
+    },
+    env: {
+      CLOCKIFY_API_KEY: !!process.env.CLOCKIFY_API_KEY,
+      CLOCKIFY_WORKSPACE_ID: !!process.env.CLOCKIFY_WORKSPACE_ID,
+      CLOCKIFY_WEBHOOK_SECRETS: !!process.env.CLOCKIFY_WEBHOOK_SECRETS,
+      ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+      MONDAY_API_KEY: !!process.env.MONDAY_API_KEY,
+    },
+    clockify: { ...clockify.stats, entriesMapped: mapped ? mapped.n : 0 },
+    engagements: { counts: engagements, recent: recentEng },
+  });
+});
+
 // ── Calendly rep mapping ─────────────────────────────────────────────────────
 const CALENDLY_REP_MAP = {
   'here2help@xpressdraft.com.au': 'Christian Yamada',
   'evan.dowman@xpressdraft.com.au': 'Evan Dowman',
+  'luiz.braga@xpressdraft.com.au': 'Luiz Braga',
+  'info@xpressdraft.com.au': 'Luiz Braga',
 };
 
 // ── Calendly webhook ──────────────────────────────────────────────────────────
@@ -1722,11 +1775,13 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
             value: ${JSON.stringify(JSON.stringify({ date: today }))}
           ) { id }
         }`).catch(e => console.error('Set proposal request date error:', e.message));
+      // Keep local records pointing at the item's (possibly new) ID on the Proposals board
+      if (newItemId && String(newItemId) !== String(mondayId)) await remapMondayId(db, mondayId, newItemId);
       // Store pending request locally
       const user = await dbGet('SELECT * FROM users WHERE id = ?', [req.session.userId]);
       const { client_name, address } = req.body;
       await dbRun('INSERT INTO pending_requests (user_id, monday_id, client_name, address) VALUES (?, ?, ?, ?)',
-        [req.session.userId, mondayId, client_name || '', address || '']);
+        [req.session.userId, String(targetId), client_name || '', address || '']);
     }
     else if (action === 'help_required') await monday.clickHelpRequired(mondayId);
     else if (action === 'follow_up') await monday.moveToFollowUp(mondayId);
@@ -1766,7 +1821,9 @@ app.post('/api/leads/:mondayId/action', requireAuth, async (req, res) => {
         followup: monday.PROPOSAL_GROUPS.follow_up,
       };
 
-      if (isOnProposalBoard && proposalsMap[stage]) {
+      if (!isOnProposalBoard && (stage === 'free_consultation' || stage === 'free_consultations')) {
+        await monday.moveToGroup(monday.BOARDS.negotiations, mondayId, monday.NEG_GROUPS.free_consultations);
+      } else if (isOnProposalBoard && proposalsMap[stage]) {
         await monday.moveToGroup(monday.BOARDS.proposal, mondayId, proposalsMap[stage]);
       } else if (!isOnProposalBoard && negotiationsMap[stage]) {
         const groupId = await monday.getGroupId(monday.BOARDS.negotiations, negotiationsMap[stage]);

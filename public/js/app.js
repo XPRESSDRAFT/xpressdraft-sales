@@ -1050,14 +1050,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ── Search leads ─────────────────────────────────────────────────────────────
 function searchLeads(query) {
-  if (!window._cachedLeads) return;
+  if (!leadsData || !leadsData.length) return;
   if (!query.trim()) {
     activeGroupFilter = 'ALL';
-    renderLeads(window._cachedLeads);
+    renderLeads(leadsData);
     return;
   }
   const q = query.toLowerCase();
-  const filtered = window._cachedLeads.filter(l =>
+  const filtered = leadsData.filter(l =>
     (l.name || '').toLowerCase().includes(q) ||
     (l.address || '').toLowerCase().includes(q) ||
     (l.phone || '').toLowerCase().includes(q) ||
